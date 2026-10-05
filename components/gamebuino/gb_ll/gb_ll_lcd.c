@@ -173,8 +173,11 @@ void pinMode( gpio_num_t pin, uint8_t u8_level )
     gpio_func_sel( pin , PIN_FUNC_GPIO);
     if ( u8_level == OUTPUT )
     {
-        gpio_set_direction(pin, GPIO_MODE_OUTPUT );
-        gpio_input_enable(pin);
+        // Sortie + tampon d'entree actif (lecture en retour sur le bus LCD).
+        // GPIO_MODE_INPUT_OUTPUT = equivalent de OUTPUT + gpio_input_enable(),
+        // mais via l'API publique stable sur tout ESP-IDF 5.x (gpio_input_enable
+        // n'est pas declaree par les en-tetes de release-v5.3).
+        gpio_set_direction(pin, GPIO_MODE_INPUT_OUTPUT );
     }
     else
     {
