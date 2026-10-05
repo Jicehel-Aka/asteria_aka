@@ -1,4 +1,5 @@
 #include "scene/shop_scene.h"
+#include "i18n.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
 #include "player.h"
@@ -17,17 +18,17 @@ void ShopScene::update(SceneManager& m){
   if(p&gb::BTN_DOWN) sel=(sel+1)%NSHOP;
   if(p&gb::BTN_UP)   sel=(sel+NSHOP-1)%NSHOP;
   if(p&gb::BTN_A){ const ShopItem& it=SHOP[sel];
-    if(player().gold>=it.price){ player().gold-=it.price; player().inv.add(it.item,1); snprintf(msg,48,"Achete : %s",it.name); }
-    else snprintf(msg,48,"Pas assez d'or !"); }
+    if(player().gold>=it.price){ player().gold-=it.price; player().inv.add(it.item,1); snprintf(msg,48,"%s %s",i18n::tr(i18n::SH_BOUGHT),it.name); }
+    else snprintf(msg,48,"%s",i18n::tr(i18n::SH_NOGOLD)); }
   if(p&gb::BTN_B) m.set(SceneId::WORLD);
 }
 void ShopScene::render(){
   gb::clear(gb::rgb(30,24,16));
-  ui::text_big(64,10,"Echoppe de Mira",gb::rgb(230,210,140));
-  char b[32]; snprintf(b,32,"Ton or : %d",player().gold); ui::gold(20,40,b,true);
+  ui::text_big(64,10,i18n::tr(i18n::SH_TITLE),gb::rgb(230,210,140));
+  char b[32]; snprintf(b,32,"%s %d",i18n::tr(i18n::SH_GOLD),player().gold); ui::gold(20,40,b,true);
   for(int i=0;i<NSHOP;i++){ int y=64+i*22; if(i==sel){ gb::fill_rect(16,y-3,288,18,gb::rgb(60,45,20)); ui::gold(20,y,">",true);} 
     ui::text(36,y,SHOP[i].name,gb::rgb(235,225,190)); char pr[12]; snprintf(pr,12,"%d or",SHOP[i].price); ui::text(252,y,pr,gb::rgb(220,200,120)); }
   if(msg[0]) ui::text(20,188,msg,gb::rgb(190,230,180));
-  ui::text(20,216,"A: acheter   B: sortir",gb::rgb(180,170,140));
+  ui::text(20,216,i18n::tr(i18n::SH_HINT),gb::rgb(180,170,140));
 }
 }

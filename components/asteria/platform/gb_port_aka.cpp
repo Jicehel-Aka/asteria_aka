@@ -175,3 +175,15 @@ void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, ui
         if(c!=key){ gfx.setColor(c); gfx.drawPixel((int16_t)(x+i),(int16_t)(y+j)); } }
 }
 }
+
+namespace gb {
+bool write_text(const char* path, const char* content){
+    FILE* f=fopen(path,"w"); if(!f) return false; fputs(content,f); fclose(f); return true;
+}
+}
+
+namespace gb {
+int read_text(const char* path, char* out, int maxlen){
+    FILE* f=fopen(path,"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
+}
+}

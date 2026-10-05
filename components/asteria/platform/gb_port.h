@@ -21,6 +21,8 @@ uint32_t millis();
 bool     file_exists(const char* path);
 void     return_to_loader();
 void     log(const char* msg);
+bool     write_text(const char* path, const char* content);
+int      read_text(const char* path, char* out, int maxlen);  // lit un fichier, renvoie la taille (ou -1)
 }
 
 namespace gb {

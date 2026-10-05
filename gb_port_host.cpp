@@ -11,7 +11,7 @@
 #include <vector>
 static uint16_t FB[gb::SCREEN_W*gb::SCREEN_H];
 static int g_frame=0, g_budget=1; static uint32_t g_ms=0;
-static uint32_t code2btn(int c){ switch(c){case 1:return gb::BTN_UP;case 2:return gb::BTN_DOWN;case 3:return gb::BTN_LEFT;case 4:return gb::BTN_RIGHT;case 5:return gb::BTN_A;case 6:return gb::BTN_B;default:return 0;} }
+static uint32_t code2btn(int c){ switch(c){case 1:return gb::BTN_UP;case 2:return gb::BTN_DOWN;case 3:return gb::BTN_LEFT;case 4:return gb::BTN_RIGHT;case 5:return gb::BTN_A;case 6:return gb::BTN_B;case 7:return gb::BTN_MENU;case 8:return gb::BTN_RUN;default:return 0;} }
 static int g_script[512]; static int g_scriptN=-1;
 static void loadScript(){ g_scriptN=0; const char* e=getenv("ASTERIA_SCRIPT"); if(e){ const char* p=e; while(*p && g_scriptN<512){ g_script[g_scriptN++]=atoi(p); const char* c=strchr(p,','); if(!c)break; p=c+1; } } const char* b=getenv("ASTERIA_BUDGET"); if(b) g_budget=atoi(b); }
 namespace gb {
@@ -44,5 +44,19 @@ void draw_image(const uint16_t* px, uint16_t w, uint16_t h, int x, int y){
 }
 void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, uint16_t key){
     for(uint16_t j=0;j<h;++j) for(uint16_t i=0;i<w;++i){ uint16_t c=px[j*w+i]; if(c!=key) pixel(x+i,y+j,c); }
+}
+}
+
+namespace gb {
+bool write_text(const char* path, const char* content){
+    std::string s=path, k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size());
+    FILE* f=fopen(s.c_str(),"w"); if(!f) return false; fputs(content,f); fclose(f); return true;
+}
+}
+
+namespace gb {
+int read_text(const char* path, char* out, int maxlen){
+    std::string s=path, k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size());
+    FILE* f=fopen(s.c_str(),"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
 }
 }

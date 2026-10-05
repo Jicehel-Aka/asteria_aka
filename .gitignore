@@ -1,0 +1,13 @@
+# Build ESP-IDF
+/build/
+sdkconfig.old
+# Binaires PC
+/asteria_host
+/asteria_pc
+/asteria_pc.exe
+*.o
+*.obj
+# Captures / sorties outils
+*.ppm
+frame_*.png
+/tools/maprender

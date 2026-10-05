@@ -1,6 +1,6 @@
 #pragma once
 namespace asteria {
-enum class SceneId { TITLE, CREATE, RULES, WORLD, COMBAT, SHOP, QUIT };
+enum class SceneId { TITLE, CREATE, RULES, WORLD, COMBAT, SHOP, INN, DICE, EDITOR, DUNGEON, QUIT };
 class SceneManager;
 struct Scene { virtual void enter(){} virtual void update(SceneManager&)=0; virtual void render()=0; virtual ~Scene(){} };
 class SceneManager {

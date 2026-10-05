@@ -77,3 +77,17 @@ void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, ui
     for(uint16_t j=0;j<h;++j) for(uint16_t i=0;i<w;++i){ uint16_t c=px[j*w+i]; if(c!=key) pixel(x+i,y+j,c); }
 }
 }
+
+namespace gb {
+bool write_text(const char* path, const char* content){
+    std::string s=path, k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size());
+    FILE* f=fopen(s.c_str(),"w"); if(!f) return false; fputs(content,f); fclose(f); return true;
+}
+}
+
+namespace gb {
+int read_text(const char* path, char* out, int maxlen){
+    std::string s=path, k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size());
+    FILE* f=fopen(s.c_str(),"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
+}
+}

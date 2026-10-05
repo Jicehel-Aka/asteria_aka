@@ -1,5 +1,6 @@
 // Combat tour par tour (Defis & Sortileges) : 3D6 <= CO pour toucher, degats = des d'arme.
 #include "scene/combat_scene.h"
+#include "i18n.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
 #include "player.h"
@@ -10,7 +11,9 @@
 #include <cstring>
 namespace asteria {
 static int g_enc=0; static const char* g_bmp="/sdcard/ASTERIA/battle/FORE_J.BMP";
+static SceneId g_return=SceneId::WORLD;
 void start_combat(int idx,const char* bmp){ g_enc=idx; if(bmp) g_bmp=bmp; }
+void set_combat_return(SceneId s){ g_return=s; }
 CombatScene& combat_scene(){ static CombatScene s; return s; }
 static uint32_t g_rng=1;
 static int d6(){ g_rng^=g_rng<<13; g_rng^=g_rng>>17; g_rng^=g_rng<<5; return (int)(g_rng%6)+1; }
@@ -59,7 +62,7 @@ void CombatScene::update(SceneManager& m){
         } else snprintf(msg,64,"Le sort echoue ! (%d>MA)",r);
         phase=1; } }
   }
-  else { if(p&gb::BTN_A){ if(result==2){ new_game_reset(); m.set(SceneId::TITLE); } else m.set(SceneId::WORLD); } }
+  else { if(p&gb::BTN_A){ if(result==2){ new_game_reset(); m.set(SceneId::TITLE); } else m.set(g_return); } }
 }
 void CombatScene::render(){
   gb::blit_bmp(g_bmp);
@@ -77,19 +80,19 @@ void CombatScene::render(){
   snprintf(b,40,"PV %d/%d",pv,player().VIT); ui::text(164,204,b,gb::rgb(230,220,180));
   snprintf(b,40,"Or %d  Niv %d",player().gold,player().level); ui::text(164,218,b,gb::rgb(220,200,120));
   if(phase==0){
-    const char* A[4]={"Attaquer","Magie","Objet","Fuir"};
+    const char* A[4]={i18n::tr(i18n::CB_ATTACK),i18n::tr(i18n::CB_MAGIC),i18n::tr(i18n::CB_ITEM),i18n::tr(i18n::CB_FLEE)};
     gb::fill_rect(8,176,146,56,gb::rgb(20,16,10)); gb::fill_rect(8,176,146,2,gb::rgb(200,170,90));
     for(int i=0;i<4;i++){ if(i==sel){ gb::fill_rect(12,178+i*13,138,12,gb::rgb(60,45,20)); ui::gold(16,179+i*13,">",true);} ui::text(28,179+i*13,A[i],gb::rgb(235,225,190)); }
   } else if(phase==5){
-    const char* SP[3]={"Soins","Engourdissement","Repulsion"}; static const int COST[3]={3,3,3};
+    const char* SP[3]={i18n::tr(i18n::CB_SOINS),i18n::tr(i18n::CB_STUN),i18n::tr(i18n::CB_REPEL)}; static const int COST[3]={3,3,3};
     gb::fill_rect(8,176,300,56,gb::rgb(20,16,10)); gb::fill_rect(8,176,300,2,gb::rgb(200,170,90));
     for(int i=0;i<3;i++){ int y=180+i*15; if(i==spellSel){ gb::fill_rect(12,y-2,180,13,gb::rgb(60,45,20)); ui::gold(14,y-1,">",true);} 
       ui::text(26,y-1,SP[i],gb::rgb(235,225,190)); char c[10]; snprintf(c,10,"%d PO",COST[i]); ui::text(150,y-1,c,gb::rgb(180,160,220)); }
-    char mm[28]; snprintf(mm,28,"Pouvoir %d/%d",player().mana,player().manaMax); ui::gold(210,182,mm,true);
-    ui::text(196,210,"A:lancer B:retour",gb::rgb(170,160,132));
+    char mm[28]; snprintf(mm,28,"%s %d/%d",i18n::tr(i18n::CB_POWER),player().mana,player().manaMax); ui::gold(210,182,mm,true);
+    ui::text(196,210,i18n::tr(i18n::CB_CAST_H),gb::rgb(170,160,132));
   } else {
     gb::fill_rect(8,176,304,56,gb::rgb(20,16,10)); gb::fill_rect(8,176,304,2,gb::rgb(200,170,90));
-    ui::text(16,190,msg,gb::rgb(236,226,192)); ui::text(230,210,"A: suite",gb::rgb(170,160,132));
+    ui::text(16,190,msg,gb::rgb(236,226,192)); ui::text(230,210,i18n::tr(i18n::CB_NEXT),gb::rgb(170,160,132));
   }
 }
 }

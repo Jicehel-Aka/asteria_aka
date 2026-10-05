@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pc:
+    name: Build PC (host + SDL Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dépendances SDL2
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
+      - name: Compiler host + SDL
+        run: |
+          A=components/asteria
+          SRC="$A/asteria_app.cpp $A/ui/text.cpp $A/player.cpp $A/gamestate.cpp $A/i18n.cpp $A/autotile.cpp $A/scene/*.cpp"
+          g++ -std=c++17 -O2 -I "$A" $SRC gb_port_host.cpp main_host.cpp -o asteria_host
+          g++ -std=c++17 -O2 -I "$A" $SRC gb_port_sdl.cpp  main_sdl.cpp  $(sdl2-config --cflags --libs) -o asteria_pc
+          echo "builds PC OK"
+
+  firmware:
+    name: Build firmware AKA (ESP32-S3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          # Aligne cette version sur ton ESP-IDF local si besoin (release-v5.3, v5.3.1, latest...)
+          esp_idf_version: release-v5.3
+          target: esp32s3
+          path: '.'
