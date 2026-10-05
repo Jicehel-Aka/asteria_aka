@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "ASTERIA",
+  "title": "Asteria",
+  "version": "0.1.0",
+  "platform": "AKA natif (C++)",
+  "port_level": "original",
+  "author": "jbcebel",
+  "porter": "AKA Port Studio",
+  "license": "A definir",
+  "copyright": "jbcebel",
+  "source_repository": "",
+  "description": "Jeu de role/aventure original pour l'AKA, architecture pilotee par les donnees (JSON -> en-tetes C++ generes).",
+  "supports_save": false,
+  "supports_screenshot": true,
+  "supports_languages": true,
+  "save_directory": "/sdcard/ASTERIA/",
+  "status": "gb_port_aka.cpp complete (premiere version, jamais testee sur materiel reel) -- scenes TITLE/RULES/WORLD fonctionnelles en mock (host_test), tuiles graphiques encore provisoires (couleurs), sprites du personnage pas encore integres au moteur."
+}
