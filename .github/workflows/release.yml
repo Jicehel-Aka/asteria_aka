@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Nettoyer un build/ périmé (CMakeCache avec chemin local)
+        run: rm -rf build sdkconfig.old
       - name: Build ESP-IDF
         uses: espressif/esp-idf-ci-action@v1
         with:
