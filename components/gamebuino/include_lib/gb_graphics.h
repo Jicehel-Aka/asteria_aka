@@ -20,7 +20,7 @@ Authors:
  - Jean-Marie Papillon
 */
 #include "stdint.h"
-#include "gb_ll_LCD.h"
+#include "gb_ll_lcd.h"   // casse exacte : le FS Linux de la CI est sensible a la casse (fichier reel = gb_ll_lcd.h)
 #pragma once
 
 class gb_graphics {
