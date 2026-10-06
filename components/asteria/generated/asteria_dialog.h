@@ -1,6 +1,6 @@
 #pragma once
 namespace asteria { namespace dlg {
-struct Node { const char* require; const char* const* lines; int nlines; const char* set_flag; int give_item; int complete_quest; };
+struct Node { const char* require; const char* const* lines; int nlines; const char* set_flag; int give_item; int complete_quest; int start_quest=-1; };
 struct NpcDialog { const char* name; const Node* nodes; int nnodes; };
 static const char* const D0_0_L[] = {"Ainsi tu es le voyageur. Bienvenue a Valbois.","Tiens, prends cette carte. Tu en auras besoin.","Nos gens disparaissent. J'aurai bientot une requete..."};
 static const char* const D0_1_L[] = {"Reviens me voir bientot.","Nous comptons sur toi."};
@@ -15,7 +15,7 @@ static const char* const D4_0_L[] = {"Le maire t'a remis la carte ? Parfait.","R
 static const char* const D4_1_L[] = {"Un voyageur ? Va donc voir le maire.","Il t'attend, je crois."};
 static const Node D4_N[] = {{"vu_maire",D4_0_L,2,nullptr,-1,-1},{"",D4_1_L,2,nullptr,-1,-1}};
 static const char* const D5_0_L[] = {"Ces traces... elles ne sont pas humaines.","Quelque chose rode dans la foret.","Soyez prudent."};
-static const Node D5_N[] = {{"",D5_0_L,3,nullptr,-1,-1}};
+static const Node D5_N[] = {{"",D5_0_L,3,"q_traces_ok",-1,2,5}};
 static const char* const D6_0_L[] = {"Je ne suis qu'un simple villageois."};
 static const Node D6_N[] = {{"",D6_0_L,1,nullptr,-1,-1}};
 static const char* const D7_0_L[] = {"On raconte des choses etranges ces temps-ci..."};
@@ -23,9 +23,9 @@ static const Node D7_N[] = {{"",D7_0_L,1,nullptr,-1,-1}};
 static const char* const D8_0_L[] = {"Les herbes medicinales manquent.","Pouvez-vous m'en rapporter ?","Je vous en serai reconnaissante."};
 static const Node D8_N[] = {{"",D8_0_L,3,nullptr,-1,-1}};
 static const char* const D9_0_L[] = {"La foret, je la connais depuis toujours.","Ces derniers temps, elle murmure.","Ces traces... trop grandes pour un loup. Sois prudent."};
-static const Node D9_N[] = {{"",D9_0_L,3,nullptr,-1,2}};
+static const Node D9_N[] = {{"",D9_0_L,3,nullptr,-1,-1}};
 static const char* const D10_0_L[] = {"Une caravane a disparu.","Nous devons comprendre ce qu'il s'est passe.","Aidez-nous a enqueter."};
-static const Node D10_N[] = {{"",D10_0_L,3,nullptr,-1,-1}};
+static const Node D10_N[] = {{"",D10_0_L,3,nullptr,-1,9,10}};
 static const char* const D13_0_L[] = {"Montrez-moi cette pierre noire...","Hum... fascinant.","Je ne connais pas son origine. Consultez les ouvrages specialises."};
 static const Node D13_N[] = {{"",D13_0_L,3,nullptr,-1,-1}};
 static const char* const D15_0_L[] = {"Bienvenue a la Guilde.","Accomplissez quelques contrats pour gagner notre confiance.","Nous avons toujours besoin de bras."};

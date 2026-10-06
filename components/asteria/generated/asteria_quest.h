@@ -1,6 +1,6 @@
 #pragma once
 namespace asteria { namespace quest {
-struct Quest { const char* name; const char* const* obj; int nobj; bool main; };
+struct Quest { const char* name; const char* const* obj; int nobj; bool main; int xp; };
 static const char* const Q0_O[] = {"Decouvrir le village","Rencontrer le maire","Recevoir la carte locale"};
 static const char* const Q1_O[] = {"Retrouver les outils pretes par le forgeron","Rapporter les outils"};
 static const char* const Q2_O[] = {"Examiner les empreintes decouvertes par Lysa","Identifier leur origine"};
@@ -18,21 +18,21 @@ static const char* const Q13_O[] = {"Explorer la vallee oubliee","Examiner les m
 static const char* const Q14_O[] = {"Explorer le Temple Oublie","Resoudre les mecanismes antiques","Atteindre la Salle du Gardien","Vaincre le Gardien du Seuil","Examiner la fresque du sanctuaire","Quitter le temple apres l'effondrement"};
 static const int QUEST_COUNT=15;
 static const Quest QUEST[] = {
-  {"Bienvenue a Valbois",Q0_O,3,true},
-  {"Les Outils perdus",Q1_O,2,false},
-  {"Les Traces etranges",Q2_O,2,true},
-  {"Les empreintes",Q3_O,1,false},
-  {"Les plantes de sœur Agnes",Q4_O,2,false},
-  {"Le tissu dechire",Q5_O,2,true},
-  {"La Vieille Mine",Q6_O,5,true},
-  {"Le symbole oublie",Q7_O,3,true},
-  {"Les contrats de la Guilde",Q8_O,1,false},
-  {"Les marchandises disparues",Q9_O,2,true},
-  {"La caravane silencieuse",Q10_O,2,true},
-  {"Avis de recherche",Q11_O,1,false},
-  {"Une roue cassee",Q12_O,1,false},
-  {"Les Pierres Murmurantes",Q13_O,4,true},
-  {"Le Temple Oublie",Q14_O,6,true}
+  {"Bienvenue a Valbois",Q0_O,3,true,50},
+  {"Les Outils perdus",Q1_O,2,false,70},
+  {"Les Traces etranges",Q2_O,2,true,100},
+  {"Les empreintes",Q3_O,1,false,60},
+  {"Les plantes de sœur Agnes",Q4_O,2,false,80},
+  {"Le tissu dechire",Q5_O,2,true,150},
+  {"La Vieille Mine",Q6_O,5,true,300},
+  {"Le symbole oublie",Q7_O,3,true,150},
+  {"Les contrats de la Guilde",Q8_O,1,false,100},
+  {"Les marchandises disparues",Q9_O,2,true,150},
+  {"La caravane silencieuse",Q10_O,2,true,200},
+  {"Avis de recherche",Q11_O,1,false,90},
+  {"Une roue cassee",Q12_O,1,false,60},
+  {"Les Pierres Murmurantes",Q13_O,4,true,280},
+  {"Le Temple Oublie",Q14_O,6,true,400}
 };
 }
 }

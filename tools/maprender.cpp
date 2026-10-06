@@ -25,7 +25,7 @@ int main(int argc,char**argv){
     auto N=[&](const int*s,int n,int ox,int oy){return isAny(M,x+ox,y+oy,s,n);};
     if(t==3) draw_water_autotile(dx,dy,N(WAT,1,0,-1),N(WAT,1,0,1),N(WAT,1,1,0),N(WAT,1,-1,0),N(WAT,1,1,-1),N(WAT,1,-1,-1),N(WAT,1,1,1),N(WAT,1,-1,1));
     else if(t==16) draw_natural_water(dx,dy,N(NAT,1,0,-1),N(NAT,1,0,1),N(NAT,1,1,0),N(NAT,1,-1,0),N(NAT,1,1,-1),N(NAT,1,-1,-1),N(NAT,1,1,1),N(NAT,1,-1,1));
-    else if(t==1) draw_path_autotile(dx,dy,N(PTH,1,0,-1),N(PTH,1,0,1),N(PTH,1,1,0),N(PTH,1,-1,0),N(PTH,1,1,-1),N(PTH,1,-1,-1),N(PTH,1,1,1),N(PTH,1,-1,1));
+    else if(t==1) draw_natural_path(dx,dy,N(PTH,1,0,-1),N(PTH,1,0,1),N(PTH,1,1,0),N(PTH,1,-1,0),N(PTH,1,1,-1),N(PTH,1,-1,-1),N(PTH,1,1,1),N(PTH,1,-1,1));
     else if(t==7||t==9||t==10||t==11) draw_roof_tile(dx,dy,N(ROOF,4,0,-1),N(ROOF,4,0,1),N(ROOF,4,-1,0),N(ROOF,4,1,0),t);
     else if(t==2||t==13||t==14||t==15 || ((t==4||t==8||t==12) && ((x>0&&is_facade_tile(M.tiles[y*M.w+x-1]))||(x+1<M.w&&is_facade_tile(M.tiles[y*M.w+x+1]))))){
       const int FAC[]={2,13,14,15,4,8,12};
@@ -35,6 +35,8 @@ int main(int argc,char**argv){
     else if(t==21) draw_rampart_tile(dx,dy,N(RMP,1,0,-1),N(RMP,1,0,1),N(RMP,1,-1,0),N(RMP,1,1,0));
     else if(t==6) draw_tree(dx,dy);
     else if(t==22) draw_tower(dx,dy);
+    else if(t==24){ const int TB[]={24}; draw_table_tile(dx,dy, isAny(M,x,y-1,TB,1),isAny(M,x,y+1,TB,1),isAny(M,x-1,y,TB,1),isAny(M,x+1,y,TB,1)); }
+    else if(t>=23&&t<=27) draw_inn_tile(dx,dy,t);
     else if(t<23){ const spr::Sprite&s=spr::TILE[t]; for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(dx+i,dy+j,s.px[j*16+i]); }
   }
   // PNJ

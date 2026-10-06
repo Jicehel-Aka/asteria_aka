@@ -8,6 +8,8 @@ idf_component_register(
     "gamestate.cpp"
     "i18n.cpp"
     "autotile.cpp"
+    "audio/jingle.cpp"
+    "progress.cpp"
     "ui/text.cpp"
     "scene/scene.cpp"
     "scene/title_scene.cpp"

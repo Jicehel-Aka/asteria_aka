@@ -72,7 +72,13 @@ jobs:
             -o asteria_pc.exe
           mkdir -p dist
           cp asteria_pc.exe dist/
+          # DLL runtime necessaires a l'execution sur une machine sans MSYS2
           cp /mingw64/bin/SDL2.dll dist/
+          cp /mingw64/bin/libstdc++-6.dll dist/
+          cp /mingw64/bin/libgcc_s_seh-1.dll dist/
+          cp /mingw64/bin/libwinpthread-1.dll dist/
+          # Assets (ecran-titre + fonds de combat). Le jeu tourne sans, mais c'est plus joli avec.
+          [ -d sdcard_files ] && cp -r sdcard_files dist/ || true
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
@@ -97,7 +103,10 @@ jobs:
             gb_port_sdl.cpp main_sdl.cpp $(sdl2-config --cflags --libs) \
             -o asteria_pc
           mkdir -p dist
-          cp asteria_pc dist/asteria_pc_linux
+          cp asteria_pc dist/
+          # Assets a cote du binaire (le jeu les cherche dans ./sdcard_files).
+          [ -d sdcard_files ] && cp -r sdcard_files dist/ || true
+          ls -la dist
       - uses: actions/upload-artifact@v4
         with:
           name: asteria-linux
@@ -120,7 +129,7 @@ jobs:
           mkdir -p release
           if [ -d artifacts/aka-firmware ];     then (cd artifacts/aka-firmware     && zip -qr ../../release/ASTERIA_AKA_firmware.zip .); fi
           if [ -d artifacts/asteria-windows ];  then (cd artifacts/asteria-windows  && zip -qr ../../release/ASTERIA_Windows.zip .); fi
-          if [ -d artifacts/asteria-linux ];    then cp artifacts/asteria-linux/asteria_pc_linux release/ 2>/dev/null || true; fi
+          if [ -d artifacts/asteria-linux ];    then (cd artifacts/asteria-linux    && zip -qr ../../release/ASTERIA_Linux.zip .); fi
           ls -la release
       - name: Créer la release GitHub
         uses: softprops/action-gh-release@v2

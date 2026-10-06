@@ -13,22 +13,81 @@ static void autotile(const spr::Sprite* S,int sx,int sy, bool n,bool s,bool e,bo
 void draw_water_autotile(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){ autotile(spr::WATER,sx,sy,n,s,e,w,ne,nw,se,sw); }
 void draw_path_autotile (int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){ autotile(spr::PATH ,sx,sy,n,s,e,w,ne,nw,se,sw); }
 
+// Ondulation de rive, fonction de la coordonnee ABSOLUE -> continue d'une tuile
+// a l'autre. Renvoie un retrait 0..AMP px, lisse (interpolation entre ancres).
+static inline int shore_wob(int a,int seed){
+  auto H=[&](int k)->int{ uint32_t u=(uint32_t)(k*2654435761u) ^ (uint32_t)(seed*40503u);
+    u^=u>>15; u*=2246822519u; u^=u>>13; return (int)(u & 0xFFFF); };
+  const int STEP=5;                         // une ancre toutes les 5 px (vagues larges)
+  int a0=a/STEP, f=a-a0*STEP;
+  if(a<0){ a0=(a-STEP+1)/STEP; f=a-a0*STEP; }
+  int v0=H(a0)% 100, v1=H(a0+1)% 100;
+  int v=v0+(v1-v0)*f/STEP;                  // 0..99 lisse
+  // -> retrait 0,1,2,3 avec plus de 0/1 (rive surtout proche du bord)
+  if(v<40) return 0; if(v<70) return 1; if(v<90) return 2; return 3;
+}
 void draw_natural_water(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
-  const spr::Sprite& G=spr::TILE[0];              // herbe dessous (coins arrondis -> herbe visible)
+  const spr::Sprite& G=spr::TILE[0];              // herbe dessous (la rive laisse voir l'herbe)
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
-  const int R=6;
+  // retrait de l'eau sur chaque bord ouvert (herbe), ondulant le long de la rive
+  int top[16], bot[16], lft[16], rgt[16];
+  for(int x=0;x<16;x++){ top[x]=(!n)? shore_wob(sx+x,11):-1;  bot[x]=(!s)? 15-shore_wob(sx+x,23):16; }
+  for(int y=0;y<16;y++){ lft[y]=(!w)? shore_wob(sy+y,37):-1;  rgt[y]=(!e)? 15-shore_wob(sy+y,53):16; }
+  // les diagonales (coin herbe sans bord ortho) rongent un peu plus le coin
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
-    bool inside=true;
-    if(!n&&!e && x>=16-R && y<R){ int dx=x-(16-R), dy=(R-1)-y; if(dx*dx+dy*dy>(R-1)*(R-1)) inside=false; }
-    if(!n&&!w && x<R && y<R){ int dx=(R-1)-x, dy=(R-1)-y; if(dx*dx+dy*dy>(R-1)*(R-1)) inside=false; }
-    if(!s&&!e && x>=16-R && y>=16-R){ int dx=x-(16-R), dy=y-(16-R); if(dx*dx+dy*dy>(R-1)*(R-1)) inside=false; }
-    if(!s&&!w && x<R && y>=16-R){ int dx=(R-1)-x, dy=y-(16-R); if(dx*dx+dy*dy>(R-1)*(R-1)) inside=false; }
-    if(!inside) continue;
-    uint16_t col=((x+y)%6==0)? gb::rgb(96,152,214) : gb::rgb(58,110,180);
-    bool foam=false;
-    if(!n&&y==0)foam=true; if(!s&&y==15)foam=true; if(!w&&x==0)foam=true; if(!e&&x==15)foam=true;
-    // adoucir aussi juste sous l'arrondi
-    if(foam) col=gb::rgb(190,224,242);
+    // marge = distance au bord d'eau le plus proche (sur les cotes ouverts)
+    int mt = (!n)? y-top[x] : 99;
+    int mb = (!s)? bot[x]-y : 99;
+    int ml = (!w)? x-lft[y] : 99;
+    int mr = (!e)? rgt[y]-x : 99;
+    int m = mt; if(mb<m)m=mb; if(ml<m)m=ml; if(mr<m)m=mr;
+    // coins diagonaux ouverts : grignote si on est dans le petit carre du coin
+    if(!ne && x>=13 && y<=2){ int d=(x-13)+(2-y); if(d>=shore_wob(sx+sy+7,5)) m=-1; }
+    if(!nw && x<=2  && y<=2){ int d=(2-x)+(2-y);   if(d>=shore_wob(sx-sy+9,5)) m=-1; }
+    if(!se && x>=13 && y>=13){ int d=(x-13)+(y-13);if(d>=shore_wob(sx-sy+3,5)) m=-1; }
+    if(!sw && x<=2  && y>=13){ int d=(2-x)+(y-13); if(d>=shore_wob(sx+sy+1,5)) m=-1; }
+    if(m<0) continue;                         // herbe (hors de l'eau)
+    uint16_t col;
+    if(m==0)      col=gb::rgb(150,142,96);    // rive humide (vase/sable), fine lisere
+    else if(m==1) col=gb::rgb(120,186,196);   // haut-fond clair, legerement vert
+    else if(m<=3) col=((x+y)&1)? gb::rgb(96,160,200):gb::rgb(78,140,194); // eau peu profonde
+    else          col=((x+y)%6==0)? gb::rgb(96,152,214):gb::rgb(58,110,180); // eau profonde + rides
+    gb::pixel(sx+x,sy+y,col);
+  }
+}
+
+// ------- CHEMIN de terre a bords naturels (rive herbeuse ondulante) -------
+// Meme principe que l'eau : la terre recule des bords ouverts (herbe) selon une
+// ondulation fonction de la coordonnee absolue -> continue d'une tuile a l'autre,
+// avec touffes d'herbe qui empietent et mottes de terre eparses pour un bord use.
+static inline int hash2(int a,int b){ uint32_t u=(uint32_t)(a*374761393u + b*668265263u); u^=u>>13; u*=1274126177u; u^=u>>16; return (int)(u&0xFFFF); }
+void draw_natural_path(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
+  const spr::Sprite& G=spr::TILE[0];              // herbe dessous (bords herbeux)
+  for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
+  int top[16], bot[16], lft[16], rgt[16];
+  for(int x=0;x<16;x++){ top[x]=(!n)? shore_wob(sx+x,61):-1;  bot[x]=(!s)? 15-shore_wob(sx+x,67):16; }
+  for(int y=0;y<16;y++){ lft[y]=(!w)? shore_wob(sy+y,71):-1;  rgt[y]=(!e)? 15-shore_wob(sy+y,79):16; }
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++){
+    int mt=(!n)? y-top[x]:99, mb=(!s)? bot[x]-y:99, ml=(!w)? x-lft[y]:99, mr=(!e)? rgt[y]-x:99;
+    int m=mt; if(mb<m)m=mb; if(ml<m)m=ml; if(mr<m)m=mr;
+    if(!ne && x>=13 && y<=2){ int d=(x-13)+(2-y); if(d>=shore_wob(sx+sy+17,5)) m=-1; }
+    if(!nw && x<=2  && y<=2){ int d=(2-x)+(2-y);   if(d>=shore_wob(sx-sy+19,5)) m=-1; }
+    if(!se && x>=13 && y>=13){ int d=(x-13)+(y-13);if(d>=shore_wob(sx-sy+13,5)) m=-1; }
+    if(!sw && x<=2  && y>=13){ int d=(2-x)+(y-13); if(d>=shore_wob(sx+sy+11,5)) m=-1; }
+    int h=hash2(sx+x,sy+y)%100;
+    if(m<0){
+      // cote herbe : quelques mottes de terre eparses juste au bord (bord use)
+      if(m>=-1 && h<22) gb::pixel(sx+x,sy+y, gb::rgb(150,120,74));
+      continue;                                   // sinon on garde l'herbe
+    }
+    uint16_t col;
+    if(m==0)       col=gb::rgb(138,136,82);        // lisiere terre/herbe (olive terreux)
+    else if(m==1)  col=gb::rgb(186,152,98);        // terre tassee claire
+    else           col=(h<14)? gb::rgb(201,174,124)   // cailloux clairs
+                      : (h<30)? gb::rgb(150,116,66)   // taches sombres
+                      : gb::rgb(172,136,82);          // terre de base
+    // touffes d'herbe qui empietent sur le bord du chemin
+    if(m<=1 && (hash2(sx+x+3,sy+y+5)%100)<20) col=G.px[y*16+x];
     gb::pixel(sx+x,sy+y,col);
   }
 }
@@ -231,5 +290,54 @@ void draw_facade_tile(int sx,int sy, bool up,bool down,bool left,bool right, int
   if(selfTile==8) draw_window_overlay(sx,sy);
   else if(selfTile==4) draw_door_overlay(sx,sy);
   else if(selfTile==12) draw_sign_overlay(sx,sy);
+}
+
+// ===================== MOBILIER DE TAVERNE (tuiles 23..27) =====================
+// Chaque meuble pose d'abord le sol bois (tuile 5) puis l'objet par-dessus.
+static void inn_floor(int sx,int sy){ const spr::Sprite& f=spr::TILE[5]; for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,f.px[j*16+i]); }
+
+void draw_counter(int sx,int sy){ inn_floor(sx,sy);                 // 23 comptoir
+  gb::fill_rect(sx,sy+4,16,10,gb::rgb(96,62,32));
+  gb::fill_rect(sx,sy+2,16,3, gb::rgb(150,104,60));                 // plateau
+  gb::fill_rect(sx,sy+2,16,1, gb::rgb(188,142,88));                 // reflet
+  gb::fill_rect(sx,sy+13,16,2,gb::rgb(52,34,18));                   // plinthe
+  for(int x=sx+3;x<sx+16;x+=4) gb::fill_rect(x,sy+5,1,8,gb::rgb(70,46,24)); // planches
+}
+// 24 table : tuile multi-cellule. Rebord seulement sur les cotes SANS table voisine,
+// pour que 2x2 tuiles forment une seule grande table de banquet.
+void draw_table_tile(int sx,int sy,bool up,bool down,bool left,bool right){
+  inn_floor(sx,sy);
+  gb::Color top=gb::rgb(140,98,54), top2=gb::rgb(122,84,46), rim=gb::rgb(90,60,30), leg=gb::rgb(66,44,22), hi=gb::rgb(170,122,74);
+  for(int y=1;y<15;y++)for(int x=1;x<15;x++) gb::pixel(sx+x,sy+y, ((y>>1)&1)?top2:top);   // plateau planches
+  for(int y=2;y<15;y+=2)for(int x=1;x<15;x++) if((x+y)%4==0) gb::pixel(sx+x,sy+y,hi);       // veinage
+  if(!up)   for(int x=0;x<16;x++){ gb::pixel(sx+x,sy+0,rim); gb::pixel(sx+x,sy+1,rim); }
+  if(!down) for(int x=0;x<16;x++){ gb::pixel(sx+x,sy+15,rim); gb::pixel(sx+x,sy+14,rim); }
+  if(!left) for(int y=0;y<16;y++){ gb::pixel(sx+0,sy+y,rim); gb::pixel(sx+1,sy+y,rim); }
+  if(!right)for(int y=0;y<16;y++){ gb::pixel(sx+15,sy+y,rim); gb::pixel(sx+14,sy+y,rim); }
+  if(!down&&!left){  for(int k=0;k<3;k++) gb::pixel(sx+2,sy+15-k,leg); }                     // pieds visibles (avant)
+  if(!down&&!right){ for(int k=0;k<3;k++) gb::pixel(sx+13,sy+15-k,leg); }
+}
+void draw_table(int sx,int sy){ draw_table_tile(sx,sy,false,false,false,false); }
+void draw_barrel_obj(int sx,int sy){ inn_floor(sx,sy);             // 25 tonneau
+  for(int y=2;y<15;y++){ int d=(y<8)?(y-2):(14-y); int bulge=d/3; int x0=3-bulge,x1=12+bulge;
+    for(int x=x0;x<=x1;x++) gb::pixel(sx+x,sy+y, (x&1)?gb::rgb(108,72,38):gb::rgb(130,90,48)); }
+  gb::fill_rect(sx+1,sy+4,14,1,gb::rgb(94,94,104)); gb::fill_rect(sx+1,sy+11,14,1,gb::rgb(94,94,104));
+  gb::fill_rect(sx+5,sy+1,6,2,gb::rgb(92,60,32));                   // couvercle
+}
+void draw_bottles(int sx,int sy){ inn_floor(sx,sy);                // 26 etagere a bouteilles
+  gb::fill_rect(sx,sy+3,16,2,gb::rgb(86,58,30)); gb::fill_rect(sx,sy+10,16,2,gb::rgb(86,58,30)); // 2 etageres
+  const gb::Color col[3]={gb::rgb(60,120,66),gb::rgb(130,74,42),gb::rgb(150,52,52)};
+  for(int i=0;i<4;i++){ int x=sx+2+i*4; gb::fill_rect(x,sy+5,2,5,col[i%3]); gb::pixel(x,sy+4,col[i%3]); }
+  for(int i=0;i<4;i++){ int x=sx+3+i*4; gb::fill_rect(x,sy+12,2,3,col[(i+1)%3]); }
+}
+void draw_stool(int sx,int sy){ inn_floor(sx,sy);                  // 27 tabouret
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++){ int dx=x-8,dy=y-8; if(dx*dx+dy*dy<=13)
+    gb::pixel(sx+x,sy+y, ((x+y)&1)?gb::rgb(104,68,36):gb::rgb(122,84,46)); }
+  gb::pixel(sx+6,sy+6,gb::rgb(150,110,66));
+}
+void draw_inn_tile(int sx,int sy,int t){   // tuiles simples (la table 24 est geree a part, avec voisins)
+  switch(t){ case 23:draw_counter(sx,sy);break;
+             case 25:draw_barrel_obj(sx,sy);break; case 26:draw_bottles(sx,sy);break;
+             default:draw_stool(sx,sy);break; }
 }
 }

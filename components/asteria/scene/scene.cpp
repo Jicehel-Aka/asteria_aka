@@ -9,6 +9,7 @@
 #include "scene/rules_scene.h"
 #include "scene/world_scene.h"
 #include "scene/dungeon_scene.h"
+#include "scene/gameover_scene.h"
 #include "platform/gb_port.h"
 namespace asteria {
 void SceneManager::set(SceneId id){
@@ -24,6 +25,7 @@ void SceneManager::set(SceneId id){
     case SceneId::DICE: s_=&dice_scene(); break;
     case SceneId::EDITOR: s_=&editor_scene(); break;
     case SceneId::DUNGEON: s_=&dungeon_scene(); break;
+    case SceneId::GAMEOVER: s_=&gameover_scene(); break;
     case SceneId::QUIT:  s_=nullptr; gb::return_to_loader(); return;
   }
   if(s_) s_->enter();

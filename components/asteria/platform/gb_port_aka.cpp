@@ -164,7 +164,6 @@ void return_to_loader() { akaRuntime.returnToLoader(); }
 void log(const char* msg) { printf("[ASTERIA] %s\n", msg); }
 
 }  // namespace gb
-#endif
 
 namespace gb {
 void draw_image(const uint16_t* px, uint16_t w, uint16_t h, int x, int y){
@@ -187,3 +186,33 @@ int read_text(const char* path, char* out, int maxlen){
     FILE* f=fopen(path,"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
 }
 }
+
+// --- Audio synthétisé AKA : 2 pistes tone branchées sur g_audio_player -------
+// g_audio_player est défini dans main.cpp et déjà "pooled" par AudioMixTask ;
+// on n'ajoute que 2 pistes ton (mélodie + effets). play_tone() ne fait qu'écrire
+// quelques champs lus par pool() : note courte, course bénigne tolérée.
+#include "gb_audio_track_tone.h"
+extern gb_audio_player g_audio_player;
+namespace gb {
+static gb_audio_track_tone s_music_tr, s_sfx_tr;
+static bool s_audio_ready=false;
+void audio_init(){
+    if(s_audio_ready) return;
+    g_audio_player.add_track(&s_music_tr, 0.9f);
+    g_audio_player.add_track(&s_sfx_tr,   0.9f);
+    s_audio_ready=true;
+}
+void tone_music(float f,float vol,uint16_t ms,uint8_t type){
+    if(!s_audio_ready) return;
+    s_music_tr.play_tone(f, vol, ms, (gb_audio_track_tone::tone_type)type);
+}
+void tone_sfx(float f,float vol,uint16_t ms,uint8_t type){
+    if(!s_audio_ready) return;
+    s_sfx_tr.play_tone(f, vol, ms, (gb_audio_track_tone::tone_type)type);
+}
+void audio_stop(){
+    if(!s_audio_ready) return;
+    s_music_tr.stop_playing(); s_sfx_tr.stop_playing();
+}
+}
+#endif  // ESP_PLATFORM

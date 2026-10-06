@@ -31,3 +31,17 @@ void draw_image(const uint16_t* px, uint16_t w, uint16_t h, int x, int y);
 // Blit avec couleur-clé (transparent) — pour les sprites (peu nombreux).
 void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, uint16_t key);
 }
+
+namespace gb {
+// --- Audio synthétisé (AUCUN fichier requis) ---------------------------------
+// Sur AKA : gb_audio_track_tone branché sur g_audio_player (déjà pooled par
+//   AudioMixTask dans main.cpp). Sur SDL : voix synthétisées dans le callback
+//   audio SDL. Sur host : silencieux (tests).
+// Deux voix indépendantes : "music" (mélodie/jingle) et "sfx" (effets courts),
+// pour qu'un bip ne coupe pas la musique.
+enum ToneType:uint8_t { TONE_SINE=0, TONE_SQUARE=1, TONE_TRI=2, TONE_NOISE=3 };
+void audio_init();                                                   // idempotent
+void tone_music(float freq, float vol, uint16_t ms, uint8_t type=TONE_SQUARE);
+void tone_sfx  (float freq, float vol, uint16_t ms, uint8_t type=TONE_SQUARE);
+void audio_stop();                                                   // coupe les 2 voix
+}

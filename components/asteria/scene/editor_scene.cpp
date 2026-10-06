@@ -113,7 +113,7 @@ static void map_render(){
     if(t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return mtiles[yy*mw+xx]==3; };
       draw_water_autotile(x*TILE_SIZE,y*TILE_SIZE, W(x,y-1),W(x,y+1),W(x+1,y),W(x-1,y), W(x+1,y-1),W(x-1,y-1),W(x+1,y+1),W(x-1,y+1)); }
     else if(t==1){ auto P=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return mtiles[yy*mw+xx]==1; };
-      draw_path_autotile(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, P(x,y-1),P(x,y+1),P(x+1,y),P(x-1,y), P(x+1,y-1),P(x-1,y-1),P(x+1,y+1),P(x-1,y+1)); }
+      draw_natural_path(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, P(x,y-1),P(x,y+1),P(x+1,y),P(x-1,y), P(x+1,y-1),P(x-1,y-1),P(x+1,y+1),P(x-1,y+1)); }
     else if(t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return mtiles[yy*mw+xx]==16; };
       draw_natural_water(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, N(x,y-1),N(x,y+1),N(x+1,y),N(x-1,y), N(x+1,y-1),N(x-1,y-1),N(x+1,y+1),N(x-1,y+1)); }
     else if(t==7||t==9||t==10||t==11){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; uint8_t q=mtiles[yy*mw+xx]; return q==7||q==9||q==10||q==11; };
@@ -126,6 +126,9 @@ static void map_render(){
       draw_rampart_tile(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, Rm(x,y-1),Rm(x,y+1),Rm(x-1,y),Rm(x+1,y)); }
     else if(t==6) draw_tree(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy);
     else if(t==22) draw_tower(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy);
+    else if(t==24){ auto Tb=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return mtiles[yy*mw+xx]==24; };
+      draw_table_tile(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, Tb(x,y-1),Tb(x,y+1),Tb(x-1,y),Tb(x+1,y)); }
+    else if(t>=23&&t<=27) draw_inn_tile(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy,t);
     else if(t<23) gb::draw_image(spr::TILE[t].px,spr::TILE[t].w,spr::TILE[t].h,x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy); }
   gb::fill_rect(mpx*TILE_SIZE+5-ecamx,mpy*TILE_SIZE+5-ecamy,6,6,gb::rgb(80,160,255));
   for(int i=0;i<mspn;i++) gb::fill_rect(msp[i].x*TILE_SIZE+4-ecamx,msp[i].y*TILE_SIZE+3-ecamy,8,10,gb::rgb(230,210,70));

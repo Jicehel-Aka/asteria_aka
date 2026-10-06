@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASTERIA Studio</title>
+<style>
+  :root{
+    --bg:#15120e; --panel:#211a12; --panel2:#2c2217; --ink:#ece3d0; --mut:#b7a888;
+    --line:#3d2f1e; --accent:#d9a441; --accent2:#7fa86b; --danger:#c05a4a;
+  }
+  @media (prefers-color-scheme:light){ :root:not([data-theme="dark"]){
+    --bg:#efe8d9; --panel:#fbf6ea; --panel2:#f1e8d4; --ink:#2b2316; --mut:#6f6049;
+    --line:#d9cdb2; --accent:#a9741a; --accent2:#4f7a3a; --danger:#b24433;
+  }}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+  header h1{font-size:17px;margin:0;letter-spacing:.5px}
+  header h1 b{color:var(--accent)}
+  .tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+  .tabs button.on{background:var(--accent);color:#1a1206;border-color:var(--accent)}
+  main{padding:14px 16px;max-width:1200px;margin:0 auto}
+  .view{display:none} .view.on{display:block}
+  .cols{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .side{width:290px;flex:0 0 290px}
+  .grow{flex:1 1 360px;min-width:300px}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+  .box h3{margin:0 0 9px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
+  button,select,input,textarea{font-family:inherit}
+  .btn{background:var(--panel2);color:var(--ink);border:1px solid var(--line);padding:7px 11px;border-radius:7px;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn.on{background:var(--accent);color:#1a1206;border-color:var(--accent);font-weight:700}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--danger);border-color:var(--danger)}
+  .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+  label{font-size:12px;color:var(--mut)}
+  input[type=number],input[type=text],select{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:5px 7px}
+  input[type=number]{width:62px} input[type=text]{width:120px}
+  textarea{width:100%;height:150px;background:#0e0b07;color:#cfe0b8;border:1px solid var(--line);border-radius:8px;padding:9px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+  canvas{image-rendering:pixelated;background:#0e0b07;border:1px solid var(--line);border-radius:8px;display:block;touch-action:none}
+  .pal{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+  .pal .cell{position:relative;border:2px solid transparent;border-radius:6px;cursor:pointer;padding:2px;background:var(--panel2)}
+  .pal .cell.on{border-color:var(--accent)}
+  .pal .cell canvas{width:100%;height:auto;border:none;border-radius:4px}
+  .pal .cell .nm{font-size:9px;color:var(--mut);text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .pal .cell .so{position:absolute;top:1px;right:3px;font-size:9px;color:var(--danger)}
+  .swatches{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+  .swatches .sw{aspect-ratio:1;border-radius:5px;border:2px solid transparent;cursor:pointer}
+  .swatches .sw.on{border-color:var(--ink)}
+  .hint{font-size:12px;color:var(--mut);margin-top:6px;min-height:16px}
+  .stat{display:flex;gap:8px;align-items:center;margin:5px 0}
+  .stat label{width:140px} .stat input{flex:0 0 72px}
+  .pill{display:inline-block;padding:2px 7px;border:1px solid var(--line);border-radius:20px;font-size:11px;color:var(--mut)}
+  .dirs{display:flex;gap:5px;flex-wrap:wrap}
+  a.dl{color:var(--accent)}
+  .small{font-size:11px;color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1><b>ASTERIA</b> Studio <span class="pill">cartes · tuiles · personnages</span></h1>
+  <div class="tabs">
+    <button data-tab="map" class="on">Cartes</button>
+    <button data-tab="spr">Tuiles &amp; Sprites</button>
+    <button data-tab="chr">Personnages</button>
+  </div>
+</header>
+<main>
+
+<!-- ================= CARTES ================= -->
+<section id="v-map" class="view on">
+ <div class="cols">
+  <div class="side">
+   <div class="box">
+    <h3>Carte</h3>
+    <div class="row"><select id="mapsel"></select></div>
+    <div class="row">
+      <label>L<input type="number" id="mw" min="4" max="60" value="20"></label>
+      <label>H<input type="number" id="mh" min="4" max="60" value="15"></label>
+      <button class="btn" id="resize">Redim.</button>
+    </div>
+    <div class="row"><button class="btn" id="newmap">Vide</button><button class="btn ghost" id="reloadmap">Recharger</button></div>
+   </div>
+   <div class="box">
+    <h3>Outils</h3>
+    <div class="row">
+      <button class="btn on" id="t_paint">Peindre</button>
+      <button class="btn" id="t_fill">Remplir</button>
+      <button class="btn" id="t_erase">Effacer</button>
+      <button class="btn" id="t_pick">Pipette</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="t_start">Départ</button>
+      <button class="btn" id="t_spawn">PNJ</button>
+      <label>id<input type="number" id="npcid" min="-1" value="0"></label>
+    </div>
+    <div class="row">
+      <button class="btn" id="t_portal">Portail</button>
+      <button class="btn danger" id="t_delobj">Suppr. objet</button>
+    </div>
+    <div id="portalform" class="row" style="display:none">
+      <label>loc<input type="number" id="pt_loc" value="0"></label>
+      <label>sx<input type="number" id="pt_sx" value="0"></label>
+      <label>sy<input type="number" id="pt_sy" value="0"></label>
+    </div>
+   </div>
+   <div class="box">
+    <h3>Palette (tuiles)</h3>
+    <div class="pal" id="pal"></div>
+   </div>
+  </div>
+  <div class="grow">
+   <div class="box">
+    <div class="row">
+      <button class="btn" id="expCpp">Export C++ (header)</button>
+      <button class="btn" id="expJson">Export JSON</button>
+      <button class="btn ghost" id="impJson">Importer JSON</button>
+      <label><input type="checkbox" id="showgrid" checked> grille</label>
+      <label><input type="checkbox" id="showobj" checked> objets</label>
+    </div>
+    <canvas id="mapcv"></canvas>
+    <div class="hint" id="mapstatus"></div>
+   </div>
+   <div class="box"><h3>Sortie (copier / coller)</h3><textarea id="mapout" spellcheck="false"></textarea></div>
+  </div>
+ </div>
+</section>
+
+<!-- ================= TUILES & SPRITES ================= -->
+<section id="v-spr" class="view">
+ <div class="cols">
+  <div class="side">
+   <div class="box">
+    <h3>Toile</h3>
+    <div class="row"><label>Taille
+      <select id="sprsize"><option>8</option><option selected>16</option><option>20</option><option>24</option><option>32</option></select></label>
+      <button class="btn" id="sprclear">Vider</button>
+    </div>
+    <div class="row"><button class="btn" id="sprimport">Importer PNG</button>
+      <input type="file" id="sprpng" accept="image/png" style="display:none"></div>
+   </div>
+   <div class="box">
+    <h3>Outils</h3>
+    <div class="row">
+      <button class="btn on" id="s_pen">Crayon</button>
+      <button class="btn" id="s_fill">Remplir</button>
+      <button class="btn" id="s_pick">Pipette</button>
+      <button class="btn" id="s_erase">Gomme (transp.)</button>
+    </div>
+   </div>
+   <div class="box">
+    <h3>Couleur</h3>
+    <div class="row">
+      <input type="color" id="colpick" value="#d9a441">
+      <span class="pill" id="colhex">#d9a441</span>
+      <button class="btn" id="addsw">+ palette</button>
+    </div>
+    <div class="row"><button class="btn ghost" id="setkey">Couleur = transparent (magenta)</button></div>
+    <div class="swatches" id="swatches"></div>
+   </div>
+  </div>
+  <div class="grow">
+   <div class="box">
+    <div class="row">
+      <button class="btn" id="sprExpC">Export RGB565 (C)</button>
+      <button class="btn" id="sprExpPng">Télécharger PNG</button>
+      <span class="small">clé transparente = magenta #FF00FF (0xF81F)</span>
+    </div>
+    <div class="row" style="align-items:flex-start">
+      <canvas id="sprcv"></canvas>
+      <div>
+        <div class="small">aperçu 1×</div>
+        <canvas id="sprprev"></canvas>
+      </div>
+    </div>
+    <div class="hint" id="sprstatus"></div>
+   </div>
+   <div class="box"><h3>Sortie</h3><textarea id="sprout" spellcheck="false"></textarea></div>
+  </div>
+ </div>
+</section>
+
+<!-- ================= PERSONNAGES ================= -->
+<section id="v-chr" class="view">
+ <div class="cols">
+  <div class="side">
+   <div class="box">
+    <h3>Fiche</h3>
+    <div class="row"><label>Nom<input type="text" id="c_name" value="Nouveau"></label>
+      <label>Type<select id="c_kind"><option value="pnj">PNJ</option><option value="hero">Héros</option><option value="mon">Monstre</option></select></label></div>
+    <div class="stat"><label>Initiative (IN)</label><input type="number" id="c_in" value="11"></div>
+    <div class="stat"><label>Combat (CO)</label><input type="number" id="c_co" value="9"></div>
+    <div class="stat"><label>Magie (MA)</label><input type="number" id="c_ma" value="14"></div>
+    <div class="stat"><label>Aura (AU)</label><input type="number" id="c_au" value="16"></div>
+    <div class="stat"><label>Vitalité (VIT)</label><input type="number" id="c_vit" value="20"></div>
+    <div class="stat"><label>Dégâts (BLd, nD)</label><input type="number" id="c_bld" value="1"></div>
+    <div class="row"><label>Arme/Notes<input type="text" id="c_notes" value="Dague (1D)" style="width:100%"></label></div>
+   </div>
+   <div class="box">
+    <h3>Planche</h3>
+    <div class="row"><label>Direction
+      <select id="c_dir"><option value="0">bas</option><option value="1">haut</option><option value="2">gauche</option><option value="3">droite</option></select></label></div>
+    <div class="row">Frame <span id="c_frames" class="dirs"></span></div>
+    <div class="small">4 directions × 3 frames. La vue monstre n’utilise que 2 frames (idle/attaque).</div>
+   </div>
+   <div class="box">
+    <h3>Couleur</h3>
+    <div class="row"><input type="color" id="c_col" value="#caa36a"><span class="pill" id="c_colhex">#caa36a</span>
+      <button class="btn ghost" id="c_setkey">transp.</button></div>
+    <div class="swatches" id="c_swatches"></div>
+   </div>
+  </div>
+  <div class="grow">
+   <div class="box">
+    <div class="row">
+      <button class="btn on" id="cp_pen">Crayon</button>
+      <button class="btn" id="cp_fill">Remplir</button>
+      <button class="btn" id="cp_pick">Pipette</button>
+      <button class="btn" id="cp_erase">Gomme</button>
+      <button class="btn" id="cp_clear">Vider frame</button>
+    </div>
+    <div class="row" style="align-items:flex-start">
+      <canvas id="chrcv"></canvas>
+      <div><div class="small">aperçu planche</div><canvas id="chrsheet"></canvas></div>
+    </div>
+    <div class="hint" id="chrstatus"></div>
+   </div>
+   <div class="box">
+    <div class="row"><button class="btn" id="chrExpFiche">Export fiche (C/JSON)</button>
+      <button class="btn" id="chrExpGrid">Export planche RGB565 (C grid)</button></div>
+    <textarea id="chrout" spellcheck="false"></textarea>
+   </div>
+  </div>
+ </div>
+</section>
+
+</main>
+<script>
+const DATA = {"names": ["herbe", "chemin", "mur", "eau", "porte", "pont", "arbre", "toit", "fenetre", "toit_auberge", "toit_boutique", "toit_mairie", "enseigne", "mur_brique", "mur_bois", "mur_crepi", "eau_nat", "fleurs", "herbe_haute", "paves", "terre", "rempart", "tour", "comptoir", "table", "tonneau", "bouteilles", "tabouret"], "solid": [0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0], "maps": [{"id": "MAP_0001", "loc": 0, "w": 34, "h": 26, "px": 16, "py": 23, "tiles": [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 1, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 6, 6, 0, 6, 6, 0, 6, 6, 0, 1, 1, 1, 6, 6, 0, 0, 0, 0, 0, 6, 6, 0, 0, 6, 6, 6, 6, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 11, 11, 11, 11, 11, 11, 0, 0, 18, 0, 6, 6, 0, 0, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 17, 0, 11, 11, 11, 11, 11, 11, 0, 0, 0, 6, 6, 6, 6, 0, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 17, 0, 1, 1, 1, 1, 1, 1, 1, 1, 11, 11, 11, 11, 11, 11, 0, 0, 0, 6, 6, 6, 6, 0, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0, 1, 10, 10, 10, 10, 10, 0, 0, 1, 8, 2, 8, 4, 8, 2, 0, 0, 0, 6, 6, 6, 6, 17, 8, 15, 4, 12, 8, 15, 0, 0, 0, 0, 1, 1, 10, 10, 10, 10, 10, 6, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 6, 6, 6, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 14, 4, 12, 8, 0, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 17, 6, 6, 6, 6, 0, 0, 17, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 6, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 19, 19, 19, 19, 0, 0, 0, 18, 0, 6, 17, 0, 0, 0, 0, 0, 0, 6, 6, 6, 6, 17, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 19, 3, 3, 19, 0, 0, 0, 0, 0, 18, 17, 0, 0, 0, 0, 0, 0, 0, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 19, 3, 3, 19, 0, 0, 0, 0, 0, 0, 0, 7, 7, 7, 7, 7, 0, 0, 6, 6, 6, 0, 0, 7, 7, 7, 7, 7, 1, 0, 0, 0, 0, 0, 19, 19, 19, 19, 0, 0, 0, 0, 0, 0, 0, 7, 7, 7, 7, 7, 0, 0, 6, 6, 6, 0, 0, 7, 7, 7, 7, 7, 1, 18, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 8, 15, 4, 15, 8, 0, 6, 6, 6, 0, 0, 0, 8, 4, 8, 13, 8, 1, 0, 7, 7, 7, 7, 0, 1, 1, 1, 1, 0, 17, 17, 0, 0, 17, 0, 0, 1, 0, 0, 18, 6, 6, 6, 6, 0, 0, 0, 1, 1, 1, 1, 1, 0, 7, 7, 7, 7, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 6, 6, 6, 6, 0, 6, 16, 16, 16, 6, 0, 0, 0, 8, 4, 8, 2, 0, 0, 1, 1, 1, 7, 7, 7, 7, 7, 0, 0, 1, 0, 0, 6, 0, 0, 6, 6, 0, 0, 16, 16, 16, 16, 16, 18, 17, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 7, 7, 7, 7, 7, 0, 0, 1, 0, 0, 0, 0, 0, 6, 6, 0, 0, 0, 0, 16, 16, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 7, 7, 7, 7, 7, 0, 0, 1, 0, 0, 0, 0, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 8, 13, 4, 13, 8, 0, 0, 1, 7, 7, 7, 7, 6, 6, 6, 6, 0, 0, 0, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 7, 7, 7, 7, 6, 6, 6, 0, 0, 0, 0, 7, 7, 7, 7, 0, 0, 0, 0, 6, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 8, 4, 8, 15, 6, 6, 6, 6, 0, 0, 0, 8, 14, 4, 14, 0, 0, 0, 0, 17, 0, 0, 1, 1, 0, 6, 0, 18, 0, 0, 20, 20, 20, 1, 1, 1, 0, 0, 6, 6, 6, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 0, 6, 0, 0, 0, 6, 6, 1, 1, 6, 0, 0, 6, 0, 6, 0, 0, 0, 0, 6, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 1, 1, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], "spawns": [{"npc": 0, "x": 6, "y": 8}, {"npc": 2, "x": 17, "y": 8}, {"npc": 3, "x": 16, "y": 14}, {"npc": 6, "x": 12, "y": 17}, {"npc": 7, "x": 27, "y": 14}, {"npc": 9, "x": 22, "y": 20}], "portals": [{"x": 16, "y": 0, "loc": 8, "sx": 10, "sy": 13}, {"x": 5, "y": 6, "loc": 1, "sx": 10, "sy": 13}]}, {"id": "MAP_0002", "loc": 8, "w": 20, "h": 15, "px": 10, "py": 13, "tiles": [6, 6, 6, 0, 0, 0, 6, 0, 0, 0, 1, 0, 6, 6, 0, 6, 0, 6, 0, 0, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 6, 0, 0, 0, 6, 6, 6, 0, 6, 6, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 6, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 16, 16, 0, 1, 1, 1, 0, 0, 0, 16, 16, 0, 0, 0, 0, 0, 0, 0, 16, 16, 16, 16, 16, 16, 1, 1, 0, 0, 16, 16, 0, 0, 0, 0, 0, 0, 0, 16, 16, 0, 0, 16, 1, 5, 5, 1, 0, 16, 16, 6, 6, 16, 16, 6, 6, 0, 0, 16, 0, 0, 0, 1, 1, 5, 16, 16, 16, 16, 0, 6, 0, 16, 16, 16, 6, 16, 16, 16, 0, 0, 1, 1, 0, 0, 16, 0, 0, 0, 0, 6, 6, 0, 6, 16, 16, 16, 16, 0, 0, 0, 1, 1, 0, 6, 0, 0, 0, 0, 0, 0, 0, 6, 6, 0, 6, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6, 6, 0, 6, 6, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 6, 0, 0, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 6, 6, 0, 6, 6, 6, 6, 6, 0, 0, 0, 0, 6, 0, 0, 0, 0, 1, 1, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0, 0, 0, 6, 0, 1, 1, 1, 1, 1, 0, 6, 6, 6, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 0, 1, 1, 0, 0, 0, 0, 6, 6, 6, 0], "spawns": [{"npc": 9, "x": 6, "y": 10}], "portals": [{"x": 10, "y": 14, "loc": 0, "sx": 16, "sy": 2}, {"x": 10, "y": 0, "loc": 9, "sx": 10, "sy": 13}]}, {"id": "MAP_0003", "loc": 9, "w": 20, "h": 15, "px": 10, "py": 13, "tiles": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2], "spawns": [{"npc": -1, "x": 0, "y": 0}], "portals": [{"x": 10, "y": 14, "loc": 8, "sx": 10, "sy": 1}, {"x": 10, "y": 0, "loc": 10, "sx": 15, "sy": 22}]}, {"id": "MAP_0004", "loc": 1, "w": 20, "h": 15, "px": 10, "py": 13, "tiles": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 5, 5, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 25, 25, 2, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 25, 2, 2, 5, 5, 23, 23, 23, 23, 23, 23, 23, 5, 23, 23, 23, 23, 23, 23, 5, 5, 2, 2, 5, 5, 5, 27, 5, 27, 5, 27, 5, 5, 5, 27, 5, 27, 5, 5, 5, 5, 2, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 2, 2, 5, 5, 5, 27, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 27, 5, 5, 2, 2, 5, 27, 24, 24, 5, 5, 5, 5, 5, 5, 5, 5, 5, 27, 24, 24, 5, 5, 2, 2, 5, 5, 24, 24, 27, 5, 5, 5, 5, 5, 5, 5, 5, 5, 24, 24, 27, 5, 2, 2, 5, 5, 27, 27, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 27, 27, 5, 5, 2, 2, 5, 27, 24, 24, 5, 5, 5, 5, 5, 5, 5, 5, 5, 27, 24, 24, 5, 5, 2, 2, 25, 5, 24, 24, 27, 5, 5, 5, 5, 5, 5, 5, 5, 5, 24, 24, 27, 5, 2, 2, 25, 25, 27, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 27, 5, 25, 25, 2, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 2, 2], "spawns": [{"npc": 13, "x": 10, "y": 2}, {"npc": 4, "x": 2, "y": 7}, {"npc": 6, "x": 5, "y": 8}, {"npc": 8, "x": 14, "y": 7}, {"npc": 11, "x": 17, "y": 8}, {"npc": 12, "x": 2, "y": 10}, {"npc": 15, "x": 5, "y": 11}, {"npc": 16, "x": 14, "y": 10}, {"npc": 0, "x": 17, "y": 11}, {"npc": 10, "x": 8, "y": 4}], "portals": [{"x": 10, "y": 14, "loc": 0, "sx": 5, "sy": 7}]}, {"id": "MAP_0005", "loc": 10, "w": 30, "h": 24, "px": 15, "py": 22, "tiles": [22, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 4, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 22, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 11, 11, 11, 11, 11, 11, 11, 11, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 11, 11, 11, 11, 11, 19, 19, 19, 11, 11, 11, 11, 11, 11, 11, 11, 19, 19, 7, 7, 7, 7, 7, 7, 19, 19, 21, 21, 19, 19, 11, 11, 11, 11, 11, 19, 19, 19, 11, 11, 11, 11, 11, 11, 11, 11, 19, 19, 7, 7, 7, 7, 7, 7, 19, 19, 21, 21, 19, 19, 8, 15, 4, 12, 8, 19, 19, 19, 11, 11, 11, 11, 11, 11, 11, 11, 19, 19, 8, 13, 4, 13, 12, 13, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 8, 12, 8, 15, 4, 15, 8, 15, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 7, 7, 7, 7, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 7, 7, 7, 7, 19, 19, 19, 21, 21, 19, 19, 19, 7, 7, 7, 7, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 7, 7, 7, 7, 19, 19, 19, 21, 21, 19, 19, 19, 8, 4, 8, 13, 19, 19, 19, 19, 19, 19, 3, 3, 19, 19, 19, 19, 19, 19, 8, 4, 8, 14, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 3, 3, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 7, 7, 7, 7, 19, 19, 19, 19, 7, 7, 7, 7, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 7, 7, 7, 7, 19, 19, 19, 19, 7, 7, 7, 7, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 8, 14, 4, 14, 19, 19, 19, 19, 8, 4, 8, 13, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 21, 21, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 21, 21, 22, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 4, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 22], "spawns": [{"npc": 10, "x": 15, "y": 20}, {"npc": 12, "x": 5, "y": 7}, {"npc": 15, "x": 11, "y": 19}, {"npc": 17, "x": 18, "y": 19}, {"npc": 16, "x": 20, "y": 20}], "portals": [{"x": 15, "y": 23, "loc": 9, "sx": 10, "sy": 2}, {"x": 15, "y": 0, "loc": 99, "sx": -1, "sy": -1}]}]};
+// ---------- util couleurs ----------
+const KEY565 = 0xF81F;                         // magenta clé (BGR565)
+function rgb2bgr565(r,g,b){ return ((b>>3)<<11)|((g>>2)<<5)|(r>>3); }
+function bgr5652rgb(c){ const b=(c>>11)&31,g=(c>>5)&63,r=c&31; return [r*255/31|0,g*255/63|0,b*255/31|0]; }
+function hex2rgb(h){ h=h.replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function rgb2hex(r,g,b){ return '#'+[r,g,b].map(v=>('0'+(v|0).toString(16)).slice(-2)).join(''); }
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+// ---------- onglets ----------
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.getElementById('v-'+b.dataset.tab).classList.add('on');
+});
+
+/* =======================================================================
+   TUILES : rendu procédural reconnaissable pour les 28 tuiles du jeu
+   ======================================================================= */
+const NAMES=DATA.names, SOLID=DATA.solid;
+function tileBase(i){
+  // couleurs de fond représentatives
+  const C=[
+   '#4e8c3f','#b78b52','#6f6f78','#3b79c4','#8a5a2b','#9c6b3a','#2f5d2a','#b8463a',
+   '#9fb6cf','#b85a3a','#c08a3a','#b03a8a','#caa43a','#a85a3f','#8a6a44','#cdbfa3',
+   '#2f6fae','#4e8c3f','#3e7a34','#8f8f99','#8a6a46','#7a7a84','#9a9aa4','#6a4a2a',
+   '#8a5e32','#7a4a24','#caa14a','#7a5a32'][i]||'#777';
+  return C;
+}
+function drawTileInto(cx,i,sz){
+  const g=cx.getContext('2d'); g.imageSmoothingEnabled=false;
+  const n=NAMES[i]||''; g.fillStyle=tileBase(i); g.fillRect(0,0,sz,sz);
+  const px=(x,y,c,w=1,h=1)=>{g.fillStyle=c;g.fillRect(x,y,w,h);};
+  const s=sz/16;
+  const speck=(c,dens)=>{for(let k=0;k<sz*sz*dens;k++){const x=(k*7+3)%sz,y=(k*13+5)%sz;px(x,y,c);} };
+  if(/herbe$|herbe_haute/.test(n)){ speck('#3e7a34',0.10); if(n==='herbe_haute'){for(let x=1;x<sz;x+=3)px(x,sz-2*s|0,'#2f6d28',1,2*s);} }
+  else if(n==='fleurs'){ speck('#3e7a34',0.08); ['#e8d24a','#d9566a','#e0e0e0'].forEach((c,k)=>px((3+k*5)*s,(4+k*3)*s,c,2*s,2*s)); }
+  else if(n==='chemin'||n==='terre'){ speck('#9c7640',0.12); }
+  else if(n==='pont'){ for(let x=0;x<sz;x+=3*s)px(x,0,'#6a4320',1,sz); }
+  else if(n==='eau'||n==='eau_nat'){ for(let y=2;y<sz;y+=4*s)px(0,y,'#bfe0ff',sz,1*s); }
+  else if(n==='arbre'){ g.fillStyle='#2f5d2a';g.beginPath();g.arc(sz/2,sz/2-1*s,sz/2-1*s,0,7);g.fill(); px(sz/2-1*s,sz-3*s,'#5a3a1c',2*s,3*s); g.fillStyle='#3e7a34';g.beginPath();g.arc(sz/2-2*s,sz/2-2*s,sz/4,0,7);g.fill(); }
+  else if(/^toit/.test(n)){ for(let y=0;y<sz;y+=3*s)px(0,y,'rgba(0,0,0,.18)',sz,1*s); for(let x=0;x<sz;x+=4*s)px(x,0,'rgba(255,255,255,.10)',1,sz); }
+  else if(n==='mur'||n==='mur_brique'){ g.strokeStyle='rgba(0,0,0,.3)';for(let y=0;y<sz;y+=4*s){g.beginPath();g.moveTo(0,y);g.lineTo(sz,y);g.stroke();} for(let y=0;y<sz;y+=4*s){const off=((y/ (4*s))&1)?4*s:0;for(let x=off;x<sz;x+=8*s){g.beginPath();g.moveTo(x,y);g.lineTo(x,y+4*s);g.stroke();}} }
+  else if(n==='mur_bois'){ for(let x=0;x<sz;x+=4*s)px(x,0,'rgba(0,0,0,.25)',1,sz); }
+  else if(n==='mur_crepi'){ speck('rgba(0,0,0,.08)',0.1); }
+  else if(n==='paves'){ g.strokeStyle='rgba(0,0,0,.3)';for(let y=0;y<sz;y+=5*s)for(let x=0;x<sz;x+=5*s)g.strokeRect(x,y,5*s,5*s); }
+  else if(n==='fenetre'){ px(2*s,2*s,'#2a3b52',sz-4*s,sz-4*s); px(sz/2-0.5,2*s,'#1a2636',1,sz-4*s); px(2*s,sz/2-0.5,'#1a2636',sz-4*s,1); }
+  else if(n==='porte'){ px(3*s,2*s,'#5a3a1c',sz-6*s,sz-2*s); px(sz-5*s,sz/2,'#e8d24a',1*s,1*s); }
+  else if(n==='enseigne'){ px(3*s,3*s,'#caa14a',sz-6*s,sz-7*s); }
+  else if(n==='rempart'||n==='tour'){ g.strokeStyle='rgba(0,0,0,.35)';for(let y=0;y<sz;y+=5*s){g.beginPath();g.moveTo(0,y);g.lineTo(sz,y);g.stroke();} for(let x=0;x<sz;x+=4*s)px(x,0,'#8f8f99',2*s,2*s); }
+  else if(n==='comptoir'||n==='table'){ for(let y=1;y<sz;y+=2*s)px(0,y,'rgba(255,255,255,.08)',sz,1); g.strokeStyle='rgba(0,0,0,.4)';g.strokeRect(0.5,0.5,sz-1,sz-1); }
+  else if(n==='tonneau'){ g.fillStyle='#8a5e32';g.beginPath();g.arc(sz/2,sz/2,sz/2-2*s,0,7);g.fill(); px(2*s,sz/2-0.5,'#5a3a1c',sz-4*s,1); }
+  else if(n==='bouteilles'){ ['#5aa06a','#9c4a4a','#4a7aa0'].forEach((c,k)=>px((3+k*4)*s,4*s,c,2*s,sz-6*s)); }
+  else if(n==='tabouret'){ g.fillStyle='#6a4a2a';g.beginPath();g.arc(sz/2,sz/2,sz/4,0,7);g.fill(); }
+  // bord
+  g.strokeStyle='rgba(0,0,0,.25)';g.strokeRect(0.5,0.5,sz-1,sz-1);
+}
+const TILETHUMB=[];
+for(let i=0;i<NAMES.length;i++){ const c=document.createElement('canvas');c.width=c.height=32;drawTileInto(c,i,32);TILETHUMB[i]=c; }
+
+/* =======================================================================
+   ÉDITEUR DE CARTE
+   ======================================================================= */
+let map=null, selTile=0, mapTool='paint', CELL=22;
+const mapcv=document.getElementById('mapcv'), mctx=mapcv.getContext('2d');
+function cloneMap(m){ return {id:m.id,loc:m.loc,w:m.w,h:m.h,px:m.px,py:m.py,tiles:m.tiles.slice(),
+   spawns:m.spawns.map(s=>({...s})),portals:m.portals.map(p=>({...p}))}; }
+function loadMapByIndex(i){ map=cloneMap(DATA.maps[i]); mw.value=map.w; mh.value=map.h; mapsel.value=i; fitCell(); renderMap(); }
+function blankMap(){ const w=+mw.value,h=+mh.value; map={id:"MAP_NEW",loc:0,w,h,px:1,py:1,tiles:new Array(w*h).fill(0),spawns:[],portals:[]}; fitCell(); renderMap(); }
+function fitCell(){ CELL=Math.max(10,Math.min(26,Math.floor(760/map.w))); }
+function renderMap(){
+  mapcv.width=map.w*CELL; mapcv.height=map.h*CELL; mctx.imageSmoothingEnabled=false;
+  for(let y=0;y<map.h;y++)for(let x=0;x<map.w;x++){
+    const t=map.tiles[y*map.w+x]||0;
+    mctx.drawImage(TILETHUMB[t]||TILETHUMB[0], x*CELL,y*CELL,CELL,CELL);
+  }
+  if(showgrid.checked){ mctx.strokeStyle='rgba(0,0,0,.25)'; for(let x=0;x<=map.w;x++){mctx.beginPath();mctx.moveTo(x*CELL,0);mctx.lineTo(x*CELL,map.h*CELL);mctx.stroke();} for(let y=0;y<=map.h;y++){mctx.beginPath();mctx.moveTo(0,y*CELL);mctx.lineTo(map.w*CELL,y*CELL);mctx.stroke();} }
+  if(showobj.checked){
+    // portails
+    map.portals.forEach(p=>{ mctx.fillStyle='rgba(120,80,200,.55)';mctx.fillRect(p.x*CELL,p.y*CELL,CELL,CELL); tag(p.x,p.y,'⇄','#eadcff'); });
+    // spawns
+    map.spawns.forEach(s=>{ mctx.fillStyle='rgba(60,120,220,.5)';mctx.beginPath();mctx.arc(s.x*CELL+CELL/2,s.y*CELL+CELL/2,CELL/2.6,0,7);mctx.fill(); tag(s.x,s.y,(s.npc), '#eef'); });
+    // départ
+    mctx.strokeStyle='#ffd24a';mctx.lineWidth=2;mctx.strokeRect(map.px*CELL+1,map.py*CELL+1,CELL-2,CELL-2); tag(map.px,map.py,'▲','#ffd24a');
+    mctx.lineWidth=1;
+  }
+  mapstatus.textContent=`${map.id} — ${map.w}×${map.h} — départ (${map.px},${map.py}) — ${map.spawns.length} PNJ, ${map.portals.length} portail(s) — pinceau: ${NAMES[selTile]} — outil: ${mapTool}`;
+}
+function tag(x,y,txt,col){ mctx.fillStyle=col;mctx.font=`bold ${Math.max(8,CELL*0.5)}px monospace`;mctx.textAlign='center';mctx.textBaseline='middle';mctx.fillText(''+txt,x*CELL+CELL/2,y*CELL+CELL/2); }
+function buildPal(){ const pal=document.getElementById('pal');pal.innerHTML='';
+  NAMES.forEach((nm,i)=>{ const d=document.createElement('div');d.className='cell'+(i===selTile?' on':'');
+    const c=document.createElement('canvas');c.width=c.height=32;drawTileInto(c,i,32);
+    const lab=document.createElement('div');lab.className='nm';lab.textContent=i+' '+nm;
+    if(SOLID[i]){const so=document.createElement('div');so.className='so';so.textContent='■';so.title='solide';d.appendChild(so);}
+    d.appendChild(c);d.appendChild(lab);
+    d.onclick=()=>{selTile=i;buildPal();renderMap();};
+    pal.appendChild(d);
+  });
+}
+function mapCell(e){ const r=mapcv.getBoundingClientRect(); const t=e.touches?e.touches[0]:e;
+  return {x:Math.floor((t.clientX-r.left)/CELL),y:Math.floor((t.clientY-r.top)/CELL)}; }
+function objAt(x,y){ let i=map.spawns.findIndex(s=>s.x===x&&s.y===y); if(i>=0)return{kind:'spawn',i};
+  i=map.portals.findIndex(p=>p.x===x&&p.y===y); if(i>=0)return{kind:'portal',i}; return null; }
+function applyMap(x,y){
+  if(x<0||y<0||x>=map.w||y>=map.h)return;
+  if(mapTool==='paint') map.tiles[y*map.w+x]=selTile;
+  else if(mapTool==='erase') map.tiles[y*map.w+x]=0;
+  else if(mapTool==='pick'){ selTile=map.tiles[y*map.w+x]||0; buildPal(); }
+  else if(mapTool==='fill'){ flood(x,y,map.tiles[y*map.w+x],selTile); }
+  else if(mapTool==='start'){ map.px=x;map.py=y; }
+  else if(mapTool==='spawn'){ if(!objAt(x,y)) map.spawns.push({npc:+npcid.value,x,y}); }
+  else if(mapTool==='portal'){ if(!objAt(x,y)) map.portals.push({x,y,loc:+pt_loc.value,sx:+pt_sx.value,sy:+pt_sy.value}); }
+  else if(mapTool==='delobj'){ const o=objAt(x,y); if(o){ if(o.kind==='spawn')map.spawns.splice(o.i,1); else map.portals.splice(o.i,1);} }
+  renderMap();
+}
+function flood(x,y,from,to){ if(from===to)return; const st=[[x,y]];
+  while(st.length){ const[cx,cy]=st.pop(); if(cx<0||cy<0||cx>=map.w||cy>=map.h)continue;
+    if(map.tiles[cy*map.w+cx]!==from)continue; map.tiles[cy*map.w+cx]=to; st.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]); } }
+let mdown=false;
+mapcv.addEventListener('pointerdown',e=>{mdown=true;const c=mapCell(e);applyMap(c.x,c.y);});
+mapcv.addEventListener('pointermove',e=>{if(!mdown)return;const c=mapCell(e);if(['paint','erase'].includes(mapTool))applyMap(c.x,c.y);});
+window.addEventListener('pointerup',()=>mdown=false);
+function setMapTool(t,btn){ mapTool=t; document.querySelectorAll('#v-map .box:nth-child(2) .btn').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); portalform.style.display=(t==='portal')?'flex':'none'; renderMap(); }
+t_paint.onclick=e=>setMapTool('paint',e.target); t_fill.onclick=e=>setMapTool('fill',e.target);
+t_erase.onclick=e=>setMapTool('erase',e.target); t_pick.onclick=e=>setMapTool('pick',e.target);
+t_start.onclick=e=>setMapTool('start',e.target); t_spawn.onclick=e=>setMapTool('spawn',e.target);
+t_portal.onclick=e=>setMapTool('portal',e.target); t_delobj.onclick=e=>setMapTool('delobj',e.target);
+mapsel.onchange=()=>loadMapByIndex(+mapsel.value);
+newmap.onclick=blankMap; reloadmap.onclick=()=>loadMapByIndex(+mapsel.value);
+resize.onclick=()=>{ const nw=+mw.value,nh=+mh.value,nt=new Array(nw*nh).fill(0);
+  for(let y=0;y<Math.min(nh,map.h);y++)for(let x=0;x<Math.min(nw,map.w);x++)nt[y*nw+x]=map.tiles[y*map.w+x];
+  map.w=nw;map.h=nh;map.tiles=nt;map.spawns=map.spawns.filter(s=>s.x<nw&&s.y<nh);map.portals=map.portals.filter(p=>p.x<nw&&p.y<nh);fitCell();renderMap(); };
+showgrid.onchange=renderMap; showobj.onchange=renderMap;
+function mapCpp(){
+  const n=map.id.replace('MAP_','').replace(/^0+/,'')||'0'; const idx=DATA.maps.findIndex(m=>m.id===map.id);
+  const N = idx>=0?idx:'X';
+  let s=`// ${map.id} — ${map.w}x${map.h} — collez dans asteria_maps.h (remplace MAP${N}_*)\n`;
+  s+=`static const uint8_t MAP${N}_T[]={`+map.tiles.join(", ")+`};\n`;
+  s+=`static const Spawn MAP${N}_S[]={`+(map.spawns.length?map.spawns.map(o=>`{${o.npc},${o.x},${o.y}}`).join(", "):`{-1,0,0}`)+`};\n`;
+  s+=`static const Portal MAP${N}_P[]={`+map.portals.map(p=>`{${p.x},${p.y},${p.loc},${p.sx},${p.sy}}`).join(", ")+`};\n`;
+  s+=`// ligne table: {"${map.id}",${map.loc},${map.w},${map.h},${map.px},${map.py},MAP${N}_T,MAP${N}_S,${map.spawns.length||1},MAP${N}_P,${map.portals.length}}\n`;
+  return s;
+}
+expCpp.onclick=()=>{mapout.value=mapCpp();mapout.select();};
+expJson.onclick=()=>{mapout.value=JSON.stringify(map,null,1);mapout.select();};
+impJson.onclick=()=>{try{const o=JSON.parse(mapout.value);map=cloneMap(o);mw.value=map.w;mh.value=map.h;fitCell();renderMap();}catch(e){alert('JSON invalide: '+e);}};
+
+/* =======================================================================
+   ÉDITEUR DE SPRITE / TUILE
+   ======================================================================= */
+let SZ=16, sprPix=null, sprTool='pen', curColor=[217,164,65], SCELL=20;
+const sprcv=document.getElementById('sprcv'),sctx=sprcv.getContext('2d');
+const sprprev=document.getElementById('sprprev'),pctx=sprprev.getContext('2d');
+let swatches=[[217,164,65],[90,60,30],[46,110,58],[200,60,50],[60,80,120],[230,220,180],[20,16,12],[255,0,255]];
+function newSpr(sz){ SZ=sz; sprPix=new Array(sz*sz).fill(null); SCELL=Math.max(8,Math.floor(360/sz)); renderSpr(); }
+function renderSpr(){
+  sprcv.width=SZ*SCELL;sprcv.height=SZ*SCELL;sctx.imageSmoothingEnabled=false;
+  for(let y=0;y<SZ;y++)for(let x=0;x<SZ;x++){
+    const p=sprPix[y*SZ+x];
+    // damier transparent
+    sctx.fillStyle=((x+y)&1)?'#201a12':'#2a2217'; sctx.fillRect(x*SCELL,y*SCELL,SCELL,SCELL);
+    if(p){ sctx.fillStyle=rgb2hex(p[0],p[1],p[2]); sctx.fillRect(x*SCELL,y*SCELL,SCELL,SCELL); }
+  }
+  sctx.strokeStyle='rgba(255,255,255,.07)';for(let i=0;i<=SZ;i++){sctx.beginPath();sctx.moveTo(i*SCELL,0);sctx.lineTo(i*SCELL,SZ*SCELL);sctx.stroke();sctx.beginPath();sctx.moveTo(0,i*SCELL);sctx.lineTo(SZ*SCELL,i*SCELL);sctx.stroke();}
+  sprprev.width=SZ;sprprev.height=SZ;pctx.clearRect(0,0,SZ,SZ);
+  for(let y=0;y<SZ;y++)for(let x=0;x<SZ;x++){const p=sprPix[y*SZ+x];if(p){pctx.fillStyle=rgb2hex(p[0],p[1],p[2]);pctx.fillRect(x,y,1,1);}}
+  sprstatus.textContent=`${SZ}×${SZ} — outil: ${sprTool} — couleur ${rgb2hex(...curColor)}`;
+}
+function buildSwatches(el,arr,pick){ el.innerHTML=''; arr.forEach((c,i)=>{const d=document.createElement('div');d.className='sw';
+  const isKey=(c[0]===255&&c[1]===0&&c[2]===255); d.style.background=isKey?'#ff00ff':rgb2hex(...c);
+  if(isKey)d.title='transparent'; d.onclick=()=>pick(c);el.appendChild(d);}); }
+function sprCell(e){const r=sprcv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:Math.floor((t.clientX-r.left)/SCELL),y:Math.floor((t.clientY-r.top)/SCELL)};}
+function applySpr(x,y){ if(x<0||y<0||x>=SZ||y>=SZ)return; const idx=y*SZ+x;
+  if(sprTool==='pen') sprPix[idx]=curColor.slice();
+  else if(sprTool==='erase') sprPix[idx]=null;
+  else if(sprTool==='pick'){ if(sprPix[idx]){curColor=sprPix[idx].slice();colpick.value=rgb2hex(...curColor);colhex.textContent=colpick.value;} }
+  else if(sprTool==='fill'){ floodSpr(x,y,sprPix[idx]); }
+  renderSpr();
+}
+function sameC(a,b){ if(!a&&!b)return true; if(!a||!b)return false; return a[0]===b[0]&&a[1]===b[1]&&a[2]===b[2]; }
+function floodSpr(x,y,from){ const to=curColor.slice(); if(sameC(from,to))return; const st=[[x,y]];
+  while(st.length){const[cx,cy]=st.pop();if(cx<0||cy<0||cx>=SZ||cy>=SZ)continue;if(!sameC(sprPix[cy*SZ+cx],from))continue;sprPix[cy*SZ+cx]=to.slice();st.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);} }
+let sdown=false;
+sprcv.addEventListener('pointerdown',e=>{sdown=true;const c=sprCell(e);applySpr(c.x,c.y);});
+sprcv.addEventListener('pointermove',e=>{if(!sdown)return;const c=sprCell(e);if(['pen','erase'].includes(sprTool))applySpr(c.x,c.y);});
+window.addEventListener('pointerup',()=>sdown=false);
+function setSprTool(t,btn){sprTool=t;['s_pen','s_fill','s_pick','s_erase'].forEach(id=>document.getElementById(id).classList.remove('on'));btn.classList.add('on');renderSpr();}
+s_pen.onclick=e=>setSprTool('pen',e.target);s_fill.onclick=e=>setSprTool('fill',e.target);
+s_pick.onclick=e=>setSprTool('pick',e.target);s_erase.onclick=e=>setSprTool('erase',e.target);
+colpick.oninput=()=>{curColor=hex2rgb(colpick.value);colhex.textContent=colpick.value;};
+addsw.onclick=()=>{swatches.push(curColor.slice());buildSwatches(document.getElementById('swatches'),swatches,c=>{curColor=c.slice();colpick.value=rgb2hex(...c);colhex.textContent=colpick.value;});};
+setkey.onclick=()=>{curColor=[255,0,255];colpick.value='#ff00ff';colhex.textContent='#ff00ff (transparent)';};
+sprsize.onchange=()=>newSpr(+sprsize.value);
+sprclear.onclick=()=>newSpr(SZ);
+sprimport.onclick=()=>sprpng.click();
+sprpng.onchange=e=>{const f=e.target.files[0];if(!f)return;const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=c.height=SZ;const g=c.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(img,0,0,SZ,SZ);const d=g.getImageData(0,0,SZ,SZ).data;for(let i=0;i<SZ*SZ;i++){const a=d[i*4+3];sprPix[i]=a<128?null:[d[i*4],d[i*4+1],d[i*4+2]];}renderSpr();};img.src=URL.createObjectURL(f);};
+function sprToC(name){ let v=[]; for(let i=0;i<SZ*SZ;i++){const p=sprPix[i];v.push(p?rgb2bgr565(p[0],p[1],p[2]):KEY565);}
+  let rows=[];for(let i=0;i<v.length;i+=SZ)rows.push(v.slice(i,i+SZ).map(q=>'0x'+q.toString(16).toUpperCase().padStart(4,'0')).join(','));
+  return `static const uint16_t ${name}[] = {\n  `+rows.join(',\n  ')+`\n};\n// {${name}, ${SZ}, ${SZ}}  (clé transp. 0x${KEY565.toString(16).toUpperCase()})`;
+}
+sprExpC.onclick=()=>{sprout.value=sprToC('SPR_TILE');sprout.select();};
+sprExpPng.onclick=()=>{const c=document.createElement('canvas');c.width=c.height=SZ;const g=c.getContext('2d');for(let y=0;y<SZ;y++)for(let x=0;x<SZ;x++){const p=sprPix[y*SZ+x];if(p){g.fillStyle=rgb2hex(p[0],p[1],p[2]);g.fillRect(x,y,1,1);}}const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='sprite.png';a.click();};
+
+/* =======================================================================
+   ÉDITEUR DE PERSONNAGE (planche 4 dir × 3 frames)
+   ======================================================================= */
+const CSZ=16, NDIR=4, NFR=3;
+let chrDir=0, chrFr=0, chrTool='pen', chrColor=[202,163,106];
+let chrSheet=Array.from({length:NDIR*NFR},()=>new Array(CSZ*CSZ).fill(null));
+const chrcv=document.getElementById('chrcv'),hctx=chrcv.getContext('2d');
+const sheetcv=document.getElementById('chrsheet'),shctx=sheetcv.getContext('2d');
+let CCELL=Math.floor(360/CSZ);
+function frIndex(){ return chrDir*NFR+chrFr; }
+function renderChr(){
+  chrcv.width=CSZ*CCELL;chrcv.height=CSZ*CCELL;hctx.imageSmoothingEnabled=false;
+  const px=chrSheet[frIndex()];
+  for(let y=0;y<CSZ;y++)for(let x=0;x<CSZ;x++){ hctx.fillStyle=((x+y)&1)?'#201a12':'#2a2217';hctx.fillRect(x*CCELL,y*CCELL,CCELL,CCELL);
+    const p=px[y*CSZ+x];if(p){hctx.fillStyle=rgb2hex(...p);hctx.fillRect(x*CCELL,y*CCELL,CCELL,CCELL);} }
+  hctx.strokeStyle='rgba(255,255,255,.07)';for(let i=0;i<=CSZ;i++){hctx.beginPath();hctx.moveTo(i*CCELL,0);hctx.lineTo(i*CCELL,CSZ*CCELL);hctx.stroke();hctx.beginPath();hctx.moveTo(0,i*CCELL);hctx.lineTo(CSZ*CCELL,i*CCELL);hctx.stroke();}
+  // planche entière
+  sheetcv.width=NFR*CSZ*2;sheetcv.height=NDIR*CSZ*2;shctx.imageSmoothingEnabled=false;
+  for(let d=0;d<NDIR;d++)for(let f=0;f<NFR;f++){const pp=chrSheet[d*NFR+f];for(let y=0;y<CSZ;y++)for(let x=0;x<CSZ;x++){const p=pp[y*CSZ+x];if(p){shctx.fillStyle=rgb2hex(...p);shctx.fillRect((f*CSZ+x)*2,(d*CSZ+y)*2,2,2);}}}
+  shctx.strokeStyle='rgba(217,164,65,.5)';shctx.strokeRect(chrFr*CSZ*2,chrDir*CSZ*2,CSZ*2,CSZ*2);
+  chrstatus.textContent=`${['bas','haut','gauche','droite'][chrDir]} / frame ${chrFr+1} — ${CSZ}×${CSZ} — ${rgb2hex(...chrColor)}`;
+  buildFrameBtns();
+}
+function buildFrameBtns(){ const el=document.getElementById('c_frames');el.innerHTML='';
+  for(let f=0;f<NFR;f++){const b=document.createElement('button');b.className='btn'+(f===chrFr?' on':'');b.textContent=(f+1);b.onclick=()=>{chrFr=f;renderChr();};el.appendChild(b);} }
+function chrCell(e){const r=chrcv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:Math.floor((t.clientX-r.left)/CCELL),y:Math.floor((t.clientY-r.top)/CCELL)};}
+function applyChr(x,y){if(x<0||y<0||x>=CSZ||y>=CSZ)return;const px=chrSheet[frIndex()],idx=y*CSZ+x;
+  if(chrTool==='pen')px[idx]=chrColor.slice();else if(chrTool==='erase')px[idx]=null;
+  else if(chrTool==='pick'){if(px[idx]){chrColor=px[idx].slice();c_col.value=rgb2hex(...chrColor);c_colhex.textContent=c_col.value;}}
+  else if(chrTool==='fill'){const from=px[idx];if(!sameC(from,chrColor)){const st=[[x,y]];while(st.length){const[cx,cy]=st.pop();if(cx<0||cy<0||cx>=CSZ||cy>=CSZ)continue;if(!sameC(px[cy*CSZ+cx],from))continue;px[cy*CSZ+cx]=chrColor.slice();st.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);}}}
+  renderChr();}
+let hdown=false;
+chrcv.addEventListener('pointerdown',e=>{hdown=true;const c=chrCell(e);applyChr(c.x,c.y);});
+chrcv.addEventListener('pointermove',e=>{if(!hdown)return;const c=chrCell(e);if(['pen','erase'].includes(chrTool))applyChr(c.x,c.y);});
+window.addEventListener('pointerup',()=>hdown=false);
+function setChrTool(t,btn){chrTool=t;['cp_pen','cp_fill','cp_pick','cp_erase'].forEach(id=>document.getElementById(id).classList.remove('on'));btn.classList.add('on');}
+cp_pen.onclick=e=>setChrTool('pen',e.target);cp_fill.onclick=e=>setChrTool('fill',e.target);
+cp_pick.onclick=e=>setChrTool('pick',e.target);cp_erase.onclick=e=>setChrTool('erase',e.target);
+cp_clear.onclick=()=>{chrSheet[frIndex()]=new Array(CSZ*CSZ).fill(null);renderChr();};
+c_dir.onchange=()=>{chrDir=+c_dir.value;renderChr();};
+c_col.oninput=()=>{chrColor=hex2rgb(c_col.value);c_colhex.textContent=c_col.value;};
+c_setkey.onclick=()=>{chrColor=[255,0,255];c_col.value='#ff00ff';c_colhex.textContent='#ff00ff';};
+chrExpFiche.onclick=()=>{ const o={name:c_name.value,kind:c_kind.value,IN:+c_in.value,CO:+c_co.value,MA:+c_ma.value,AU:+c_au.value,VIT:+c_vit.value,BLd:+c_bld.value,notes:c_notes.value};
+  let s=`// Fiche ${o.name} (${o.kind})\n`;
+  if(o.kind==='mon') s+=`// {name,VIT,CO,BLd,...} -> adapter à asteria_monster.h\n{"${o.name}", ${o.VIT}, ${o.CO}, ${o.BLd}},\n\n`;
+  s+=JSON.stringify(o,null,1); chrout.value=s; chrout.select(); };
+chrExpGrid.onclick=()=>{ // export RGB565 "grid" façon bake_sprites (DIR][FRAME)
+  let L=[]; const dirn=['bas','haut','gauche','droite'];
+  for(let d=0;d<NDIR;d++)for(let f=0;f<NFR;f++){ const px=chrSheet[d*NFR+f]; let v=[];
+    for(let i=0;i<CSZ*CSZ;i++){const p=px[i];v.push(p?rgb2bgr565(p[0],p[1],p[2]):KEY565);}
+    let rows=[];for(let i=0;i<v.length;i+=CSZ)rows.push(v.slice(i,i+CSZ).map(q=>'0x'+q.toString(16).toUpperCase().padStart(4,'0')).join(','));
+    L.push(`static const uint16_t CHR_${dirn[d]}_${f}[] = {\n  `+rows.join(',\n  ')+`\n};`); }
+  let meta=`// Sprite grid ${NDIR}x${NFR}, ${CSZ}x${CSZ}, clé 0x${KEY565.toString(16).toUpperCase()}\n`;
+  meta+=`// static const Sprite CHR[4][3]={ {dir bas f0..f2}, {haut}, {gauche}, {droite} };\n`;
+  chrout.value=meta+L.join('\n'); chrout.select(); };
+buildSwatches(document.getElementById('c_swatches'),swatches,c=>{chrColor=c.slice();c_col.value=rgb2hex(...c);c_colhex.textContent=c_col.value;});
+
+/* ---------------- boot ---------------- */
+mapsel.innerHTML=DATA.maps.map((m,i)=>`<option value="${i}">${m.id} — ${['Valbois','Auberge','?','?','?','?','?','?','Forêt de Brume','Vallée','Grand-Castel'][m.loc]||('loc '+m.loc)} (${m.w}×${m.h})</option>`).join('');
+buildPal(); loadMapByIndex(0);
+newSpr(16); buildSwatches(document.getElementById('swatches'),swatches,c=>{curColor=c.slice();colpick.value=rgb2hex(...c);colhex.textContent=colpick.value;});
+renderChr();
+</script>
+</body>
+</html>

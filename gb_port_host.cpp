@@ -60,3 +60,11 @@ int read_text(const char* path, char* out, int maxlen){
     FILE* f=fopen(s.c_str(),"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
 }
 }
+
+namespace gb {
+// Audio silencieux côté host (captures/tests reproductibles, pas de son).
+void audio_init(){}
+void tone_music(float, float, uint16_t, uint8_t){}
+void tone_sfx(float, float, uint16_t, uint8_t){}
+void audio_stop(){}
+}

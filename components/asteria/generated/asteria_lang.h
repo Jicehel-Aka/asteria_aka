@@ -2,7 +2,7 @@
 namespace asteria { namespace i18n {
 enum Lang { FR=0, EN=1, ES=2, DE=3, IT=4, LANG_COUNT=5 };
 enum StrId {
-  MENU_NEW, MENU_CONT, MENU_RULES, MENU_OPT, MENU_QUIT, MENU_EDITOR, LANG_NAME, CR_TITLE, CR_PRESET, CR_CUSTOM, CR_VALID_B, CR_POINTS_T, CR_REMAIN, CR_VALIDATE, CR_BACK, CR_PM_HINT, CR_SHEET, CR_WEAPON, CR_SPELLS1, CR_SPELLS2, CR_START, CB_ATTACK, CB_MAGIC, CB_ITEM, CB_FLEE, CB_NEXT, CB_SOINS, CB_STUN, CB_REPEL, CB_CAST_H, CB_POWER, SH_TITLE, SH_GOLD, SH_HINT, SH_BOUGHT, SH_NOGOLD, IN_TITLE, IN_REST, IN_RUMORS, IN_EXIT, IN_HINT, IN_RESTED, DI_TITLE, DI_BET, DI_HINT, DI_YOU, DI_HOUSE, DI_AGAIN, W_EVENT, W_CONT, W_DLG_H, W_QUIT_Q, W_YESNO, W_QUEST, W_QDONE, W_CLOSED, OPT_LANG, ED_TITLE, ED_TOOL, ED_T_PAINT, ED_T_START, ED_T_SPAWN, ED_T_PORTAL, ED_T_CHEST, ED_TILE, ED_EXPORTED, ED_HINT1, ED_HINT2, ED_HUB_MAP, ED_HUB_SPR, ED_MAP, ED_COLOR, ED_ASSET, ED_CAT_TILE, ED_CAT_HERO, ED_CAT_NPC, ED_CAT_MON, ED_OV_EXPORT, ED_OV_NEXTMAP, ED_OV_RELOAD, ED_OV_NEXTSPR, ED_OV_BACK, ED_SPR_HINT, ED_SPR_EXP, ED_RELOADED, STR_COUNT
+  MENU_NEW, MENU_CONT, MENU_RULES, MENU_OPT, MENU_QUIT, MENU_EDITOR, LANG_NAME, CR_TITLE, CR_PRESET, CR_CUSTOM, CR_VALID_B, CR_POINTS_T, CR_REMAIN, CR_VALIDATE, CR_BACK, CR_PM_HINT, CR_SHEET, CR_WEAPON, CR_SPELLS1, CR_SPELLS2, CR_START, CB_ATTACK, CB_MAGIC, CB_ITEM, CB_FLEE, CB_NEXT, CB_SOINS, CB_STUN, CB_REPEL, CB_CAST_H, CB_POWER, SH_TITLE, SH_GOLD, SH_HINT, SH_BOUGHT, SH_NOGOLD, IN_TITLE, IN_REST, IN_RUMORS, IN_EXIT, IN_HINT, IN_RESTED, DI_TITLE, DI_BET, DI_HINT, DI_YOU, DI_HOUSE, DI_AGAIN, W_EVENT, W_CONT, W_DLG_H, W_QUIT_Q, W_YESNO, W_QUEST, W_QDONE, W_CLOSED, OPT_LANG, ED_TITLE, ED_TOOL, ED_T_PAINT, ED_T_START, ED_T_SPAWN, ED_T_PORTAL, ED_T_CHEST, ED_TILE, ED_EXPORTED, ED_HINT1, ED_HINT2, ED_HUB_MAP, ED_HUB_SPR, ED_MAP, ED_COLOR, ED_ASSET, ED_CAT_TILE, ED_CAT_HERO, ED_CAT_NPC, ED_CAT_MON, ED_OV_EXPORT, ED_OV_NEXTMAP, ED_OV_RELOAD, ED_OV_NEXTSPR, ED_OV_BACK, ED_SPR_HINT, ED_SPR_EXP, ED_RELOADED, GO_TITLE, GO_SUB, GO_LEVEL, GO_GOLD, GO_CONT, STR_COUNT
 };
 static const char* const STR[STR_COUNT][LANG_COUNT] = {
   {"Nouvelle partie", "New game", "Nueva partida", "Neues Spiel", "Nuova partita"},
@@ -90,6 +90,11 @@ static const char* const STR[STR_COUNT][LANG_COUNT] = {
   {"A: peindre  B: couleur  MENU: sprite", "A: paint  B: color  MENU: sprite", "A: pintar  B: color  MENU: sprite", "A: malen  B: Farbe  MENU", "A: dipingi  B: colore  MENU"},
   {"Exporte -> export_sprite.txt", "Exported -> export_sprite.txt", "Exportado -> export_sprite.txt", "Export -> export_sprite.txt", "Esportato -> export_sprite.txt"},
   {"Carte rechargee", "Map reloaded", "Mapa recargado", "Karte geladen", "Mappa ricaricata"},
+  {"VOUS ETES MORT", "YOU DIED", "HAS MUERTO", "DU BIST TOT", "SEI MORTO"},
+  {"Les tenebres vous emportent...", "Darkness takes you...", "Las tinieblas te llevan...", "Die Finsternis holt dich...", "Le tenebre ti avvolgono..."},
+  {"Niveau", "Level", "Nivel", "Stufe", "Livello"},
+  {"Or amasse :", "Gold gathered :", "Oro reunido :", "Gold gesammelt :", "Oro raccolto :"},
+  {"A : recommencer", "A : try again", "A : reintentar", "A : neu starten", "A : riprova"},
 };
 }
 }

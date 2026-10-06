@@ -11,6 +11,17 @@ bash build_pc.sh          # produit ./asteria_pc (et ./asteria_host pour les cap
 - **Linux** : `sudo apt install libsdl2-dev`
 - **MSYS2 (Windows)** : `pacman -S mingw-w64-x86_64-SDL2` puis lancer depuis le shell MinGW64
 
+### Contenu du paquet de release
+Tout le jeu (cartes, sprites, textures donjon, i18n) est **baké dans l'exe**. Pour l'exécuter il faut :
+- **Windows** (`ASTERIA_Windows.zip`) : `asteria_pc.exe` + `SDL2.dll` + 3 DLL runtime MinGW
+  (`libstdc++-6.dll`, `libgcc_s_seh-1.dll`, `libwinpthread-1.dll`) + le dossier `sdcard_files/`.
+  → tout est déjà dans le zip ; double-cliquer `asteria_pc.exe`.
+- **Linux** (`ASTERIA_Linux.zip`) : `asteria_pc` + `sdcard_files/`. SDL2 doit être installé
+  sur la machine : `sudo apt install libsdl2-2.0-0`. Lancer depuis le dossier : `./asteria_pc`.
+- `sdcard_files/` (écran-titre `TITLE.BMP` + fonds de combat) est **optionnel** : sans lui le jeu
+  tourne, mais les fonds sont remplacés par une couleur unie. Il doit être **à côté de l'exe**
+  (le jeu cherche `./sdcard_files/...`).
+
 ### Console AKA (ESP-IDF)
 ```bash
 cd asteria_aka

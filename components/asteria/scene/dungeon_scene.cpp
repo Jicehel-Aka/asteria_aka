@@ -173,10 +173,16 @@ void DungeonScene::generate(){
   vx=px+0.5f; vy=py+0.5f; vdx=DX[face]; vdy=DY[face]; anim=false; pendEnc=false; at=0.f;
   journal("Mine humide."); journal("Chef au fond.");
 }
-void DungeonScene::enter(){ if(!gen){ rng=gb::millis()|1u; generate(); } }
+void DungeonScene::enter(){ if(!gen){ rng=gb::millis()|1u; generate(); }
+  // Q6 La Vieille Mine : démarrage + objectif « Explorer » (si pas déjà finie).
+  if(quest_status(6)==0) quest_start(6);
+  if(quest_status(6)==1) quest_set_obj(6,0);
+}
 
 static void exit_forest(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(1); w.px=10; w.py=2; m.set(SceneId::WORLD); }
-static void exit_gc(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(4); w.px=15; w.py=22; m.set(SceneId::WORLD); }
+// Après le boss : on débouche sur la Route Royale (loc 20, carte index 5),
+// pas directement sur Grand-Castel. Verrou : Clef du Puits + niveau 5.
+static void exit_route(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(5); w.px=9; w.py=16; m.set(SceneId::WORLD); }
 
 void DungeonScene::update(SceneManager& m){
   if(anim){                                  // animation de pas / rotation en cours
@@ -202,8 +208,10 @@ void DungeonScene::update(SceneManager& m){
       anim=true; animKind=1; at=0.f; afx=vx; afy=vy; atx=px+0.5f; aty=py+0.5f; afdx=atdx=vdx; afdy=atdy=vdy; pendEnc=true; }
     else journal("Un mur."); return; }
   if(p&gb::BTN_A){ int fx=px+DX[face], fy=py+DY[face];
-    if(fx==bx&&fy==by && !flag_get("boss_mine")){ set_combat_return(SceneId::DUNGEON); start_combat(9,"/sdcard/ASTERIA/battle/MINE_L.BMP"); m.set(SceneId::COMBAT); return; }
-    if(px==bx&&py==by && flag_get("boss_mine")){ exit_gc(m); return; }
+    if(fx==bx&&fy==by && !flag_get("boss_mine")){ if(quest_status(6)==1) quest_set_obj(6,3); set_combat_return(SceneId::DUNGEON); start_combat(9,"/sdcard/ASTERIA/battle/MINE_L.BMP"); m.set(SceneId::COMBAT); return; }
+    if(px==bx&&py==by && flag_get("boss_mine")){
+      if(!player().inv.has(item_index("OBJ_0015"),1) || player().level<5){ journal("Sortie bloquee : Clef du Puits + niv.5."); }
+      else { exit_route(m); } return; }
     if(px==enx&&py==eny){ exit_forest(m); return; } }
   if(p&(gb::BTN_B|gb::BTN_MENU)){ exit_forest(m); return; }
 }

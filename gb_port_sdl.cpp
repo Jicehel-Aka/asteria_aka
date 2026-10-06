@@ -91,3 +91,72 @@ int read_text(const char* path, char* out, int maxlen){
     FILE* f=fopen(s.c_str(),"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
 }
 }
+
+// ---------------------------------------------------------------------------
+// Audio synthétisé SDL2 (sans SDL_mixer) : 2 voix (music, sfx) mixées dans le
+// callback. Mêmes mélodies/effets que l'AKA (le contenu est dans audio/jingle).
+// ---------------------------------------------------------------------------
+#include <cmath>
+namespace gb {
+struct Voice {
+  volatile bool    on=false;
+  volatile float   freq=0;        // Hz
+  volatile float   amp=0;         // 0..1
+  volatile uint8_t type=TONE_SQUARE;
+  volatile uint32_t total=0;      // échantillons de la note
+  volatile uint32_t idx=0;        // position courante
+  double  phase=0;                // accumulateur de phase (thread audio only)
+  uint32_t lfsr=0xACE1u;          // bruit
+};
+static Voice     s_music, s_sfx;
+static SDL_AudioDeviceID s_dev=0;
+static const int SR=44100;
+
+static float voice_sample(Voice& v){
+  if(!v.on) return 0.f;
+  if(v.idx>=v.total){ v.on=false; return 0.f; }
+  float t=(float)v.idx/(float)SR;
+  float s=0.f;
+  switch(v.type){
+    case TONE_SINE:   s=sinf(6.28318530718f*v.freq*t); break;
+    case TONE_SQUARE: s=(fmodf(v.freq*t,1.f)<0.5f)?1.f:-1.f; break;
+    case TONE_TRI:   { float p=fmodf(v.freq*t,1.f); s=4.f*fabsf(p-0.5f)-1.f; } break;
+    case TONE_NOISE: { v.lfsr=(v.lfsr>>1)^(-(int)(v.lfsr&1u)&0xB400u); s=((v.lfsr&0xFF)/127.5f)-1.f; } break;
+  }
+  // enveloppe anti-clic : 3 ms d'attaque / 6 ms de release
+  uint32_t atk=SR*3/1000, rel=SR*6/1000;
+  float env=1.f;
+  if(v.idx<atk) env=(float)v.idx/(float)atk;
+  else if(v.idx>v.total-rel) env=(float)(v.total-v.idx)/(float)rel;
+  v.idx++;
+  return s*v.amp*env;
+}
+
+static void audio_cb(void*, Uint8* stream, int len){
+  int16_t* out=(int16_t*)stream; int n=len/2;   // mono S16
+  for(int i=0;i<n;i++){
+    float m=voice_sample(s_music)*0.9f + voice_sample(s_sfx)*0.9f;
+    if(m>1.f)m=1.f; if(m<-1.f)m=-1.f;
+    out[i]=(int16_t)(m*30000.f);
+  }
+}
+
+void audio_init(){
+  if(s_dev) return;
+  if(SDL_InitSubSystem(SDL_INIT_AUDIO)!=0){ std::fprintf(stderr,"audio SDL indisponible: %s\n",SDL_GetError()); return; }
+  SDL_AudioSpec want{}, have{};
+  want.freq=SR; want.format=AUDIO_S16SYS; want.channels=1; want.samples=1024; want.callback=audio_cb;
+  s_dev=SDL_OpenAudioDevice(nullptr,0,&want,&have,0);
+  if(!s_dev){ std::fprintf(stderr,"OpenAudioDevice: %s (jeu sans son)\n",SDL_GetError()); return; }
+  SDL_PauseAudioDevice(s_dev,0);
+}
+static void set_voice(Voice& v,float f,float vol,uint16_t ms,uint8_t type){
+  if(!s_dev) return;
+  SDL_LockAudioDevice(s_dev);
+  v.freq=f; v.amp=vol; v.type=type; v.total=(uint32_t)((uint32_t)ms*SR/1000); v.idx=0; v.on=true;
+  SDL_UnlockAudioDevice(s_dev);
+}
+void tone_music(float f,float vol,uint16_t ms,uint8_t type){ set_voice(s_music,f,vol,ms,type); }
+void tone_sfx  (float f,float vol,uint16_t ms,uint8_t type){ set_voice(s_sfx,  f,vol,ms,type); }
+void audio_stop(){ if(!s_dev)return; SDL_LockAudioDevice(s_dev); s_music.on=false; s_sfx.on=false; SDL_UnlockAudioDevice(s_dev); }
+}
