@@ -123,7 +123,8 @@ int gb_ll_init_i2S()
         .dma_frame_num = GB_AUDIO_BUFFER_SAMPLE_COUNT, // 256 x 16b samples
         .auto_clear_after_cb = false,
         .auto_clear_before_cb = false,
-        .allow_pd = false,
+        // .allow_pd : champ ajoute en ESP-IDF 5.4 (retention en veille), absent en 5.3.
+        // Omis volontairement -> vaut false par defaut (init a zero) sur toutes les versions.
         .intr_priority = 3,
     };
 
