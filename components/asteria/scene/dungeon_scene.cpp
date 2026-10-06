@@ -10,6 +10,7 @@
 #include "generated/asteria_tiles.h"
 #include "generated/asteria_monster.h"
 #include "generated/asteria_dungeon_tex.h"
+#include "generated/asteria_dungeon_props.h"
 #include <cstdio>
 #include <cstring>
 #include <cmath>
@@ -64,7 +65,8 @@ static void floorCeil(DungeonScene& d,float posX,float posY,float dirX,float dir
     for(int x=0;x<VW;x++){ int cx=(int)fX, cy=(int)fY; if(fX<0)cx--; if(fY<0)cy--;
       int tx=((int)(dtex::TW*(fX-cx)))&TWm, ty=((int)(dtex::TH*(fY-cy)))&THm;
       gb::Color c=shade(FL[ty*TWt+tx],l);
-      if(cellAt(d,cx,cy)==5){ int b=(c>>11)&31,g=(c>>5)&63,r=c&31; b=b+(31-b)*3/5; g=g*3/5; r=r*2/5; c=(gb::Color)((b<<11)|(g<<5)|r); } // flaque
+      if(cellAt(d,cx,cy)==5){ int wl=l>270?270:l; int sh=((tx*5+ty*9)&7);   // flaque : eau sombre feutree, luminosite plafonnee (pas de bleu criard)
+        c=shade(gb::rgb(16+sh*2, 40+sh*2, 62+sh*3), wl); }
       gb::pixel(x,y,c); fX+=sX; fY+=sY; }
   }
   for(int y=0;y<CY;y++){
@@ -215,6 +217,7 @@ void DungeonScene::render(){
   float dirX=vdx, dirY=vdy, planeX=-vdy*0.66f, planeY=vdx*0.66f, posX=vx, posY=vy;
   floorCeil(*this,posX,posY,dirX,dirY,planeX,planeY,flick);
   int tcx[16],tcy[16],tmin[16],tmax[16],tH[16],tn=0;
+  static float zbuf[VW];
   for(int x=0;x<VW;x++){
     float camX=2.f*x/VW-1.f, rayX=dirX+planeX*camX, rayY=dirY+planeY*camX;
     int mapX=(int)posX, mapY=(int)posY;
@@ -226,6 +229,7 @@ void DungeonScene::render(){
     for(;;){ if(sdX<sdY){ sdX+=ddX; mapX+=stepX; side=0; } else { sdY+=ddY; mapY+=stepY; side=1; }
       cell=cellAt(*this,mapX,mapY); if(isWallC(cell)) break; if(++guard>40){cell=1;break;} }
     float perp=(side==0)?(sdX-ddX):(sdY-ddY); if(perp<0.08f)perp=0.08f;
+    zbuf[x]=perp;                               // profondeur du mur pour l'occlusion des billboards
     int H=(int)(VH/perp);
     float wallX=(side==0)?(posY+perp*rayY):(posX+perp*rayX); wallX-=floorf(wallX);
     int texX=(int)(wallX*dtex::TW); if((side==0&&rayX>0)||(side==1&&rayY<0)) texX=dtex::TW-1-texX;
@@ -246,6 +250,36 @@ void DungeonScene::render(){
       else { if(x<tmin[fi])tmin[fi]=x; if(x>tmax[fi])tmax[fi]=x; if(H>tH[fi])tH[fi]=H; } }
   }
   for(int k=0;k<tn;k++){ int cx=(tmin[k]+tmax[k])/2, H=tH[k], top=CY-H/2; int sz=H/9; if(sz<2)sz=2; if(sz>11)sz=11; torch(cx,top+H/4,sz,torchPh); }
+
+  // ---- DECOR (billboards) : etais, tonneaux, caisses, gravats, crane ----
+  // Collecte des cases a prop visibles, transformees en espace camera, triees de loin a pres.
+  { struct PV{ float ty,tx; int prop; }; PV vis[48]; int nv=0;
+    float invDet=1.f/(planeX*dirY - dirX*planeY);
+    for(int cy=0; cy<GH && nv<48; ++cy) for(int cx=0; cx<GW && nv<48; ++cx){
+      if(cell[cy*GW+cx]!=0) continue;                      // sol nu uniquement
+      if(cx==enx&&cy==eny) continue;
+      if(cx>=bx-1&&cy>=by-1) continue;                     // salle du boss degagee
+      int hh=hsh(cx*131+cy*57+777); if(hh%6!=0) continue;  // ~1 case sur 6
+      static const int TBL[8]={dprop::P_RUBBLE,dprop::P_BARREL,dprop::P_CRATE,dprop::P_TIMBER,dprop::P_RUBBLE,dprop::P_SKULL,dprop::P_BARREL,dprop::P_CRATE};
+      int prop=TBL[(hh/6)%8];
+      float rx=(cx+0.5f)-posX, ry=(cy+0.5f)-posY;
+      float tx=invDet*(dirY*rx - dirX*ry), ty=invDet*(-planeY*rx + planeX*ry);
+      if(ty>0.15f && ty<6.5f){ vis[nv++]={ty,tx,prop}; }
+    }
+    for(int i=0;i<nv-1;i++) for(int j=0;j<nv-1-i;j++) if(vis[j].ty<vis[j+1].ty){ PV t=vis[j];vis[j]=vis[j+1];vis[j+1]=t; }
+    for(int i=0;i<nv;i++){ float ty=vis[i].ty; int prop=vis[i].prop;
+      int pw=dprop::PW[prop], ph=dprop::PH[prop]; const uint16_t* T=dprop::PROP[prop];
+      int lineH=(int)(VH/ty); int sh=lineH*dprop::PF[prop]/100; int sw=sh*pw/ph; if(sh<2||sw<2) continue;
+      int screenX=(int)((VW/2)*(1.f+vis[i].tx/ty));
+      int feet=CY+lineH/2; int top=feet-sh, x0=screenX-sw/2;
+      float lf=1.20f-ty*0.14f; if(lf<0.14f)lf=0.14f; if(lf>1.3f)lf=1.3f; int l=(int)(lf*flick*256.f);
+      for(int sx=0;sx<sw;sx++){ int X=x0+sx; if(X<0||X>=VW) continue; if(!(ty<zbuf[X])) continue;
+        int tX=sx*pw/sw;
+        for(int sy=0;sy<sh;sy++){ int Y=top+sy; if(Y<0||Y>=240) continue; int tY=sy*ph/sh;
+          uint16_t c=T[tY*pw+tX]; if(c!=dprop::KEY) gb::pixel(X,Y,shade(c,l)); } }
+    }
+  }
+
   // boss / escalier en billboard si la ligne droit devant est degagee
   int cxg=px,cyg=py,dist=0; bool clear=false;
   for(int s=1;s<=6;s++){ cxg+=DX[face]; cyg+=DY[face]; if(!inbg(cxg,cyg))break; if(cxg==bx&&cyg==by){clear=true;dist=s;break;} if(isWall(*this,cxg,cyg))break; }
