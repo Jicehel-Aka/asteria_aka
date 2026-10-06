@@ -37,3 +37,15 @@ idf_component_register(
     INCLUDE_DIRS "include_lib" "include_ll"
 )
 
+# Tolerances de warnings (memes que main/ et asteria/) : le style compact et
+# certains patterns de la lib declenchent des warnings qui, en -Werror, feraient
+# echouer le build sur un GCC/IDF different de celui de dev. On NE tolere PAS
+# implicit-function-declaration (vraie erreur = fonction manquante).
+target_compile_options(${COMPONENT_LIB} PRIVATE
+    -Wno-error=reorder -Wno-error=switch -Wno-error=unused-variable
+    -Wno-error=type-limits -Wno-error=narrowing -Wno-error=parentheses
+    -Wno-error=maybe-uninitialized -Wno-error=unused-function -Wno-error=missing-field-initializers
+    -Wno-error=unused-value -Wno-error=char-subscripts -Wno-error=unused-parameter
+    -Wno-error=sign-compare -Wno-error=misleading-indentation -Wno-error=return-type
+    -Wno-error=ignored-qualifiers)
+
