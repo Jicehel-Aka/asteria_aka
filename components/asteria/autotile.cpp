@@ -14,13 +14,17 @@ void draw_water_autotile(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool
 void draw_path_autotile (int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){ autotile(spr::PATH ,sx,sy,n,s,e,w,ne,nw,se,sw); }
 
 static inline int hash2(int a,int b);   // defini plus bas (meme unite de compilation)
-// Ondulation lisse ~[-1,1] le long d'une coordonnee ABSOLUE (continue entre tuiles).
-static inline double swave(int a,int seed){
-  auto H=[&](int k)->uint32_t{ uint32_t u=(uint32_t)(k*2654435761u) ^ (uint32_t)(seed*40503u);
-    u^=u>>15; u*=2246822519u; u^=u>>13; return u & 0xFFFF; };
-  const int S=6; int a0=a/S; if(a<0)a0=(a-S+1)/S; int f=a-a0*S;
-  double v0=(double)(H(a0)%100)/50.0-1.0, v1=(double)(H(a0+1)%100)/50.0-1.0;
-  return v0+(v1-v0)*f/(double)S;
+// Bruit 2D lisse ~[-1,1] (coordonnees ABSOLUES, continu entre tuiles) : sert a faire
+// ONDULER la rive sur plusieurs pixels -> casse les marches a 90 deg de la grille.
+static inline double vnoise(int ax,int ay){
+  const int S=7;
+  auto fl=[&](int v){ return v>=0? v/S : -(((-v)+S-1)/S); };
+  int x0=fl(ax), y0=fl(ay);
+  double fx=(double)(ax-x0*S)/S, fy=(double)(ay-y0*S)/S;
+  auto H=[&](int X,int Y)->double{ uint32_t u=(uint32_t)(X*374761393 + Y*668265263); u^=u>>13; u*=1274126177u; u^=u>>16; return (double)(u%1000)/500.0-1.0; };
+  double a=H(x0,y0),b=H(x0+1,y0),c=H(x0,y0+1),d=H(x0+1,y0+1);
+  fx=fx*fx*(3-2*fx); fy=fy*fy*(3-2*fy);
+  double t=a+(b-a)*fx, bo=c+(d-c)*fx; return t+(bo-t)*fy;
 }
 // Couverture lisse [0,1] par interpolation bilineaire de l'occupation 3x3 (self=1).
 // Les coins concaves/convexes sont adoucis -> les coudes se COURBENT (plus d'angles droits).
@@ -37,7 +41,7 @@ void draw_natural_water(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool 
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
     double c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
-    double th=0.5+0.06*swave(sx+x+sy+y,13);   // seuil ondulant -> rive organique, continue entre tuiles
+    double th=0.5+0.17*vnoise(sx+x,sy+y);     // rive qui ONDULE sur plusieurs px -> plus de marche a 90 deg
     if(c<=th){ if(c>th-0.05 && (hash2(sx+x,sy+y)%100)<45) gb::pixel(sx+x,sy+y,gb::rgb(126,124,92)); // lisere humide intermittent
                continue; }
     double d=c-th; uint16_t col;
@@ -58,7 +62,7 @@ void draw_natural_path(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool n
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
     double c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
-    double th=0.5+0.06*swave(sx+x+sy+y,29);
+    double th=0.5+0.17*vnoise(sx+x+71,sy+y+131);
     int h=hash2(sx+x,sy+y)%100;
     if(c<=th){ if(c>th-0.05 && h<22) gb::pixel(sx+x,sy+y,gb::rgb(150,120,74)); // mottes de terre au bord use
                continue; }
@@ -79,7 +83,7 @@ void draw_natural_road(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool n
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
     double c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
-    double th=0.5+0.055*swave(sx+x+sy+y,41);
+    double th=0.5+0.15*vnoise(sx+x+211,sy+y+97);
     int h=hash2(sx+x,sy+y)%100;
     if(c<=th){ if(c>th-0.05 && h<16) gb::pixel(sx+x,sy+y,gb::rgb(120,120,130)); // paves qui debordent
                continue; }
