@@ -169,6 +169,8 @@ void WorldScene::render(){
         draw_table_tile(dx,dy, Tb(x,y-1),Tb(x,y+1),Tb(x-1,y),Tb(x+1,y)); }
       else if(_t>=23&&_t<=27) draw_inn_tile(dx,dy,_t);
       else if(_t==0) draw_grass(dx,dy,x,y);
+      else if(_t==28) gb::draw_image(spr::MONT_SPR.px,16,16,dx,dy);   // rocher/mont (importe Wargame)
+      else if(_t==29) gb::draw_image(spr::BOSQ_SPR.px,16,16,dx,dy);   // bosquet dense (importe Wargame)
       else if(_t<23) gb::draw_image(spr::TILE[_t].px,spr::TILE[_t].w,spr::TILE[_t].h,dx,dy);
       else gb::fill_rect(dx,dy,TILE_SIZE,TILE_SIZE,TCOL(_t)); }
     // Tri par profondeur : les entites de la rangee y sont dessinees APRES ses tuiles.
