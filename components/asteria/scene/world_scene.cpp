@@ -113,12 +113,26 @@ void WorldScene::update(SceneManager& mgr){
       else if(n==5){ // Lysa : Q3 Les empreintes se résout en lui reparlant
         if(quest_status(3)==1) complete_quest_reward(3);
       }
+      else if(n==13){ // Maître Albin : Q7 Le symbole oublié (présenter la Pierre noire gravée OBJ_0014)
+        int pn=item_index("OBJ_0014");
+        if(pn>=0 && player().inv.has(pn,1)){
+          if(quest_status(7)==0) quest_start(7);           // 1re présentation : ouvre l'enquête
+          else if(quest_status(7)==1) complete_quest_reward(7); // retour : consultation terminée
+        }
+      }
+      else if(n==15){ // Garrick (Guilde) : Q8 se termine une fois les contrats accomplis
+        if(quest_status(8)==1) complete_quest_reward(8);
+      }
       dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0; }
     else { int ci=chest_at(map,fx,fy);
       if(ci>=0){ const ChestDef& c=CHESTS[ci]; if(c.item>=0) player().inv.add(c.item,1); player().gold+=c.gold; flag_set(c.flag); notice=true; asteria::audio::sfx_coin();
         noticeTxt="Un coffre ! Tu recuperes du butin.";
-        // Objet d'étape : si la quête associée est en cours, on la termine et on ouvre la suite.
-        if(c.complete_q>=0 && quest_status(c.complete_q)==1){ complete_quest_reward(c.complete_q); if(c.setflag) flag_set(c.setflag);
+        // Objet d'étape : le butin EST l'indice de la quête. On la démarre au besoin,
+        // on la termine et on pose le flag de progression — quel que soit l'ordre dans
+        // lequel le joueur a parlé aux PNJ (sinon soft-lock : flag jamais posé).
+        if(c.complete_q>=0){ if(quest_status(c.complete_q)==0) quest_start(c.complete_q);
+          if(quest_status(c.complete_q)==1) complete_quest_reward(c.complete_q);
+          if(c.setflag) flag_set(c.setflag);
           if(c.complete_q==5) noticeTxt="Un tissu dechire, arrache a un villageois... Les traces menent a la Vieille Mine.";
           else if(c.complete_q==10) noticeTxt="Le carnet du chef de caravane ! Ses notes mènent à Grand-Castel."; } }
       else if(fx>=0&&fy>=0&&fx<M.w&&fy<M.h && M.tiles[fy*M.w+fx]==4 && !door_leads_somewhere(M,fx,fy)){ notice=true; noticeTxt=i18n::tr(i18n::W_CLOSED); } } }
@@ -139,6 +153,8 @@ void WorldScene::render(){
         draw_natural_path(dx,dy, P(x,y-1),P(x,y+1),P(x+1,y),P(x-1,y), P(x+1,y-1),P(x-1,y-1),P(x+1,y+1),P(x-1,y+1)); }
       else if(_t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==16; };
         draw_natural_water(dx,dy, N(x,y-1),N(x,y+1),N(x+1,y),N(x-1,y), N(x+1,y-1),N(x-1,y-1),N(x+1,y+1),N(x-1,y+1)); }
+      else if(_t==19){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==19; };
+        draw_natural_road(dx,dy, R(x,y-1),R(x,y+1),R(x+1,y),R(x-1,y), R(x+1,y-1),R(x-1,y-1),R(x+1,y+1),R(x-1,y+1)); }
       else if(_t==7||_t==9||_t==10||_t==11){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; uint8_t q=M.tiles[yy*M.w+xx]; return q==7||q==9||q==10||q==11; };
         draw_roof_tile(dx,dy, R(x,y-1),R(x,y+1),R(x-1,y),R(x+1,y), _t); }
       else if(_t==2||_t==13||_t==14||_t==15 || ((_t==4||_t==8||_t==12) && ((x>0&&is_facade_tile(M.tiles[y*M.w+x-1]))||(x+1<M.w&&is_facade_tile(M.tiles[y*M.w+x+1]))))){
