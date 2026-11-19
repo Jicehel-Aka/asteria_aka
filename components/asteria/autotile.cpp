@@ -13,47 +13,37 @@ static void autotile(const spr::Sprite* S,int sx,int sy, bool n,bool s,bool e,bo
 void draw_water_autotile(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){ autotile(spr::WATER,sx,sy,n,s,e,w,ne,nw,se,sw); }
 void draw_path_autotile (int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){ autotile(spr::PATH ,sx,sy,n,s,e,w,ne,nw,se,sw); }
 
-// Ondulation de rive, fonction de la coordonnee ABSOLUE -> continue d'une tuile
-// a l'autre. Renvoie un retrait 0..AMP px, lisse (interpolation entre ancres).
-static inline int shore_wob(int a,int seed){
-  auto H=[&](int k)->int{ uint32_t u=(uint32_t)(k*2654435761u) ^ (uint32_t)(seed*40503u);
-    u^=u>>15; u*=2246822519u; u^=u>>13; return (int)(u & 0xFFFF); };
-  const int STEP=5;                         // une ancre toutes les 5 px (vagues larges)
-  int a0=a/STEP, f=a-a0*STEP;
-  if(a<0){ a0=(a-STEP+1)/STEP; f=a-a0*STEP; }
-  int v0=H(a0)% 100, v1=H(a0+1)% 100;
-  int v=v0+(v1-v0)*f/STEP;                  // 0..99 lisse
-  // -> retrait 0,1,2,3 : moins de bord affleurant (v<28) -> rive plus ondulee
-  if(v<28) return 0; if(v<58) return 1; if(v<82) return 2; return 3;
-}
 static inline int hash2(int a,int b);   // defini plus bas (meme unite de compilation)
+// Ondulation lisse ~[-1,1] le long d'une coordonnee ABSOLUE (continue entre tuiles).
+static inline double swave(int a,int seed){
+  auto H=[&](int k)->uint32_t{ uint32_t u=(uint32_t)(k*2654435761u) ^ (uint32_t)(seed*40503u);
+    u^=u>>15; u*=2246822519u; u^=u>>13; return u & 0xFFFF; };
+  const int S=6; int a0=a/S; if(a<0)a0=(a-S+1)/S; int f=a-a0*S;
+  double v0=(double)(H(a0)%100)/50.0-1.0, v1=(double)(H(a0+1)%100)/50.0-1.0;
+  return v0+(v1-v0)*f/(double)S;
+}
+// Couverture lisse [0,1] par interpolation bilineaire de l'occupation 3x3 (self=1).
+// Les coins concaves/convexes sont adoucis -> les coudes se COURBENT (plus d'angles droits).
+static inline double cov8(int x,int y, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
+  double g[3][3]={ {nw?1.0:0,n?1.0:0,ne?1.0:0}, {w?1.0:0,1.0,e?1.0:0}, {sw?1.0:0,s?1.0:0,se?1.0:0} };
+  double xc=x+0.5, yc=y+0.5; int cx0,cx1,cy0,cy1; double tx,ty;
+  if(xc<8){cx0=0;cx1=1;tx=(xc+8)/16.0;} else {cx0=1;cx1=2;tx=(xc-8)/16.0;}
+  if(yc<8){cy0=0;cy1=1;ty=(yc+8)/16.0;} else {cy0=1;cy1=2;ty=(yc-8)/16.0;}
+  double a=g[cy0][cx0],b=g[cy0][cx1],c=g[cy1][cx0],d=g[cy1][cx1];
+  double t=a+(b-a)*tx, bo=c+(d-c)*tx; return t+(bo-t)*ty;
+}
 void draw_natural_water(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
   const spr::Sprite& G=spr::TILE[0];              // herbe dessous (la rive laisse voir l'herbe)
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
-  // retrait de l'eau sur chaque bord ouvert (herbe), ondulant le long de la rive
-  int top[16], bot[16], lft[16], rgt[16];
-  for(int x=0;x<16;x++){ top[x]=(!n)? shore_wob(sx+x,11):-1;  bot[x]=(!s)? 15-shore_wob(sx+x,23):16; }
-  for(int y=0;y<16;y++){ lft[y]=(!w)? shore_wob(sy+y,37):-1;  rgt[y]=(!e)? 15-shore_wob(sy+y,53):16; }
-  // les diagonales (coin herbe sans bord ortho) rongent un peu plus le coin
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
-    // marge = distance au bord d'eau le plus proche (sur les cotes ouverts)
-    int mt = (!n)? y-top[x] : 99;
-    int mb = (!s)? bot[x]-y : 99;
-    int ml = (!w)? x-lft[y] : 99;
-    int mr = (!e)? rgt[y]-x : 99;
-    int m = mt; if(mb<m)m=mb; if(ml<m)m=ml; if(mr<m)m=mr;
-    // coins diagonaux ouverts : grignote si on est dans le petit carre du coin
-    if(!ne && x>=13 && y<=2){ int d=(x-13)+(2-y); if(d>=shore_wob(sx+sy+7,5)) m=-1; }
-    if(!nw && x<=2  && y<=2){ int d=(2-x)+(2-y);   if(d>=shore_wob(sx-sy+9,5)) m=-1; }
-    if(!se && x>=13 && y>=13){ int d=(x-13)+(y-13);if(d>=shore_wob(sx-sy+3,5)) m=-1; }
-    if(!sw && x<=2  && y>=13){ int d=(2-x)+(y-13); if(d>=shore_wob(sx+sy+1,5)) m=-1; }
-    if(m<0) continue;                         // herbe (hors de l'eau)
-    uint16_t col;
-    if(m==0){ if((hash2(sx+x,sy+y)%100)>=70) continue;   // rive dissoute : laisse l'herbe (bord plus doux)
-              col=gb::rgb(126,124,92); }       // lisere humide, mat et intermittent (plus de contour "sticker")
-    else if(m==1) col=gb::rgb(104,168,174);   // haut-fond, teal grise (moins sature -> "moins plein")
-    else if(m<=3) col=((x+y)&1)? gb::rgb(96,160,200):gb::rgb(78,140,194); // eau peu profonde
-    else          col=((x+y)%6==0)? gb::rgb(96,152,214):gb::rgb(58,110,180); // eau profonde + rides
+    double c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
+    double th=0.5+0.06*swave(sx+x+sy+y,13);   // seuil ondulant -> rive organique, continue entre tuiles
+    if(c<=th){ if(c>th-0.05 && (hash2(sx+x,sy+y)%100)<45) gb::pixel(sx+x,sy+y,gb::rgb(126,124,92)); // lisere humide intermittent
+               continue; }
+    double d=c-th; uint16_t col;
+    if(d<=0.07)      col=gb::rgb(104,168,174);                               // haut-fond
+    else if(d<=0.20) col=((x+y)&1)? gb::rgb(96,160,200):gb::rgb(78,140,194); // eau peu profonde
+    else             col=((x+y)%6==0)? gb::rgb(96,152,214):gb::rgb(58,110,180); // eau profonde + rides
     gb::pixel(sx+x,sy+y,col);
   }
 }
@@ -66,30 +56,17 @@ static inline int hash2(int a,int b){ uint32_t u=(uint32_t)(a*374761393u + b*668
 void draw_natural_path(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
   const spr::Sprite& G=spr::TILE[0];              // herbe dessous (bords herbeux)
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
-  int top[16], bot[16], lft[16], rgt[16];
-  for(int x=0;x<16;x++){ top[x]=(!n)? shore_wob(sx+x,61):-1;  bot[x]=(!s)? 15-shore_wob(sx+x,67):16; }
-  for(int y=0;y<16;y++){ lft[y]=(!w)? shore_wob(sy+y,71):-1;  rgt[y]=(!e)? 15-shore_wob(sy+y,79):16; }
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
-    int mt=(!n)? y-top[x]:99, mb=(!s)? bot[x]-y:99, ml=(!w)? x-lft[y]:99, mr=(!e)? rgt[y]-x:99;
-    int m=mt; if(mb<m)m=mb; if(ml<m)m=ml; if(mr<m)m=mr;
-    if(!ne && x>=13 && y<=2){ int d=(x-13)+(2-y); if(d>=shore_wob(sx+sy+17,5)) m=-1; }
-    if(!nw && x<=2  && y<=2){ int d=(2-x)+(2-y);   if(d>=shore_wob(sx-sy+19,5)) m=-1; }
-    if(!se && x>=13 && y>=13){ int d=(x-13)+(y-13);if(d>=shore_wob(sx-sy+13,5)) m=-1; }
-    if(!sw && x<=2  && y>=13){ int d=(2-x)+(y-13); if(d>=shore_wob(sx+sy+11,5)) m=-1; }
+    double c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
+    double th=0.5+0.06*swave(sx+x+sy+y,29);
     int h=hash2(sx+x,sy+y)%100;
-    if(m<0){
-      // cote herbe : quelques mottes de terre eparses juste au bord (bord use)
-      if(m>=-1 && h<22) gb::pixel(sx+x,sy+y, gb::rgb(150,120,74));
-      continue;                                   // sinon on garde l'herbe
-    }
-    uint16_t col;
-    if(m==0)       col=gb::rgb(138,136,82);        // lisiere terre/herbe (olive terreux)
-    else if(m==1)  col=gb::rgb(186,152,98);        // terre tassee claire
-    else           col=(h<14)? gb::rgb(201,174,124)   // cailloux clairs
-                      : (h<30)? gb::rgb(150,116,66)   // taches sombres
-                      : gb::rgb(172,136,82);          // terre de base
-    // touffes d'herbe qui empietent sur le bord du chemin
-    if(m<=1 && (hash2(sx+x+3,sy+y+5)%100)<20) col=G.px[y*16+x];
+    if(c<=th){ if(c>th-0.05 && h<22) gb::pixel(sx+x,sy+y,gb::rgb(150,120,74)); // mottes de terre au bord use
+               continue; }
+    double d=c-th; uint16_t col;
+    if(d<=0.06)      col=gb::rgb(138,136,82);       // lisiere terre/herbe
+    else if(d<=0.16) col=gb::rgb(186,152,98);       // terre tassee claire
+    else             col=(h<14)? gb::rgb(201,174,124) : (h<30)? gb::rgb(150,116,66) : gb::rgb(172,136,82);
+    if(d<=0.10 && (hash2(sx+x+3,sy+y+5)%100)<20) col=G.px[y*16+x];   // touffes d'herbe qui empietent
     gb::pixel(sx+x,sy+y,col);
   }
 }
@@ -100,31 +77,20 @@ void draw_natural_path(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool n
 void draw_natural_road(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
   const spr::Sprite& G=spr::TILE[0];              // herbe dessous (bords herbeux)
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
-  int top[16], bot[16], lft[16], rgt[16];
-  for(int x=0;x<16;x++){ top[x]=(!n)? shore_wob(sx+x,83):-1;  bot[x]=(!s)? 15-shore_wob(sx+x,89):16; }
-  for(int y=0;y<16;y++){ lft[y]=(!w)? shore_wob(sy+y,97):-1;  rgt[y]=(!e)? 15-shore_wob(sy+y,101):16; }
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
-    int mt=(!n)? y-top[x]:99, mb=(!s)? bot[x]-y:99, ml=(!w)? x-lft[y]:99, mr=(!e)? rgt[y]-x:99;
-    int m=mt; if(mb<m)m=mb; if(ml<m)m=ml; if(mr<m)m=mr;
-    if(!ne && x>=13 && y<=2){ int d=(x-13)+(2-y); if(d>=shore_wob(sx+sy+23,5)) m=-1; }
-    if(!nw && x<=2  && y<=2){ int d=(2-x)+(2-y);   if(d>=shore_wob(sx-sy+29,5)) m=-1; }
-    if(!se && x>=13 && y>=13){ int d=(x-13)+(y-13);if(d>=shore_wob(sx-sy+31,5)) m=-1; }
-    if(!sw && x<=2  && y>=13){ int d=(2-x)+(y-13); if(d>=shore_wob(sx+sy+37,5)) m=-1; }
+    double c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
+    double th=0.5+0.055*swave(sx+x+sy+y,41);
     int h=hash2(sx+x,sy+y)%100;
-    if(m<0){
-      if(m>=-1 && h<18) gb::pixel(sx+x,sy+y, gb::rgb(120,120,130)); // quelques paves qui debordent
-      continue;                                   // sinon herbe
-    }
-    // joints de pavage : grille 4x4 brouillee -> pierres irregulieres
-    bool joint = (((x+ (hash2(sx,y)&1))&3)==0) || (((y+ (hash2(x,sy)&1))&3)==0);
+    if(c<=th){ if(c>th-0.05 && h<16) gb::pixel(sx+x,sy+y,gb::rgb(120,120,130)); // paves qui debordent
+               continue; }
+    double d=c-th;
+    bool joint = (((x+(hash2(sx,y)&1))&3)==0) || (((y+(hash2(x,sy)&1))&3)==0);
     uint16_t col;
-    if(m==0)       col=gb::rgb(110,110,120);       // lisiere pierre/herbe (gris terreux)
-    else if(joint) col=gb::rgb(120,120,130);       // joints sombres
-    else           col=(h<16)? gb::rgb(176,176,184)   // pierre claire
-                      : (h<30)? gb::rgb(132,132,142)  // pierre foncee
-                      : (h<36)? gb::rgb(96,120,84)    // mousse entre les paves
-                      : gb::rgb(150,150,158);         // pave de base
-    if(m<=1 && (hash2(sx+x+7,sy+y+2)%100)<18) col=G.px[y*16+x]; // touffes d'herbe au bord
+    if(d<=0.05)    col=gb::rgb(110,110,120);        // lisiere pierre/herbe
+    else if(joint) col=gb::rgb(120,120,130);        // joints sombres
+    else           col=(h<16)? gb::rgb(176,176,184) : (h<30)? gb::rgb(132,132,142)
+                      : (h<36)? gb::rgb(96,120,84) : gb::rgb(150,150,158);
+    if(d<=0.10 && (hash2(sx+x+7,sy+y+2)%100)<18) col=G.px[y*16+x];  // touffes au bord
     gb::pixel(sx+x,sy+y,col);
   }
 }
@@ -231,17 +197,26 @@ void draw_tree(int sx,int sy){
 }
 
 // Houppier unique et coherent (une seule espece/palette) : reutilise par l'arbre et le bosquet.
+// Silhouette feuillue (bord bosselé), lumiere en haut-gauche, ombre en bas-droite, grappes de feuilles.
 void tree_crown(int sx,int sy,int cx,double rad,int cy){
-  uint16_t trk=gb::rgb(96,64,34), trd=gb::rgb(72,48,26);
+  uint16_t trk=gb::rgb(100,68,36), trd=gb::rgb(72,48,26);
   for(int y=8;y<15;y++){ gb::pixel(sx+cx-1,sy+y,trd); gb::pixel(sx+cx,sy+y,trk); gb::pixel(sx+cx+1,sy+y,trd); }
-  uint16_t md=gb::rgb(56,112,60), dk=gb::rgb(40,86,46), lt=gb::rgb(82,152,88), ds=gb::rgb(30,66,36);
+  uint16_t md=gb::rgb(54,114,62), dk=gb::rgb(38,84,46), lt=gb::rgb(92,164,96), ds=gb::rgb(28,64,36);
   for(int yy=-14;yy<9;yy++)for(int xx=-3;xx<19;xx++){
-    double nx=(xx-cx)/rad, ny=(yy-cy)/11.0;
-    if(nx*nx+ny*ny<=1.0){
+    double nx=(xx-cx), ny=(yy-cy);
+    // rayon bosselé selon l'angle -> bord feuillu plutot qu'ellipse lisse
+    double ang=(ny!=0||nx!=0)? (nx*0.7+ny*1.1):0;
+    double bump=0.85 + 0.15*((hash2((int)(ang*4)+37, (sx+sy)&31)%100)/100.0);
+    double r=(nx*nx)/(rad*rad) + (ny*ny)/(11.0*11.0);
+    if(r<=bump){
+      // grappes de feuilles : bruit lisse par position absolue
+      int hv=hash2(sx+xx, sy+yy)%100;
       uint16_t c=md;
-      if(((xx*3+yy*5))%7==0) c=dk;
-      if(((xx*2+yy))%9==0) c=lt;
-      if(yy> 4) c=ds;                                      // ombre basse
+      if(hv<24) c=dk;                                      // creux d'ombre entre feuilles
+      // lumiere haut-gauche
+      if(nx<-1.0 && ny<-1.0 && hv>30) c=lt;
+      if(r>0.72 && hv<55) c=dk;                            // bord assombri
+      if(ny>3.5) c=ds;                                     // dessous ombré
       gb::pixel(sx+xx,sy+yy,c);
     }
   }
