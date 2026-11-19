@@ -148,7 +148,7 @@ void WorldScene::render(){
   if(x0<0)x0=0; if(y0<0)y0=0; if(x1>M.w)x1=M.w; if(y1>M.h)y1=M.h;
   for(int y=y0;y<y1;++y){ for(int x=x0;x<x1;++x){ uint8_t _t=M.tiles[y*M.w+x]; int dx=x*TILE_SIZE-camx, dy=y*TILE_SIZE-camy;
       if(_t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==3; };
-        draw_water_autotile(dx,dy, W(x,y-1),W(x,y+1),W(x+1,y),W(x-1,y), W(x+1,y-1),W(x-1,y-1),W(x+1,y+1),W(x-1,y+1)); }
+        draw_natural_water(dx,dy, W(x,y-1),W(x,y+1),W(x+1,y),W(x-1,y), W(x+1,y-1),W(x-1,y-1),W(x+1,y+1),W(x-1,y+1)); } // rive naturelle (plus de bassin en pierre)
       else if(_t==1){ auto P=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==1; };
         draw_natural_path(dx,dy, P(x,y-1),P(x,y+1),P(x+1,y),P(x-1,y), P(x+1,y-1),P(x-1,y-1),P(x+1,y+1),P(x-1,y+1)); }
       else if(_t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==16; };
@@ -168,6 +168,7 @@ void WorldScene::render(){
       else if(_t==24){ auto Tb=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==24; };
         draw_table_tile(dx,dy, Tb(x,y-1),Tb(x,y+1),Tb(x-1,y),Tb(x+1,y)); }
       else if(_t>=23&&_t<=27) draw_inn_tile(dx,dy,_t);
+      else if(_t==0) draw_grass(dx,dy,x,y);
       else if(_t<23) gb::draw_image(spr::TILE[_t].px,spr::TILE[_t].w,spr::TILE[_t].h,dx,dy);
       else gb::fill_rect(dx,dy,TILE_SIZE,TILE_SIZE,TCOL(_t)); }
     // Tri par profondeur : les entites de la rangee y sont dessinees APRES ses tuiles.

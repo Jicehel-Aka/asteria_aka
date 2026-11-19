@@ -122,6 +122,7 @@ void draw_natural_road(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool n
     else if(joint) col=gb::rgb(120,120,130);       // joints sombres
     else           col=(h<16)? gb::rgb(176,176,184)   // pierre claire
                       : (h<30)? gb::rgb(132,132,142)  // pierre foncee
+                      : (h<36)? gb::rgb(96,120,84)    // mousse entre les paves
                       : gb::rgb(150,150,158);         // pave de base
     if(m<=1 && (hash2(sx+x+7,sy+y+2)%100)<18) col=G.px[y*16+x]; // touffes d'herbe au bord
     gb::pixel(sx+x,sy+y,col);
@@ -203,16 +204,37 @@ void draw_rampart_tile(int sx,int sy, bool up,bool down,bool left,bool right){
   }
 }
 
-// ------- ARBRE : grand houppier debordant vers le haut, tronc, base herbe -------
+// ------- HERBE enrichie : tuile herbe + touffes/brins variant par cellule -------
+void draw_grass(int sx,int sy,int gx,int gy){
+  const spr::Sprite& G=spr::TILE[0];
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++) gb::pixel(sx+x,sy+y,G.px[y*16+x]);
+  uint16_t bl_d=gb::rgb(52,96,50), bl_l=gb::rgb(106,172,98);  // brins sombres / clairs
+  int n=2+(hash2(gx*5+1,gy*5+2)%3);                           // 2..4 touffes par case
+  for(int k=0;k<n;k++){
+    int bx=1+hash2(gx*13+k*3,gy*17+7)%14;
+    int by=3+hash2(gx*11+k*5,gy*19+2)%11;
+    uint16_t c=(hash2(bx+gx,by+gy)&1)? bl_l : bl_d;
+    gb::pixel(sx+bx,sy+by,c); gb::pixel(sx+bx,sy+by-1,c);     // petit brin vertical
+    if(k==0) gb::pixel(sx+bx+1,sy+by,c);                      // une touffe un peu plus large
+  }
+}
+
+// ------- ARBRE : houppier variant (taille/teinte/decalage selon la position) -------
 void draw_tree(int sx,int sy){
   const spr::Sprite& G=spr::TILE[0];                       // herbe dessous
   for(int y=0;y<16;y++)for(int x=0;x<16;x++) gb::pixel(sx+x,sy+y,G.px[y*16+x]);
+  int v=hash2(sx,sy);
+  double rad = 8.6 + (double)(v%4)*0.6;                    // 8.6 .. 10.4 (3-4 tailles)
+  int cx = 8 + (((v>>2)%3)-1);                             // leger decalage horizontal -1..+1
   uint16_t trk=gb::rgb(96,64,34), trd=gb::rgb(72,48,26);
-  for(int y=8;y<15;y++){ gb::pixel(sx+7,sy+y,trd); gb::pixel(sx+8,sy+y,trk); gb::pixel(sx+9,sy+y,trd); }
-  uint16_t dk=gb::rgb(40,86,46), md=gb::rgb(56,112,60), lt=gb::rgb(80,150,86), ds=gb::rgb(30,66,36);
-  // houppier : ellipse centree au-dessus du tronc, deborde jusqu'a ~ -13 px
-  for(int yy=-14;yy<9;yy++)for(int xx=-2;xx<18;xx++){
-    double nx=(xx-8)/9.5, ny=(yy-(-3))/11.0;
+  for(int y=8;y<15;y++){ gb::pixel(sx+cx-1,sy+y,trd); gb::pixel(sx+cx,sy+y,trk); gb::pixel(sx+cx+1,sy+y,trd); }
+  // deux familles de teinte (vert franc / vert bleute) pour casser la repetition
+  uint16_t md = (v&1)? gb::rgb(56,112,60) : gb::rgb(50,116,74);
+  uint16_t dk = (v&1)? gb::rgb(40,86,46)  : gb::rgb(34,88,58);
+  uint16_t lt = (v&1)? gb::rgb(80,150,86) : gb::rgb(84,158,104);
+  uint16_t ds = gb::rgb(30,66,36);
+  for(int yy=-14;yy<9;yy++)for(int xx=-3;xx<19;xx++){
+    double nx=(xx-cx)/rad, ny=(yy-(-3))/11.0;
     if(nx*nx+ny*ny<=1.0){
       uint16_t c=md;
       if(((xx*3+yy*5))%7==0) c=dk;
