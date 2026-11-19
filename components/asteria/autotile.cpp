@@ -23,9 +23,10 @@ static inline int shore_wob(int a,int seed){
   if(a<0){ a0=(a-STEP+1)/STEP; f=a-a0*STEP; }
   int v0=H(a0)% 100, v1=H(a0+1)% 100;
   int v=v0+(v1-v0)*f/STEP;                  // 0..99 lisse
-  // -> retrait 0,1,2,3 avec plus de 0/1 (rive surtout proche du bord)
-  if(v<40) return 0; if(v<70) return 1; if(v<90) return 2; return 3;
+  // -> retrait 0,1,2,3 : moins de bord affleurant (v<28) -> rive plus ondulee
+  if(v<28) return 0; if(v<58) return 1; if(v<82) return 2; return 3;
 }
+static inline int hash2(int a,int b);   // defini plus bas (meme unite de compilation)
 void draw_natural_water(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
   const spr::Sprite& G=spr::TILE[0];              // herbe dessous (la rive laisse voir l'herbe)
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
@@ -48,8 +49,9 @@ void draw_natural_water(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool 
     if(!sw && x<=2  && y>=13){ int d=(2-x)+(y-13); if(d>=shore_wob(sx+sy+1,5)) m=-1; }
     if(m<0) continue;                         // herbe (hors de l'eau)
     uint16_t col;
-    if(m==0)      col=gb::rgb(150,142,96);    // rive humide (vase/sable), fine lisere
-    else if(m==1) col=gb::rgb(120,186,196);   // haut-fond clair, legerement vert
+    if(m==0){ if((hash2(sx+x,sy+y)%100)>=70) continue;   // rive dissoute : laisse l'herbe (bord plus doux)
+              col=gb::rgb(126,124,92); }       // lisere humide, mat et intermittent (plus de contour "sticker")
+    else if(m==1) col=gb::rgb(104,168,174);   // haut-fond, teal grise (moins sature -> "moins plein")
     else if(m<=3) col=((x+y)&1)? gb::rgb(96,160,200):gb::rgb(78,140,194); // eau peu profonde
     else          col=((x+y)%6==0)? gb::rgb(96,152,214):gb::rgb(58,110,180); // eau profonde + rides
     gb::pixel(sx+x,sy+y,col);
@@ -88,6 +90,40 @@ void draw_natural_path(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool n
                       : gb::rgb(172,136,82);          // terre de base
     // touffes d'herbe qui empietent sur le bord du chemin
     if(m<=1 && (hash2(sx+x+3,sy+y+5)%100)<20) col=G.px[y*16+x];
+    gb::pixel(sx+x,sy+y,col);
+  }
+}
+
+// ------- ROUTE pavee a bords naturels (meme recul herbeux ondulant que le chemin) -------
+// Repond au retour "la route est trop droite" : pierres de taille irregulieres,
+// bord qui recule selon shore_wob (continu d'une tuile a l'autre) + touffes d'herbe.
+void draw_natural_road(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
+  const spr::Sprite& G=spr::TILE[0];              // herbe dessous (bords herbeux)
+  for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
+  int top[16], bot[16], lft[16], rgt[16];
+  for(int x=0;x<16;x++){ top[x]=(!n)? shore_wob(sx+x,83):-1;  bot[x]=(!s)? 15-shore_wob(sx+x,89):16; }
+  for(int y=0;y<16;y++){ lft[y]=(!w)? shore_wob(sy+y,97):-1;  rgt[y]=(!e)? 15-shore_wob(sy+y,101):16; }
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++){
+    int mt=(!n)? y-top[x]:99, mb=(!s)? bot[x]-y:99, ml=(!w)? x-lft[y]:99, mr=(!e)? rgt[y]-x:99;
+    int m=mt; if(mb<m)m=mb; if(ml<m)m=ml; if(mr<m)m=mr;
+    if(!ne && x>=13 && y<=2){ int d=(x-13)+(2-y); if(d>=shore_wob(sx+sy+23,5)) m=-1; }
+    if(!nw && x<=2  && y<=2){ int d=(2-x)+(2-y);   if(d>=shore_wob(sx-sy+29,5)) m=-1; }
+    if(!se && x>=13 && y>=13){ int d=(x-13)+(y-13);if(d>=shore_wob(sx-sy+31,5)) m=-1; }
+    if(!sw && x<=2  && y>=13){ int d=(2-x)+(y-13); if(d>=shore_wob(sx+sy+37,5)) m=-1; }
+    int h=hash2(sx+x,sy+y)%100;
+    if(m<0){
+      if(m>=-1 && h<18) gb::pixel(sx+x,sy+y, gb::rgb(120,120,130)); // quelques paves qui debordent
+      continue;                                   // sinon herbe
+    }
+    // joints de pavage : grille 4x4 brouillee -> pierres irregulieres
+    bool joint = (((x+ (hash2(sx,y)&1))&3)==0) || (((y+ (hash2(x,sy)&1))&3)==0);
+    uint16_t col;
+    if(m==0)       col=gb::rgb(110,110,120);       // lisiere pierre/herbe (gris terreux)
+    else if(joint) col=gb::rgb(120,120,130);       // joints sombres
+    else           col=(h<16)? gb::rgb(176,176,184)   // pierre claire
+                      : (h<30)? gb::rgb(132,132,142)  // pierre foncee
+                      : gb::rgb(150,150,158);         // pave de base
+    if(m<=1 && (hash2(sx+x+7,sy+y+2)%100)<18) col=G.px[y*16+x]; // touffes d'herbe au bord
     gb::pixel(sx+x,sy+y,col);
   }
 }
