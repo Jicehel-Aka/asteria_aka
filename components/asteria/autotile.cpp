@@ -219,22 +219,24 @@ void draw_grass(int sx,int sy,int gx,int gy){
   }
 }
 
+void tree_crown(int sx,int sy,int cx,double rad,int cy);   // defini juste apres draw_tree
 // ------- ARBRE : houppier variant (taille/teinte/decalage selon la position) -------
 void draw_tree(int sx,int sy){
   const spr::Sprite& G=spr::TILE[0];                       // herbe dessous
   for(int y=0;y<16;y++)for(int x=0;x<16;x++) gb::pixel(sx+x,sy+y,G.px[y*16+x]);
   int v=hash2(sx,sy);
-  double rad = 8.6 + (double)(v%4)*0.6;                    // 8.6 .. 10.4 (3-4 tailles)
+  double rad = 8.8 + (double)(v%3)*0.5;                    // 8.8 .. 9.8 : meme espece, taille un peu variable
   int cx = 8 + (((v>>2)%3)-1);                             // leger decalage horizontal -1..+1
+  tree_crown(sx,sy,cx,rad,-3);
+}
+
+// Houppier unique et coherent (une seule espece/palette) : reutilise par l'arbre et le bosquet.
+void tree_crown(int sx,int sy,int cx,double rad,int cy){
   uint16_t trk=gb::rgb(96,64,34), trd=gb::rgb(72,48,26);
   for(int y=8;y<15;y++){ gb::pixel(sx+cx-1,sy+y,trd); gb::pixel(sx+cx,sy+y,trk); gb::pixel(sx+cx+1,sy+y,trd); }
-  // deux familles de teinte (vert franc / vert bleute) pour casser la repetition
-  uint16_t md = (v&1)? gb::rgb(56,112,60) : gb::rgb(50,116,74);
-  uint16_t dk = (v&1)? gb::rgb(40,86,46)  : gb::rgb(34,88,58);
-  uint16_t lt = (v&1)? gb::rgb(80,150,86) : gb::rgb(84,158,104);
-  uint16_t ds = gb::rgb(30,66,36);
+  uint16_t md=gb::rgb(56,112,60), dk=gb::rgb(40,86,46), lt=gb::rgb(82,152,88), ds=gb::rgb(30,66,36);
   for(int yy=-14;yy<9;yy++)for(int xx=-3;xx<19;xx++){
-    double nx=(xx-cx)/rad, ny=(yy-(-3))/11.0;
+    double nx=(xx-cx)/rad, ny=(yy-cy)/11.0;
     if(nx*nx+ny*ny<=1.0){
       uint16_t c=md;
       if(((xx*3+yy*5))%7==0) c=dk;
@@ -243,6 +245,15 @@ void draw_tree(int sx,int sy){
       gb::pixel(sx+xx,sy+yy,c);
     }
   }
+}
+
+// BOSQUET : grappe dense dans le MEME style que l'arbre (plus de sprite importe -> uniformite).
+void draw_grove(int sx,int sy){
+  const spr::Sprite& G=spr::TILE[0];
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++) gb::pixel(sx+x,sy+y,G.px[y*16+x]);
+  tree_crown(sx,sy, 4, 6.2, -1);                           // petit arbre arriere-gauche
+  tree_crown(sx,sy,12, 6.2, -1);                           // petit arbre arriere-droit
+  tree_crown(sx,sy, 8, 7.6, -4);                           // arbre avant, un peu plus grand
 }
 
 // ------- TOUR ronde a toit conique (deborde vers le haut, style reference) -------
@@ -310,20 +321,27 @@ static void draw_window_overlay(int sx,int sy){
 }
 
 static void draw_door_overlay(int sx,int sy){
-  uint16_t fr=gb::rgb(78,50,28), post=gb::rgb(100,66,38);
-  uint16_t leaf=gb::rgb(120,80,44), seam=gb::rgb(78,50,28), leafHi=gb::rgb(150,104,60);
-  uint16_t knob=gb::rgb(222,196,110);
-  int x0=4,x1=11,top=2;
-  // vantail
-  for(int y=top+1;y<=15;y++)for(int x=x0;x<=x1;x++) gb::pixel(sx+x,sy+y,leaf);
-  for(int y=top+1;y<=15;y++){ gb::pixel(sx+x0,sy+y,leafHi); }                      // reflet gauche
-  // planches verticales
-  for(int y=top+1;y<=15;y++){ gb::pixel(sx+6,sy+y,seam); gb::pixel(sx+9,sy+y,seam); }
-  // chambranle + linteau
-  for(int y=top;y<=15;y++){ gb::pixel(sx+x0-1,sy+y,post); gb::pixel(sx+x1+1,sy+y,post); }
-  for(int x=x0-1;x<=x1+1;x++){ gb::pixel(sx+x,sy+top,fr); gb::pixel(sx+x,sy+top+1,fr); }
-  // poignee
-  gb::pixel(sx+x1-1,sy+9,knob); gb::pixel(sx+x1-1,sy+10,knob);
+  uint16_t fr=gb::rgb(70,44,24), post=gb::rgb(104,70,40), arch=gb::rgb(120,84,48);
+  uint16_t leaf=gb::rgb(116,76,42), leafd=gb::rgb(92,60,32), seam=gb::rgb(64,42,22), leafHi=gb::rgb(150,104,60);
+  uint16_t iron=gb::rgb(60,58,66), ironHi=gb::rgb(120,118,128), stud=gb::rgb(150,148,158), ring=gb::rgb(214,190,120);
+  int x0=4,x1=11;
+  // arc plein cintre : masque par ligne pour un haut arrondi
+  auto span=[&](int y,int&a,int&b){ a=x0; b=x1;
+    if(y==2){a=6;b=9;} else if(y==3){a=5;b=10;} else {a=x0;b=x1;} };
+  // chambranle de pierre (montants + arc)
+  for(int y=2;y<=15;y++){ int a,b; span(y,a,b); gb::pixel(sx+a-1,sy+y,post); gb::pixel(sx+b+1,sy+y,post); }
+  for(int x=5;x<=10;x++) gb::pixel(sx+x,sy+1,arch);
+  gb::pixel(sx+4,sy+2,arch); gb::pixel(sx+11,sy+2,arch);
+  // vantail bois (planches verticales)
+  for(int y=2;y<=15;y++){ int a,b; span(y,a,b);
+    for(int x=a;x<=b;x++){ uint16_t c=leaf; if(((x-x0)%3)==0) c=leafd; gb::pixel(sx+x,sy+y,c); }
+    gb::pixel(sx+a,sy+y,leafHi); }                          // reflet gauche
+  for(int y=4;y<=15;y++){ gb::pixel(sx+7,sy+y,seam); }      // joint central
+  // deux bandes de fer avec rivets
+  for(int by=5; by<=11; by+=6){ for(int x=x0;x<=x1;x++){ gb::pixel(sx+x,sy+by,iron); gb::pixel(sx+x,sy+by-1,ironHi); }
+    gb::pixel(sx+x0+1,sy+by,stud); gb::pixel(sx+x1-1,sy+by,stud); }
+  // anneau de porte (laiton)
+  gb::pixel(sx+9,sy+9,ring); gb::pixel(sx+10,sy+9,ring); gb::pixel(sx+9,sy+10,ring); gb::pixel(sx+10,sy+10,ring);
 }
 
 static void draw_sign_overlay(int sx,int sy){

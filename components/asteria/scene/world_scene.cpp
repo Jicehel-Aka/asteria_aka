@@ -170,7 +170,7 @@ void WorldScene::render(){
       else if(_t>=23&&_t<=27) draw_inn_tile(dx,dy,_t);
       else if(_t==0) draw_grass(dx,dy,x,y);
       else if(_t==28) gb::draw_image(spr::MONT_SPR.px,16,16,dx,dy);   // rocher/mont (importe Wargame)
-      else if(_t==29) gb::draw_image(spr::BOSQ_SPR.px,16,16,dx,dy);   // bosquet dense (importe Wargame)
+      else if(_t==29) draw_grove(dx,dy);                              // bosquet : style maison (uniforme)
       else if(_t<23) gb::draw_image(spr::TILE[_t].px,spr::TILE[_t].w,spr::TILE[_t].h,dx,dy);
       else gb::fill_rect(dx,dy,TILE_SIZE,TILE_SIZE,TCOL(_t)); }
     // Tri par profondeur : les entites de la rangee y sont dessinees APRES ses tuiles.
@@ -184,7 +184,20 @@ void WorldScene::render(){
   // Coffres : dessines AVANT l'UI (sinon ils passent par-dessus la fenetre de dialogue), avec la camera.
   for(int ci=0;ci<NCHEST;ci++){ if(chest_at(map,CHESTS[ci].x,CHESTS[ci].y)==ci){ int cx=CHESTS[ci].x*TILE_SIZE-camx, cy=CHESTS[ci].y*TILE_SIZE-camy;
       if(cx<-16||cy<-16||cx>320||cy>240) continue;    // hors ecran -> on saute
-      gb::fill_rect(cx+2,cy+5,12,9,gb::rgb(120,78,36)); gb::fill_rect(cx+2,cy+5,12,3,gb::rgb(200,170,80)); gb::fill_rect(cx+7,cy+8,2,3,gb::rgb(230,205,90)); } }
+      // coffre en bois a ferrures (remplace le simple rectangle)
+      { uint16_t wood=gb::rgb(128,84,42), woodd=gb::rgb(96,60,28), woodhi=gb::rgb(162,116,62);
+        uint16_t band=gb::rgb(74,70,80), lock=gb::rgb(228,198,112), lockd=gb::rgb(150,120,40);
+        int bx=cx+2, by=cy+4, w=12;
+        for(int y=-1;y<=10;y++){ gb::pixel(bx-1,cy+5+y,woodd); gb::pixel(bx+w,cy+5+y,woodd); } // ombre laterale
+        // couvercle bombe (4 rangees)
+        for(int y=0;y<4;y++){ int in=(y==0)?2:(y==1)?1:0; for(int x=in;x<w-in;x++){ uint16_t c=(y==0)?woodhi:(((bx+x)&1)?wood:woodd); gb::pixel(bx+x,by+y,c);} }
+        // corps a planches (6 rangees)
+        for(int y=4;y<10;y++)for(int x=0;x<w;x++){ uint16_t c=((x%4)==0)?woodd:wood; gb::pixel(bx+x,by+y,c); }
+        // ferrures : bande de jointure + 3 bandes verticales
+        for(int x=0;x<w;x++) gb::pixel(bx+x,by+4,band);
+        for(int y=0;y<10;y++){ gb::pixel(bx,by+y,band); gb::pixel(bx+w-1,by+y,band); gb::pixel(bx+w/2-1,by+y,band); }
+        // serrure laiton + trou
+        gb::fill_rect(bx+w/2-2,by+2,4,4,lock); gb::pixel(bx+w/2,by+4,lockd); } } }
   ui::gold(6,2,M.id,true);
   if(dlg){ const dlg::NpcDialog& D=dlg::DIALOG[dlgNpc];
     gb::fill_rect(8,158,304,74,gb::rgb(20,16,10));
