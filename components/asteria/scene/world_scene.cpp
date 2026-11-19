@@ -47,6 +47,27 @@ static const ChestDef CHESTS[]={ {8,16,10,4,8,"coffre_foret",5,"piste_mine"}, {0
   {20,4,8,-1,0,"coffre_carnet",10,"caravane_ok"} };   // campement : carnet de la caravane (Q10)
 static const int NCHEST=3;
 static int chest_at(int map,int x,int y){ int loc=MAPS[map].location; for(int i=0;i<NCHEST;i++) if(CHESTS[i].loc==loc && CHESTS[i].x==x && CHESTS[i].y==y && !flag_get(CHESTS[i].flag)) return i; return -1; }
+// Coffre ferme facon pixel-art (ref. fournie) : couvercle bombe ambre, 2 ferrures
+// argent a rivets, contour sombre, plaque de serrure centrale. Dessine a (cx,cy).
+static void draw_chest_closed(int cx,int cy){
+  const uint16_t OL=gb::rgb(74,32,30), LA=gb::rgb(242,176,70), LM=gb::rgb(216,134,46),
+    BR=gb::rgb(152,98,48), BD=gb::rgb(116,70,34),
+    SV=gb::rgb(200,200,210), SD=gb::rgb(150,150,164), SH=gb::rgb(234,234,242), GD=gb::rgb(232,204,114);
+  int bx=cx+1, by=cy+1;
+  auto P=[&](int x,int y,uint16_t c){ gb::pixel(bx+x,by+y,c); };
+  auto span=[&](int y,int&a,int&b){ if(y==1){a=3;b=10;} else if(y==2){a=2;b=11;} else {a=1;b=12;} };
+  for(int y=1;y<=13;y++){ int a,b; span(y,a,b);
+    for(int x=a;x<=b;x++){ uint16_t c = (y<=6)? ((y==2||y==4)?LA:LM) : ((x&1)?BR:BD); P(x,y,c); } }
+  for(int y=1;y<=13;y++){ int a,b; span(y,a,b); P(a-1,y,OL); P(b+1,y,OL); }  // cotes
+  for(int x=3;x<=10;x++) P(x,0,OL);                                           // crown
+  for(int x=1;x<=12;x++){ P(x,6,OL); P(x,13,OL); }                            // jointure + bas
+  for(int bX=3; bX<=9; bX+=6){                                               // 2 ferrures argent
+    for(int y=1;y<=12;y++){ if(y==6){P(bX,y,SH);P(bX+1,y,SH);continue;} P(bX,y,SD); P(bX+1,y,SV); }
+    for(int y=2;y<=11;y+=3) P(bX,y,SH); }                                     // rivets
+  gb::fill_rect(bx+6,by+7,3,4,SV); P(6,7,SD);P(8,7,SD);P(6,10,SD);P(8,10,SD); // plaque serrure
+  P(7,8,OL); P(7,9,GD);                                                       // trou de serrure
+  P(5,3,LA); P(6,3,LA);                                                       // reflet couvercle
+}
 static int map_for_loc(int loc);  // fwd map_for_loc
 static bool door_leads_somewhere(const Map& M,int x,int y){ for(int i=0;i<M.portal_n;++i) if(M.portals[i].x==x&&M.portals[i].y==y) return map_for_loc(M.portals[i].target_loc)>=0; return false; }
 static int npc_at(const Map& M,int x,int y){ for(int i=0;i<M.spawn_n;++i) if(M.spawns[i].x==x&&M.spawns[i].y==y) return M.spawns[i].npc; return -1; }
@@ -147,11 +168,11 @@ void WorldScene::render(){
   int x0=camx/TILE_SIZE-1, y0=camy/TILE_SIZE-1, x1=x0+25, y1=y0+20;
   if(x0<0)x0=0; if(y0<0)y0=0; if(x1>M.w)x1=M.w; if(y1>M.h)y1=M.h;
   for(int y=y0;y<y1;++y){ for(int x=x0;x<x1;++x){ uint8_t _t=M.tiles[y*M.w+x]; int dx=x*TILE_SIZE-camx, dy=y*TILE_SIZE-camy;
-      if(_t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==3; };
-        draw_natural_water(dx,dy, W(x,y-1),W(x,y+1),W(x+1,y),W(x-1,y), W(x+1,y-1),W(x-1,y-1),W(x+1,y+1),W(x-1,y+1)); } // rive naturelle (plus de bassin en pierre)
+      if(_t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; int t=M.tiles[yy*M.w+xx]; return t==3||t==5; }; // le pont compte comme eau -> l'eau arrive au ras du pont
+        draw_natural_water(dx,dy, W(x,y-1),W(x,y+1),W(x+1,y),W(x-1,y), W(x+1,y-1),W(x-1,y-1),W(x+1,y+1),W(x-1,y+1)); }
       else if(_t==1){ auto P=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==1; };
         draw_natural_path(dx,dy, P(x,y-1),P(x,y+1),P(x+1,y),P(x-1,y), P(x+1,y-1),P(x-1,y-1),P(x+1,y+1),P(x-1,y+1)); }
-      else if(_t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==16; };
+      else if(_t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; int t=M.tiles[yy*M.w+xx]; return t==16||t==5; }; // pont = eau -> pas de rive entre eau et pont
         draw_natural_water(dx,dy, N(x,y-1),N(x,y+1),N(x+1,y),N(x-1,y), N(x+1,y-1),N(x-1,y-1),N(x+1,y+1),N(x-1,y+1)); }
       else if(_t==19){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==19; };
         draw_natural_road(dx,dy, R(x,y-1),R(x,y+1),R(x+1,y),R(x-1,y), R(x+1,y-1),R(x-1,y-1),R(x+1,y+1),R(x-1,y+1)); }
@@ -169,8 +190,8 @@ void WorldScene::render(){
         draw_table_tile(dx,dy, Tb(x,y-1),Tb(x,y+1),Tb(x-1,y),Tb(x+1,y)); }
       else if(_t>=23&&_t<=27) draw_inn_tile(dx,dy,_t);
       else if(_t==0) draw_grass(dx,dy,x,y);
-      else if(_t==5){ auto B=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==5; };
-        draw_bridge(dx,dy, B(x-1,y),B(x+1,y),B(x,y-1),B(x,y+1)); }
+      else if(_t==5){ auto Wt=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; int t=M.tiles[yy*M.w+xx]; return t==16||t==3; }; // cotes eau -> garde-corps + planches
+        draw_bridge(dx,dy, Wt(x-1,y),Wt(x+1,y),Wt(x,y-1),Wt(x,y+1)); }
       else if(_t==28) gb::draw_image(spr::MONT_SPR.px,16,16,dx,dy);   // rocher/mont (importe Wargame)
       else if(_t==29) draw_grove(dx,dy);                              // bosquet : style maison (uniforme)
       else if(_t<23) gb::draw_image(spr::TILE[_t].px,spr::TILE[_t].w,spr::TILE[_t].h,dx,dy);
@@ -186,20 +207,7 @@ void WorldScene::render(){
   // Coffres : dessines AVANT l'UI (sinon ils passent par-dessus la fenetre de dialogue), avec la camera.
   for(int ci=0;ci<NCHEST;ci++){ if(chest_at(map,CHESTS[ci].x,CHESTS[ci].y)==ci){ int cx=CHESTS[ci].x*TILE_SIZE-camx, cy=CHESTS[ci].y*TILE_SIZE-camy;
       if(cx<-16||cy<-16||cx>320||cy>240) continue;    // hors ecran -> on saute
-      // coffre en bois a ferrures (remplace le simple rectangle)
-      { uint16_t wood=gb::rgb(128,84,42), woodd=gb::rgb(96,60,28), woodhi=gb::rgb(162,116,62);
-        uint16_t band=gb::rgb(74,70,80), lock=gb::rgb(228,198,112), lockd=gb::rgb(150,120,40);
-        int bx=cx+2, by=cy+4, w=12;
-        for(int y=-1;y<=10;y++){ gb::pixel(bx-1,cy+5+y,woodd); gb::pixel(bx+w,cy+5+y,woodd); } // ombre laterale
-        // couvercle bombe (4 rangees)
-        for(int y=0;y<4;y++){ int in=(y==0)?2:(y==1)?1:0; for(int x=in;x<w-in;x++){ uint16_t c=(y==0)?woodhi:(((bx+x)&1)?wood:woodd); gb::pixel(bx+x,by+y,c);} }
-        // corps a planches (6 rangees)
-        for(int y=4;y<10;y++)for(int x=0;x<w;x++){ uint16_t c=((x%4)==0)?woodd:wood; gb::pixel(bx+x,by+y,c); }
-        // ferrures : bande de jointure + 3 bandes verticales
-        for(int x=0;x<w;x++) gb::pixel(bx+x,by+4,band);
-        for(int y=0;y<10;y++){ gb::pixel(bx,by+y,band); gb::pixel(bx+w-1,by+y,band); gb::pixel(bx+w/2-1,by+y,band); }
-        // serrure laiton + trou
-        gb::fill_rect(bx+w/2-2,by+2,4,4,lock); gb::pixel(bx+w/2,by+4,lockd); } } }
+      draw_chest_closed(cx,cy); } }
   ui::gold(6,2,M.id,true);
   if(dlg){ const dlg::NpcDialog& D=dlg::DIALOG[dlgNpc];
     gb::fill_rect(8,158,304,74,gb::rgb(20,16,10));

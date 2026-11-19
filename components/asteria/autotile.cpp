@@ -222,22 +222,18 @@ void tree_crown(int sx,int sy,int cx,double rad,int cy){
   }
 }
 
-// PONT en bois au-dessus de l'eau : planches en travers, garde-corps sur les cotes
-// libres, eau visible aux extremites. bw/be/bn/bs = presence de pont au voisin.
-void draw_bridge(int sx,int sy, bool bw,bool be,bool bn,bool bs){
-  uint16_t deck=gb::rgb(150,104,56), deckd=gb::rgb(116,78,40), gap=gb::rgb(66,112,170);
-  uint16_t rail=gb::rgb(104,70,38), railhi=gb::rgb(150,106,58), post=gb::rgb(74,50,26);
-  for(int y=0;y<16;y++)for(int x=0;x<16;x++){
-    uint16_t c=((y%4)==0)? deckd : deck;          // planches en travers (seam toutes les 4 lignes)
-    if((x%7)==3) c=deckd;                          // quelques joints longitudinaux
-    gb::pixel(sx+x,sy+y,c);
-  }
-  if(!bn) for(int x=2;x<14;x++) gb::pixel(sx+x,sy+0,gap);   // eau au bout nord libre
-  if(!bs) for(int x=2;x<14;x++) gb::pixel(sx+x,sy+15,gap);  // eau au bout sud libre
-  if(!bw){ for(int y=0;y<16;y++){ gb::pixel(sx+0,sy+y,post); gb::pixel(sx+1,sy+y,rail);}
-           for(int y=0;y<16;y+=3) gb::pixel(sx+1,sy+y,railhi); }               // garde-corps ouest
-  if(!be){ for(int y=0;y<16;y++){ gb::pixel(sx+15,sy+y,post); gb::pixel(sx+14,sy+y,rail);}
-           for(int y=0;y<16;y+=3) gb::pixel(sx+14,sy+y,railhi); }              // garde-corps est
+// PONT en bois, pose SUR l'eau (elle arrive au ras). Planches perpendiculaires au
+// sens de marche ; garde-corps seulement du cote de l'eau. w* = eau au voisin.
+void draw_bridge(int sx,int sy, bool ww,bool we,bool wn,bool ws){
+  uint16_t deck=gb::rgb(152,106,58), deckd=gb::rgb(116,78,40);
+  uint16_t rail=gb::rgb(104,70,38), railhi=gb::rgb(152,108,60), post=gb::rgb(74,50,26);
+  bool vert = (ww||we);                                    // eau sur les cotes -> traversee verticale
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++)
+    gb::pixel(sx+x,sy+y, ((vert? (y&3):(x&3))==0)? deckd : deck);   // planches en travers
+  if(ww){ for(int y=0;y<16;y++){ gb::pixel(sx+0,sy+y,post); gb::pixel(sx+1,sy+y,rail);} for(int y=0;y<16;y+=3) gb::pixel(sx+1,sy+y,railhi); }
+  if(we){ for(int y=0;y<16;y++){ gb::pixel(sx+15,sy+y,post); gb::pixel(sx+14,sy+y,rail);} for(int y=0;y<16;y+=3) gb::pixel(sx+14,sy+y,railhi); }
+  if(wn){ for(int x=0;x<16;x++){ gb::pixel(sx+x,sy+0,post); gb::pixel(sx+x,sy+1,rail);} for(int x=0;x<16;x+=3) gb::pixel(sx+x,sy+1,railhi); }
+  if(ws){ for(int x=0;x<16;x++){ gb::pixel(sx+x,sy+15,post); gb::pixel(sx+x,sy+14,rail);} for(int x=0;x<16;x+=3) gb::pixel(sx+x,sy+14,railhi); }
 }
 
 // BOSQUET : grappe dense dans le MEME style que l'arbre (plus de sprite importe -> uniformite).
