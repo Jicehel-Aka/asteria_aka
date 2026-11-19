@@ -22,6 +22,7 @@ idf_component_register(
     "scene/dice_scene.cpp"
     "scene/editor_scene.cpp"
     "scene/dungeon_scene.cpp"
+    "scene/gameover_scene.cpp"
     "platform/gb_port_aka.cpp"
   INCLUDE_DIRS "."
   REQUIRES gamebuino aka_runtime
