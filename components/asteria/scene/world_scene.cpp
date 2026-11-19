@@ -169,6 +169,8 @@ void WorldScene::render(){
         draw_table_tile(dx,dy, Tb(x,y-1),Tb(x,y+1),Tb(x-1,y),Tb(x+1,y)); }
       else if(_t>=23&&_t<=27) draw_inn_tile(dx,dy,_t);
       else if(_t==0) draw_grass(dx,dy,x,y);
+      else if(_t==5){ auto B=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==5; };
+        draw_bridge(dx,dy, B(x-1,y),B(x+1,y),B(x,y-1),B(x,y+1)); }
       else if(_t==28) gb::draw_image(spr::MONT_SPR.px,16,16,dx,dy);   // rocher/mont (importe Wargame)
       else if(_t==29) draw_grove(dx,dy);                              // bosquet : style maison (uniforme)
       else if(_t<23) gb::draw_image(spr::TILE[_t].px,spr::TILE[_t].w,spr::TILE[_t].h,dx,dy);

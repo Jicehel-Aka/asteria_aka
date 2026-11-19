@@ -222,6 +222,24 @@ void tree_crown(int sx,int sy,int cx,double rad,int cy){
   }
 }
 
+// PONT en bois au-dessus de l'eau : planches en travers, garde-corps sur les cotes
+// libres, eau visible aux extremites. bw/be/bn/bs = presence de pont au voisin.
+void draw_bridge(int sx,int sy, bool bw,bool be,bool bn,bool bs){
+  uint16_t deck=gb::rgb(150,104,56), deckd=gb::rgb(116,78,40), gap=gb::rgb(66,112,170);
+  uint16_t rail=gb::rgb(104,70,38), railhi=gb::rgb(150,106,58), post=gb::rgb(74,50,26);
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++){
+    uint16_t c=((y%4)==0)? deckd : deck;          // planches en travers (seam toutes les 4 lignes)
+    if((x%7)==3) c=deckd;                          // quelques joints longitudinaux
+    gb::pixel(sx+x,sy+y,c);
+  }
+  if(!bn) for(int x=2;x<14;x++) gb::pixel(sx+x,sy+0,gap);   // eau au bout nord libre
+  if(!bs) for(int x=2;x<14;x++) gb::pixel(sx+x,sy+15,gap);  // eau au bout sud libre
+  if(!bw){ for(int y=0;y<16;y++){ gb::pixel(sx+0,sy+y,post); gb::pixel(sx+1,sy+y,rail);}
+           for(int y=0;y<16;y+=3) gb::pixel(sx+1,sy+y,railhi); }               // garde-corps ouest
+  if(!be){ for(int y=0;y<16;y++){ gb::pixel(sx+15,sy+y,post); gb::pixel(sx+14,sy+y,rail);}
+           for(int y=0;y<16;y+=3) gb::pixel(sx+14,sy+y,railhi); }              // garde-corps est
+}
+
 // BOSQUET : grappe dense dans le MEME style que l'arbre (plus de sprite importe -> uniformite).
 void draw_grove(int sx,int sy){
   const spr::Sprite& G=spr::TILE[0];
