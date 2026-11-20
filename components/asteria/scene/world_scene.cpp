@@ -189,6 +189,9 @@ void WorldScene::render(){
       else if(_t==24){ auto Tb=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==24; };
         draw_table_tile(dx,dy, Tb(x,y-1),Tb(x,y+1),Tb(x-1,y),Tb(x+1,y)); }
       else if(_t>=23&&_t<=27) draw_inn_tile(dx,dy,_t);
+      else if(_t==30) draw_hearth(dx,dy);
+      else if(_t==31){ auto G=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==31; };
+        draw_rug(dx,dy, G(x,y-1),G(x,y+1),G(x-1,y),G(x+1,y)); }
       else if(_t==0) draw_grass(dx,dy,x,y);
       else if(_t==5){ auto Wt=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; int t=M.tiles[yy*M.w+xx]; return t==16||t==3; }; // cotes eau -> garde-corps + planches
         draw_bridge(dx,dy, Wt(x-1,y),Wt(x+1,y),Wt(x,y-1),Wt(x,y+1)); }

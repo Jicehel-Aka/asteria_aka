@@ -379,6 +379,13 @@ void draw_table_tile(int sx,int sy,bool up,bool down,bool left,bool right){
   gb::Color top=gb::rgb(140,98,54), top2=gb::rgb(122,84,46), rim=gb::rgb(90,60,30), leg=gb::rgb(66,44,22), hi=gb::rgb(170,122,74);
   for(int y=1;y<15;y++)for(int x=1;x<15;x++) gb::pixel(sx+x,sy+y, ((y>>1)&1)?top2:top);   // plateau planches
   for(int y=2;y<15;y+=2)for(int x=1;x<15;x++) if((x+y)%4==0) gb::pixel(sx+x,sy+y,hi);       // veinage
+  // vaisselle dressee : assiette (+ parfois chope / miche) -> table garnie
+  { int hv=(int)(((sx*73856093)^(sy*19349663))&0xff);
+    int ax=sx+3+(hv%7), ay=sy+5+((hv>>3)%5);
+    gb::fill_rect(ax,ay,3,3,gb::rgb(226,226,214)); gb::pixel(ax+1,ay+1,gb::rgb(150,110,70)); // assiette + mets
+    if(hv&1){ gb::fill_rect(ax+5,ay+1,2,3,gb::rgb(120,80,44)); gb::pixel(ax+7,ay+2,gb::rgb(120,80,44)); } // chope
+    else    { gb::fill_rect(ax+5,ay+2,3,2,gb::rgb(196,150,86)); }                                        // miche de pain
+  }
   if(!up)   for(int x=0;x<16;x++){ gb::pixel(sx+x,sy+0,rim); gb::pixel(sx+x,sy+1,rim); }
   if(!down) for(int x=0;x<16;x++){ gb::pixel(sx+x,sy+15,rim); gb::pixel(sx+x,sy+14,rim); }
   if(!left) for(int y=0;y<16;y++){ gb::pixel(sx+0,sy+y,rim); gb::pixel(sx+1,sy+y,rim); }
@@ -403,6 +410,29 @@ void draw_stool(int sx,int sy){ inn_floor(sx,sy);                  // 27 taboure
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){ int dx=x-8,dy=y-8; if(dx*dx+dy*dy<=13)
     gb::pixel(sx+x,sy+y, ((x+y)&1)?gb::rgb(104,68,36):gb::rgb(122,84,46)); }
   gb::pixel(sx+6,sy+6,gb::rgb(150,110,66));
+}
+// 30 cheminee : manteau de pierre, foyer sombre, buches et flammes
+void draw_hearth(int sx,int sy){ inn_floor(sx,sy);
+  uint16_t stone=gb::rgb(122,118,124), stoned=gb::rgb(84,80,88), dark=gb::rgb(28,22,22);
+  uint16_t log=gb::rgb(98,62,32), logd=gb::rgb(70,44,22);
+  uint16_t fy=gb::rgb(252,224,96), fo=gb::rgb(242,146,44), fr=gb::rgb(214,74,38);
+  gb::fill_rect(sx,sy,16,16,stone);                                   // manteau
+  for(int y=0;y<16;y+=4)for(int x=0;x<16;x++) gb::pixel(sx+x,sy+y,stoned);  // assises de pierre
+  for(int x=0;x<16;x+=4)for(int y=0;y<16;y++) gb::pixel(sx+x,sy+y,stoned);
+  gb::fill_rect(sx+2,sy+3,12,12,dark);                                // foyer
+  gb::fill_rect(sx+3,sy+12,10,2,logd); gb::fill_rect(sx+4,sy+13,8,2,log);   // buches
+  for(int x=0;x<10;x++){ int h=3+((x*7+5)%5); for(int k=0;k<h;k++){ uint16_t c=(k>=h-1)?fy:(k>=h-2)?fo:fr; gb::pixel(sx+3+x,sy+12-k,c);} } // flammes
+  gb::pixel(sx+8,sy+6,fy);
+}
+// 31 tapis : natte rouge a bordure doree et losange creme (multi-tuiles : bordure seulement au bord)
+void draw_rug(int sx,int sy,bool up,bool down,bool left,bool right){ inn_floor(sx,sy);
+  uint16_t base=gb::rgb(150,42,44), base2=gb::rgb(126,32,36), bord=gb::rgb(200,170,90), cream=gb::rgb(222,202,152);
+  for(int y=1;y<15;y++)for(int x=1;x<15;x++) gb::pixel(sx+x,sy+y, (((x+y)&3)==0)?base2:base);
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++){ int dx=x-8,dy=y-8; if(dx<0)dx=-dx; if(dy<0)dy=-dy; int d=dx+dy; if(d>=3&&d<=4) gb::pixel(sx+x,sy+y,cream); } // losange
+  if(!up)   for(int x=0;x<16;x++){ gb::pixel(sx+x,sy+0,bord); }
+  if(!down) for(int x=0;x<16;x++){ gb::pixel(sx+x,sy+15,bord); }
+  if(!left) for(int y=0;y<16;y++){ gb::pixel(sx+0,sy+y,bord); }
+  if(!right)for(int y=0;y<16;y++){ gb::pixel(sx+15,sy+y,bord); }
 }
 void draw_inn_tile(int sx,int sy,int t){   // tuiles simples (la table 24 est geree a part, avec voisins)
   switch(t){ case 23:draw_counter(sx,sy);break;
