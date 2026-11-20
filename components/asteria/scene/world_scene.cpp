@@ -168,13 +168,13 @@ void WorldScene::render(){
   int x0=camx/TILE_SIZE-1, y0=camy/TILE_SIZE-1, x1=x0+25, y1=y0+20;
   if(x0<0)x0=0; if(y0<0)y0=0; if(x1>M.w)x1=M.w; if(y1>M.h)y1=M.h;
   for(int y=y0;y<y1;++y){ for(int x=x0;x<x1;++x){ uint8_t _t=M.tiles[y*M.w+x]; int dx=x*TILE_SIZE-camx, dy=y*TILE_SIZE-camy;
-      if(_t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; int t=M.tiles[yy*M.w+xx]; return t==3||t==5; }; // le pont compte comme eau -> l'eau arrive au ras du pont
+      if(_t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; int t=M.tiles[yy*M.w+xx]; return t==3||t==5; }; // hors-carte = eau continue -> pas de rive au bord, l'eau s'ecoule
         draw_natural_water(dx,dy, W(x,y-1),W(x,y+1),W(x+1,y),W(x-1,y), W(x+1,y-1),W(x-1,y-1),W(x+1,y+1),W(x-1,y+1)); }
-      else if(_t==1){ auto P=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==1; };
+      else if(_t==1){ auto P=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; return M.tiles[yy*M.w+xx]==1; }; // hors-carte = chemin continue -> il sort de la carte au lieu de s'arreter
         draw_natural_path(dx,dy, P(x,y-1),P(x,y+1),P(x+1,y),P(x-1,y), P(x+1,y-1),P(x-1,y-1),P(x+1,y+1),P(x-1,y+1)); }
-      else if(_t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; int t=M.tiles[yy*M.w+xx]; return t==16||t==5; }; // pont = eau -> pas de rive entre eau et pont
+      else if(_t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; int t=M.tiles[yy*M.w+xx]; return t==16||t==5; }; // hors-carte + pont = eau -> pas de rive au bord ni au pont
         draw_natural_water(dx,dy, N(x,y-1),N(x,y+1),N(x+1,y),N(x-1,y), N(x+1,y-1),N(x-1,y-1),N(x+1,y+1),N(x-1,y+1)); }
-      else if(_t==19){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==19; };
+      else if(_t==19){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; return M.tiles[yy*M.w+xx]==19; }; // hors-carte = route continue
         draw_natural_road(dx,dy, R(x,y-1),R(x,y+1),R(x+1,y),R(x-1,y), R(x+1,y-1),R(x-1,y-1),R(x+1,y+1),R(x-1,y+1)); }
       else if(_t==7||_t==9||_t==10||_t==11){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; uint8_t q=M.tiles[yy*M.w+xx]; return q==7||q==9||q==10||q==11; };
         draw_roof_tile(dx,dy, R(x,y-1),R(x,y+1),R(x-1,y),R(x+1,y), _t); }
