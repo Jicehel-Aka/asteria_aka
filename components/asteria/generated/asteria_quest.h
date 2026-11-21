@@ -1,14 +1,14 @@
 #pragma once
 namespace asteria { namespace quest {
 struct Quest { const char* name; const char* const* obj; int nobj; bool main; int xp; };
-static const char* const Q0_O[] = {"Decouvrir le village","Rencontrer le maire","Recevoir la carte locale"};
+static const char* const Q0_O[] = {"Decouvrir le village de Valbois","Rencontrer le maire Aldren","Recevoir la carte des terres menacees"};
 static const char* const Q1_O[] = {"Retrouver les outils pretes par le forgeron","Rapporter les outils"};
-static const char* const Q2_O[] = {"Examiner les empreintes decouvertes par Lysa","Identifier leur origine"};
+static const char* const Q2_O[] = {"Examiner les empreintes trouvees par Lysa","Identifier la marque des Tenebres"};
 static const char* const Q3_O[] = {"Identifier les traces demandees par Lysa"};
 static const char* const Q4_O[] = {"Recolter 5 herbes medicinales","Recolter 3 champignons"};
-static const char* const Q5_O[] = {"Trouver l'indice laisse par un disparu","Identifier la piste menant a la Vieille Mine"};
-static const char* const Q6_O[] = {"Explorer la Vieille Mine","Remettre le treuil en fonctionnement","Atteindre la salle d'extraction","Affronter le Chef Gobelin","Recuperer la Clef du Puits"};
-static const char* const Q7_O[] = {"Presenter la Pierre noire gravee au bibliothecaire","Identifier son origine","Consulter la bibliotheque specialisee"};
+static const char* const Q5_O[] = {"Trouver l'indice laisse par un disparu","Suivre la piste jusqu'a la Vieille Mine"};
+static const char* const Q6_O[] = {"Explorer la Vieille Mine corrompue","Remettre le treuil en marche","Atteindre la salle d'extraction","Affronter le Chef Gobelin","Recuperer la Clef du Puits"};
+static const char* const Q7_O[] = {"Presenter la Pierre noire a Maitre Albin","Identifier la relique des Tenebres","Consulter les traites de la bibliotheque"};
 static const char* const Q8_O[] = {"Accomplir trois contrats simples"};
 static const char* const Q9_O[] = {"Enqueter sur la caravane disparue","Suivre sa piste vers la Route Royale"};
 static const char* const Q10_O[] = {"Examiner le campement abandonne","Trouver le carnet du chef de caravane"};
@@ -23,8 +23,8 @@ static const Quest QUEST[] = {
   {"Les Traces etranges",Q2_O,2,true,100},
   {"Les empreintes",Q3_O,1,false,60},
   {"Les plantes de sœur Agnes",Q4_O,2,false,80},
-  {"Le tissu dechire",Q5_O,2,true,150},
-  {"La Vieille Mine",Q6_O,5,true,300},
+  {"Le tissu dechire",Q5_O,2,true,220},
+  {"La Vieille Mine",Q6_O,5,true,470},
   {"Le symbole oublie",Q7_O,3,true,150},
   {"Les contrats de la Guilde",Q8_O,1,false,100},
   {"Les marchandises disparues",Q9_O,2,true,150},

@@ -210,7 +210,8 @@ void DungeonScene::update(SceneManager& m){
   if(p&gb::BTN_A){ int fx=px+DX[face], fy=py+DY[face];
     if(fx==bx&&fy==by && !flag_get("boss_mine")){ if(quest_status(6)==1) quest_set_obj(6,3); set_combat_return(SceneId::DUNGEON); start_combat(9,"/sdcard/ASTERIA/battle/MINE_L.BMP"); m.set(SceneId::COMBAT); return; }
     if(px==bx&&py==by && flag_get("boss_mine")){
-      if(!player().inv.has(item_index("OBJ_0015"),1) || player().level<5){ journal("Sortie bloquee : Clef du Puits + niv.5."); }
+      if(!player().inv.has(item_index("OBJ_0015"),1)){ journal("Le puits est verrouille."); journal("Il te faut la Clef du Puits."); }
+      else if(player().level<5){ char jb[64]; snprintf(jb,64,"Pas encore prete (niv.%d/5).",player().level); journal(jb); journal("Gagne de l'experience dans la mine."); }
       else { exit_route(m); } return; }
     if(px==enx&&py==eny){ exit_forest(m); return; } }
   if(p&(gb::BTN_B|gb::BTN_MENU)){ exit_forest(m); return; }
