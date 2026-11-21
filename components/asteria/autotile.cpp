@@ -363,7 +363,9 @@ void draw_facade_tile(int sx,int sy, bool up,bool down,bool left,bool right, int
 
 // ===================== MOBILIER DE TAVERNE (tuiles 23..27) =====================
 // Chaque meuble pose d'abord le sol bois (tuile 5) puis l'objet par-dessus.
-static void inn_floor(int sx,int sy){ const spr::Sprite& f=spr::TILE[5]; for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,f.px[j*16+i]); }
+// Sol bois : MEMES planches que le sol ouvert (tuile 5 via draw_bridge, cas non-eau) -> plus de "sol tourne".
+static void inn_floor(int sx,int sy){ uint16_t deck=gb::rgb(152,106,58), deckd=gb::rgb(116,78,40);
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++) gb::pixel(sx+x,sy+y, ((x&3)==0)? deckd:deck); }
 
 void draw_counter(int sx,int sy){ inn_floor(sx,sy);                 // 23 comptoir
   gb::fill_rect(sx,sy+4,16,10,gb::rgb(96,62,32));
@@ -433,6 +435,15 @@ void draw_rug(int sx,int sy,bool up,bool down,bool left,bool right){ inn_floor(s
   if(!down) for(int x=0;x<16;x++){ gb::pixel(sx+x,sy+15,bord); }
   if(!left) for(int y=0;y<16;y++){ gb::pixel(sx+0,sy+y,bord); }
   if(!right)for(int y=0;y<16;y++){ gb::pixel(sx+15,sy+y,bord); }
+}
+// 32 table ronde dressee (1 tuile = 1 table pour ~4 convives)
+void draw_round_table(int sx,int sy){ inn_floor(sx,sy);
+  uint16_t top=gb::rgb(140,98,54), top2=gb::rgb(122,84,46), rim=gb::rgb(88,58,30), hi=gb::rgb(172,124,76);
+  for(int y=0;y<16;y++)for(int x=0;x<16;x++){ int dx=x-8,dy=y-8,d2=dx*dx+dy*dy;
+    if(d2<=52){ uint16_t c=((y>>1)&1)?top2:top; if(d2>=42)c=rim; gb::pixel(sx+x,sy+y,c);} }
+  for(int y=2;y<14;y+=2)for(int x=4;x<12;x++){ int dx=x-8,dy=y-8; if(dx*dx+dy*dy<=30 && (x+y)%4==0) gb::pixel(sx+x,sy+y,hi); }
+  gb::fill_rect(sx+5,sy+5,3,3,gb::rgb(226,226,214)); gb::pixel(sx+6,sy+6,gb::rgb(150,110,70)); // assiette
+  gb::fill_rect(sx+9,sy+8,2,2,gb::rgb(120,80,44));                                             // chope
 }
 void draw_inn_tile(int sx,int sy,int t){   // tuiles simples (la table 24 est geree a part, avec voisins)
   switch(t){ case 23:draw_counter(sx,sy);break;
