@@ -55,8 +55,9 @@ void CombatScene::update(SceneManager& m){
           snprintf(msg,64,"Chef Gobelin vaincu ! Clef du Puits + Pierre noire"); }
         else if(g_enc==19){ flag_set("boss_gardien"); snprintf(msg,64,"Le Gardien du Seuil tombe. La voie du coeur s'ouvre."); }
         else if(g_enc==24){ flag_set("boss_coeur"); snprintf(msg,64,"Tu as libere cet univers du joug de son tyran."); }
+        else if(g_enc==25){ flag_set("boss_corbeau"); complete_quest_reward(11); snprintf(msg,64,"Corbeau Noir tombe ! La route est libre."); }
         else snprintf(msg,64,"Victoire ! +%d XP  +%d or",xp,gold);
-        if(g_enc!=9) audio::play(player().level>lvl0 ? audio::TUNE_LEVELUP : audio::TUNE_VICTORY);  // boss : jingle joue par complete_quest_reward
+        if(g_enc!=9 && g_enc!=25) audio::play(player().level>lvl0 ? audio::TUNE_LEVELUP : audio::TUNE_VICTORY);  // boss : jingle joue par complete_quest_reward
         result=1; phase=3; }
       else if(stunned){ stunned=false; snprintf(msg,64,"%s est engourdi et ne bouge pas.",M.name); phase=2; }
       else { int r=roll3(); if(r<=M.CO){ int dmg=rollN(M.BLd); player().BL+=dmg; snprintf(msg,64,"%s attaque ! -%d",M.name,dmg); audio::sfx_hurt();

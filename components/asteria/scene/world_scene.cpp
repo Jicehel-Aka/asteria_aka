@@ -138,7 +138,10 @@ void WorldScene::update(SceneManager& mgr){
           } }
         { int _loc=MAPS[map].location;
           if(!_tp && _loc==9 && py<=3 && !flag_get("boss_mine")){ set_combat_return(SceneId::WORLD); start_combat(9,"/sdcard/ASTERIA/battle/MINE_L.BMP"); mgr.set(SceneId::COMBAT); return; }
-          if(!_tp && (_loc==8||_loc==9) && (gb::millis()%9==0)){ int _m=(_loc==8)?5+(int)((gb::millis()/3)%4):((gb::millis()%2)?16:23); set_combat_return(SceneId::WORLD); start_combat(_m, _loc==8?"/sdcard/ASTERIA/battle/FORE_J.BMP":"/sdcard/ASTERIA/battle/MINE_L.BMP"); mgr.set(SceneId::COMBAT); return; } }
+          if(!_tp && _loc==20 && py<=9 && !flag_get("boss_corbeau")){ if(quest_status(11)==0) quest_start(11);
+            notice=true; noticeTxt="Corbeau Noir, le chef des brigands, te barre la route !"; flag_set("vu_corbeau");
+            set_combat_return(SceneId::WORLD); start_combat(25,"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; }
+          if(!_tp && (_loc==8||_loc==9||_loc==20) && (gb::millis()%9==0)){ int _m=(_loc==8)?5+(int)((gb::millis()/3)%4):(_loc==20)?(10+(int)((gb::millis()/3)%2)):((gb::millis()%2)?16:23); set_combat_return(SceneId::WORLD); start_combat(_m, _loc==9?"/sdcard/ASTERIA/battle/MINE_L.BMP":"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; } }
       }
     }
   }
@@ -176,6 +179,10 @@ void WorldScene::update(SceneManager& mgr){
       }
       else if(n==16 && _loc==10 && flag_get("q8_pris") && !flag_get("c_pli")){ // pli scelle -> Tomas Venn
         int pli=item_index("OBJ_0039"); if(pli>=0 && player().inv.has(pli,1)){ player().inv.remove(pli,1); flag_set("c_pli"); }
+      }
+      else if(n==16 && _loc==20){ // Tomas Venn echoue sur la Route Royale (Q12 Une roue cassee)
+        if(quest_status(12)==0){ quest_start(12); flag_set("q12_pris"); }
+        else if(quest_status(12)==1 && flag_get("boss_corbeau") && !flag_get("q12_fait")){ flag_set("q12_fait"); player().gold+=40; complete_quest_reward(12); }
       }
       else if(n==17 && _loc==10 && flag_get("q8_pris") && !flag_get("c_herbes")){ // 3 herbes -> Iris
         int h=item_index("OBJ_0034"); if(h>=0 && player().inv.has(h,3)){ player().inv.remove(h,3); flag_set("c_herbes"); }

@@ -38,8 +38,12 @@ static const Node D15_N[] = {
   {"",D15_intro_L,2,nullptr,-1,-1}
 };
 static const char* const D16_done_L[] = {"Le pli de la Guilde est bien arrive. Merci a toi."};
+static const char* const D16_q12fait_L[] = {"Ma roue est reparee et la route est sure. Je repars le coeur leger !","Tiens, pour ta peine. La Guilde avait raison sur toi."};
+static const char* const D16_q12_L[] = {"Ma roue est brisee et Corbeau Noir rode sur la Route Royale.","Je n'ose pas repartir seule. Ecarte ce brigand, je t'en prie.","Je saurai te recompenser."};
 static const char* const D16_0_L[] = {"Je ne reste jamais longtemps.","Les routes sont pleines de surprises.","Regardez mes marchandises avant que je reparte."};
 static const Node D16_N[] = {
+  {"q12_fait",D16_q12fait_L,2,nullptr,-1,-1},
+  {"q12_pris",D16_q12_L,3,nullptr,-1,-1},
   {"c_pli",D16_done_L,1,nullptr,-1,-1},
   {"",D16_0_L,3,nullptr,-1,-1}
 };
@@ -93,7 +97,7 @@ static const NpcDialog DIALOG[20] = {
   {"Maitre Albin",D13_N,1},
   {"Selene",nullptr,0},
   {"Garrick",D15_N,3},
-  {"Tomas Venn",D16_N,2},
+  {"Tomas Venn",D16_N,4},
   {"Iris",D17_N,2},
   {"Racha",D18_N,4},
   {"Meluve",D19_N,4}

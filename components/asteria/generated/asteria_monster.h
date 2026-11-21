@@ -2996,7 +2996,7 @@ static const uint16_t M24[] = {
   0xF81F,0xF81F,0xF81F,0xF81F,0xF81F,0xF81F,0xF81F,0xF81F,0xF81F,0xF81F,0xF81F,0x1823,
   0x6A69,0xABAE,0x932C,0xA3CE
 };
-static const Sprite MONSTER[25] = {
+static const Sprite MONSTER[26] = {
   {M0,35,34},
   {M1,27,50},
   {M2,21,34},
@@ -3021,12 +3021,13 @@ static const Sprite MONSTER[25] = {
   {M21,46,50},
   {M22,60,66},
   {M23,44,50},
-  {M24,56,56}   // Coeur de Haine (forme informe)
+  {M24,56,56},  // Coeur de Haine (forme informe)
+  {M10,29,50}   // 25 Corbeau Noir (chef bandit : reutilise le sprite Brigand)
 };
 }
 namespace mon {
 struct Stats { const char* name; int IN, CO, VIT, BLd; };
-static const Stats MON[25] = {
+static const Stats MON[26] = {
   {"Rat des champs",6,7,16,1},
   {"Loup gris",6,7,16,1},
   {"Corbeau agressif",7,8,22,1},
@@ -3051,7 +3052,8 @@ static const Stats MON[25] = {
   {"Echo Vivant",11,12,46,3},
   {"Veilleur Antique",12,13,52,3},
   {"Gobelin Fouisseur",8,9,28,2},
-  {"Coeur de Haine",1,30,16,4}   // tyran canonique (6D ramene a 4D : jouable en 3D6<=CO)
+  {"Coeur de Haine",1,30,16,4},   // tyran canonique (6D ramene a 4D : jouable en 3D6<=CO)
+  {"Corbeau Noir",11,12,48,3}     // 25 chef des brigands de la Route Royale (Q11)
 };
 }
 }
