@@ -28,12 +28,33 @@ static const char* const D10_0_L[] = {"Une caravane a disparu.","Nous devons com
 static const Node D10_N[] = {{"",D10_0_L,3,nullptr,-1,9,10}};
 static const char* const D13_0_L[] = {"Cette pierre noire gravee... un froid me saisit.","C'est une relique des Tenebres, scellee jadis.","Elle porte le sceau du Coeur de Haine. Lisez les vieux traites."};
 static const Node D13_N[] = {{"",D13_0_L,3,nullptr,-1,-1}};
-static const char* const D15_0_L[] = {"Bienvenue a la Guilde.","Accomplissez quelques contrats pour gagner notre confiance.","Nous avons toujours besoin de bras."};
-static const Node D15_N[] = {{"",D15_0_L,3,nullptr,-1,-1}};
+// --- Acte III : Guilde des Aventuriers de Grand-Castel (Q8) ---
+static const char* const D15_done_L[] = {"Les trois contrats sont honores. La Guilde te reconnait des siens.","Repose-toi : d'autres missions viendront."};
+static const char* const D15_board_L[] = {"Bienvenue a la Guilde de Grand-Castel. Voici tes contrats :","- Remettre le pli scelle a Tomas Venn.","- Fournir 3 herbes medicinales a Iris.","- Porter une potion a Sœur Helena.","Le pli est deja dans ta besace. Reviens quand tout sera regle."};
+static const char* const D15_intro_L[] = {"La Guilde des Aventuriers siege a Grand-Castel.","Viens m'y trouver si tu cherches des contrats."};
+static const Node D15_N[] = {
+  {"q8_fait",D15_done_L,2,nullptr,-1,-1},
+  {"q8_pris",D15_board_L,5,nullptr,-1,-1},
+  {"",D15_intro_L,2,nullptr,-1,-1}
+};
+static const char* const D16_done_L[] = {"Le pli de la Guilde est bien arrive. Merci a toi."};
 static const char* const D16_0_L[] = {"Je ne reste jamais longtemps.","Les routes sont pleines de surprises.","Regardez mes marchandises avant que je reparte."};
-static const Node D16_N[] = {{"",D16_0_L,3,nullptr,-1,-1}};
-static const char* const D17_0_L[] = {"Des remedes ? Des baumes ?","J'ai ce qu'il vous faut.","Les voyageurs parlent d'etranges pierres..."};
-static const Node D17_N[] = {{"",D17_0_L,3,nullptr,-1,-1}};
+static const Node D16_N[] = {
+  {"c_pli",D16_done_L,1,nullptr,-1,-1},
+  {"",D16_0_L,3,nullptr,-1,-1}
+};
+static const char* const D17_done_L[] = {"Ces herbes sauveront des vies. La Guilde en sera informee.","Que les tiens soient benis, voyageuse."};
+static const char* const D17_0_L[] = {"Des remedes ? Des baumes ?","J'ai ce qu'il vous faut.","Si la Guilde m'envoyait des simples, j'en manquerais moins..."};
+static const Node D17_N[] = {
+  {"c_herbes",D17_done_L,2,nullptr,-1,-1},
+  {"",D17_0_L,3,nullptr,-1,-1}
+};
+static const char* const D12_done_L[] = {"Que la lumiere te garde. Nos malades sont soulages."};
+static const char* const D12_0_L[] = {"Tant de miseres echouent a la Cour des Miracles...","Une simple potion soulagerait nos plus faibles.","La Guilde a promis son aide. L'apporteras-tu ?"};
+static const Node D12_N[] = {
+  {"c_aumone",D12_done_L,1,nullptr,-1,-1},
+  {"",D12_0_L,3,nullptr,-1,-1}
+};
 // --- Cour des Miracles de Grand-Castel : Racha (18) et Meluve (19) ---
 static const char* const D18_0_L[] = {"L'hermine est repartie chez sa belle. Affaire classee.","Reviens si tu veux vendre, pas mendier."};
 static const char* const D18_1_L[] = {"Tu l'as deja, le bijou. File le rendre avant que je change d'avis."};
@@ -68,12 +89,12 @@ static const NpcDialog DIALOG[20] = {
   {"Edric",D9_N,1},
   {"Capitaine Roland",D10_N,1},
   {"Maitre Edrik",nullptr,0},
-  {"Sœur Helena",nullptr,0},
+  {"Sœur Helena",D12_N,2},
   {"Maitre Albin",D13_N,1},
   {"Selene",nullptr,0},
-  {"Garrick",D15_N,1},
-  {"Tomas Venn",D16_N,1},
-  {"Iris",D17_N,1},
+  {"Garrick",D15_N,3},
+  {"Tomas Venn",D16_N,2},
+  {"Iris",D17_N,2},
   {"Racha",D18_N,4},
   {"Meluve",D19_N,4}
 };

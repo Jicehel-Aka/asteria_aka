@@ -168,8 +168,20 @@ void WorldScene::update(SceneManager& mgr){
           else if(quest_status(7)==1) complete_quest_reward(7); // retour : consultation terminée
         }
       }
-      else if(n==15){ // Garrick (Guilde) : Q8 se termine une fois les contrats accomplis
-        if(quest_status(8)==1) complete_quest_reward(8);
+      else if(n==15 && _loc==10){ // Garrick (Guilde de Grand-Castel) : hub de contrats Q8
+        if(quest_status(8)==0){ quest_start(8); flag_set("q8_pris");
+          int pli=item_index("OBJ_0039"); if(pli>=0 && !player().inv.has(pli,1)) player().inv.add(pli,1); }
+        else if(quest_status(8)==1 && flag_get("c_pli") && flag_get("c_herbes") && flag_get("c_aumone")){
+          flag_set("q8_fait"); complete_quest_reward(8); }
+      }
+      else if(n==16 && _loc==10 && flag_get("q8_pris") && !flag_get("c_pli")){ // pli scelle -> Tomas Venn
+        int pli=item_index("OBJ_0039"); if(pli>=0 && player().inv.has(pli,1)){ player().inv.remove(pli,1); flag_set("c_pli"); }
+      }
+      else if(n==17 && _loc==10 && flag_get("q8_pris") && !flag_get("c_herbes")){ // 3 herbes -> Iris
+        int h=item_index("OBJ_0034"); if(h>=0 && player().inv.has(h,3)){ player().inv.remove(h,3); flag_set("c_herbes"); }
+      }
+      else if(n==12 && _loc==10 && flag_get("q8_pris") && !flag_get("c_aumone")){ // potion -> Sœur Helena
+        int pot=item_index("OBJ_0005"); if(pot>=0 && player().inv.has(pot,1)){ player().inv.remove(pot,1); flag_set("c_aumone"); }
       }
       dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0; }
     else { int ci=chest_at(map,fx,fy);

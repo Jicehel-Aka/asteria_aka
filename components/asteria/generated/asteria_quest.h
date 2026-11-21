@@ -9,7 +9,7 @@ static const char* const Q4_O[] = {"Recolter 5 herbes medicinales","Recolter 3 c
 static const char* const Q5_O[] = {"Trouver l'indice laisse par un disparu","Suivre la piste jusqu'a la Vieille Mine"};
 static const char* const Q6_O[] = {"Explorer la Vieille Mine corrompue","Remettre le treuil en marche","Atteindre la salle d'extraction","Affronter le Chef Gobelin","Recuperer la Clef du Puits"};
 static const char* const Q7_O[] = {"Presenter la Pierre noire a Maitre Albin","Identifier la relique des Tenebres","Consulter les traites de la bibliotheque"};
-static const char* const Q8_O[] = {"Accomplir trois contrats simples"};
+static const char* const Q8_O[] = {"Remettre le pli scelle a Tomas Venn","Fournir 3 herbes medicinales a Iris","Porter une potion a Sœur Helena","Faire son rapport a Garrick"};
 static const char* const Q9_O[] = {"Enqueter sur la caravane disparue","Suivre sa piste vers la Route Royale"};
 static const char* const Q10_O[] = {"Examiner le campement abandonne","Trouver le carnet du chef de caravane"};
 static const char* const Q11_O[] = {"Enqueter sur Corbeau Noir"};
@@ -27,7 +27,7 @@ static const Quest QUEST[] = {
   {"Le tissu dechire",Q5_O,2,true,220},
   {"La Vieille Mine",Q6_O,5,true,470},
   {"Le symbole oublie",Q7_O,3,true,150},
-  {"Les contrats de la Guilde",Q8_O,1,false,100},
+  {"Les contrats de la Guilde",Q8_O,4,false,160},
   {"Les marchandises disparues",Q9_O,2,true,150},
   {"La caravane silencieuse",Q10_O,2,true,200},
   {"Avis de recherche",Q11_O,1,false,90},
