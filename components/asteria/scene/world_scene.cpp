@@ -46,7 +46,7 @@ struct ChestDef { int loc,x,y,item,gold; const char* flag; int complete_q; const
 // Le "coffre" de la forêt porte aussi le tissu déchiré : s'il est ouvert alors
 // que Q5 est en cours, il termine Q5 et pose piste_mine (la Mine s'ouvre).
 static const ChestDef CHESTS[]={ {8,16,10,4,8,"coffre_foret",5,"piste_mine"}, {0,3,21,2,5,"coffre_valbois",-1,nullptr},
-  {20,4,8,-1,0,"coffre_carnet",10,"caravane_ok"} };   // campement : carnet de la caravane (Q10)
+  {20,4,16,-1,0,"coffre_carnet",10,"caravane_ok"} };   // campement : carnet de la caravane (Q10)
 static const int NCHEST=3;
 static int chest_at(int map,int x,int y){ int loc=MAPS[map].location; for(int i=0;i<NCHEST;i++) if(CHESTS[i].loc==loc && CHESTS[i].x==x && CHESTS[i].y==y && !flag_get(CHESTS[i].flag)) return i; return -1; }
 // Coffre ferme facon pixel-art (ref. fournie) : couvercle bombe ambre, 2 ferrures
@@ -138,7 +138,7 @@ void WorldScene::update(SceneManager& mgr){
           } }
         { int _loc=MAPS[map].location;
           if(!_tp && _loc==9 && py<=3 && !flag_get("boss_mine")){ set_combat_return(SceneId::WORLD); start_combat(9,"/sdcard/ASTERIA/battle/MINE_L.BMP"); mgr.set(SceneId::COMBAT); return; }
-          if(!_tp && _loc==20 && py<=9 && !flag_get("boss_corbeau")){ if(quest_status(11)==0) quest_start(11);
+          if(!_tp && _loc==20 && py<=20 && !flag_get("boss_corbeau")){ if(quest_status(11)==0) quest_start(11);
             notice=true; noticeTxt="Corbeau Noir, le chef des brigands, te barre la route !"; flag_set("vu_corbeau");
             set_combat_return(SceneId::WORLD); start_combat(25,"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; }
           if(!_tp && (_loc==8||_loc==9||_loc==20) && (gb::millis()%9==0)){ int _m=(_loc==8)?5+(int)((gb::millis()/3)%4):(_loc==20)?(10+(int)((gb::millis()/3)%2)):((gb::millis()%2)?16:23); set_combat_return(SceneId::WORLD); start_combat(_m, _loc==9?"/sdcard/ASTERIA/battle/MINE_L.BMP":"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; } }
