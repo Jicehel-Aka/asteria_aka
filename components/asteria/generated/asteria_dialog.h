@@ -34,7 +34,28 @@ static const char* const D16_0_L[] = {"Je ne reste jamais longtemps.","Les route
 static const Node D16_N[] = {{"",D16_0_L,3,nullptr,-1,-1}};
 static const char* const D17_0_L[] = {"Des remedes ? Des baumes ?","J'ai ce qu'il vous faut.","Les voyageurs parlent d'etranges pierres..."};
 static const Node D17_N[] = {{"",D17_0_L,3,nullptr,-1,-1}};
-static const NpcDialog DIALOG[18] = {
+// --- Cour des Miracles de Grand-Castel : Racha (18) et Meluve (19) ---
+static const char* const D18_0_L[] = {"L'hermine est repartie chez sa belle. Affaire classee.","Reviens si tu veux vendre, pas mendier."};
+static const char* const D18_1_L[] = {"Tu l'as deja, le bijou. File le rendre avant que je change d'avis."};
+static const char* const D18_2_L[] = {"Un collier d'hermine ? Joli, mais sans valeur pour moi.","La fille t'envoie ? Bah... il porte le deuil, pas le profit.","Tiens. Et qu'on ne dise pas que Racha n'a pas de coeur."};
+static const char* const D18_3_L[] = {"Je ne traite qu'avec les gens que je connais.","Reviens quand tu sauras ce que tu cherches."};
+static const Node D18_N[] = {
+  {"col_rendu",D18_0_L,2,nullptr,-1,-1},
+  {"a_collier",D18_1_L,1,nullptr,-1,-1},
+  {"vu_meluve",D18_2_L,3,"a_collier",37,-1},
+  {"",D18_3_L,2,nullptr,-1,-1}
+};
+static const char* const D19_0_L[] = {"Tu l'as rendu a sa vraie place. Merci, voyageuse.","Ce blason d'hermine etait a ma mere, et avant elle, aux tiens.","Un jour tu sauras ce que cela signifie vraiment."};
+static const char* const D19_1_L[] = {"Ce collier ! C'est bien celui de ma famille.","Tu l'as repris a Racha ? Les mots me manquent.","Il est a toi autant qu'a moi, desormais. Garde-le."};
+static const char* const D19_2_L[] = {"Approche, on appelle cet endroit la Cour des Miracles.","On m'a pris le seul bien qui me restait : un collier d'hermine.","Racha le brocanteur l'a monnaye. Retrouve-le, je t'en prie."};
+static const char* const D19_3_L[] = {"Racha traine toujours dans son coin, la-haut.","Sans mon collier, je n'ai plus rien des miens."};
+static const Node D19_N[] = {
+  {"col_rendu",D19_0_L,3,nullptr,-1,-1},
+  {"a_collier",D19_1_L,3,"col_rendu",-1,15},
+  {"!vu_meluve",D19_2_L,3,"vu_meluve",-1,-1,15},
+  {"",D19_3_L,2,nullptr,-1,-1}
+};
+static const NpcDialog DIALOG[20] = {
   {"Aldren",D0_N,2},
   {"Doran",D1_N,1},
   {"Mira",D2_N,1},
@@ -52,7 +73,9 @@ static const NpcDialog DIALOG[18] = {
   {"Selene",nullptr,0},
   {"Garrick",D15_N,1},
   {"Tomas Venn",D16_N,1},
-  {"Iris",D17_N,1}
+  {"Iris",D17_N,1},
+  {"Racha",D18_N,4},
+  {"Meluve",D19_N,4}
 };
 }
 }

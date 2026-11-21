@@ -148,7 +148,7 @@ void WorldScene::update(SceneManager& mgr){
     if(_loc==1 && n==13){ mgr.set(SceneId::INN); }
     else if(_loc==1 && n==10){ mgr.set(SceneId::DICE); }
     else if(n==2){ mgr.set(SceneId::SHOP); }
-    else if(n>=0 && n<18 && dlg::DIALOG[n].nnodes>0){
+    else if(n>=0 && n<20 && dlg::DIALOG[n].nnodes>0){
       // --- Annexes de l'Acte I (démarrage au 1er dialogue, remise au retour) ---
       if(n==1){ // Doran : Q1 Les Outils perdus (remise = rapporter le casque de la mine)
         if(quest_status(1)==0) quest_start(1);

@@ -225,8 +225,8 @@ static const uint16_t NPC_17[] = {
   0x2285,0xF81F,0xF81F,0x1AC6,0x2327,0x0962,0x3AA9,0x42EB,0x19C4,0x2B07,0x22E6,0xF81F,0xF81F,0xF81F,0x2245,0x1AA5,0x2387,0x23C8,0x2347,0x2B47,0xF81F,0xF81F,0xF81F,0xF81F,
   0x2046,0x19E9,0x1063,0xF81F,0x1167,0x29EB,0xF81F,0xF81F
 };
-static const int16_t NPC_COUNT=18;
-static const Sprite NPC[18] = {
+static const int16_t NPC_COUNT=20;
+static const Sprite NPC[20] = {
   {NPC_0,12,20},
   {NPC_1,11,20},
   {NPC_2,10,20},
@@ -244,7 +244,9 @@ static const Sprite NPC[18] = {
   {NPC_14,11,20},
   {NPC_15,13,20},
   {NPC_16,12,20},
-  {NPC_17,10,20}
+  {NPC_17,10,20},
+  {NPC_6,10,20},   // 18 Racha (placeholder a reskinner)
+  {NPC_1,11,20}    // 19 Meluve (placeholder a reskinner)
 };
 }
 }

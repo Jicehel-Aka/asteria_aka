@@ -16,7 +16,8 @@ static const char* const Q11_O[] = {"Enqueter sur Corbeau Noir"};
 static const char* const Q12_O[] = {"Aider le marchand a poursuivre sa route"};
 static const char* const Q13_O[] = {"Explorer la vallee oubliee","Examiner les monolithes","Utiliser la Pierre noire sur les pierres resonantes","Activer les quatre pierres dans le bon ordre"};
 static const char* const Q14_O[] = {"Explorer le Temple Oublie","Resoudre les mecanismes antiques","Atteindre la Salle du Gardien","Vaincre le Gardien du Seuil","Examiner la fresque du sanctuaire","Quitter le temple apres l'effondrement"};
-static const int QUEST_COUNT=15;
+static const char* const Q15_O[] = {"Ecouter Meluve a la Cour des Miracles","Retrouver le collier d'hermine aupres de Racha","Rendre le collier a Meluve"};
+static const int QUEST_COUNT=16;
 static const Quest QUEST[] = {
   {"Bienvenue a Valbois",Q0_O,3,true,50},
   {"Les Outils perdus",Q1_O,2,false,70},
@@ -32,7 +33,8 @@ static const Quest QUEST[] = {
   {"Avis de recherche",Q11_O,1,false,90},
   {"Une roue cassee",Q12_O,1,false,60},
   {"Les Pierres Murmurantes",Q13_O,4,true,280},
-  {"Le Temple Oublie",Q14_O,6,true,400}
+  {"Le Temple Oublie",Q14_O,6,true,400},
+  {"Le Collier d'hermine",Q15_O,3,false,180}
 };
 }
 }

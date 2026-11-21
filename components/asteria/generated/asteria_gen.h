@@ -96,7 +96,7 @@ static const Npc NPCS[NPC_COUNT]={
   {"NPC_0017","Tomas Venn",27,2,"Marchand itinérant, présent certains jours seulement."},
   {"NPC_0018","Iris",27,2,"Apothicaire de Grand-Castel."},
 };
-static constexpr uint16_t ITEM_COUNT=37;
+static constexpr uint16_t ITEM_COUNT=38;
 struct Item{const char* id;const char* name;uint8_t cat;uint16_t flags;int16_t source;};
 static const Item ITEMS[ITEM_COUNT]={
   {"OBJ_0001","Épée usée",IC_WEAPON,0,-1},
@@ -136,6 +136,7 @@ static const Item ITEMS[ITEM_COUNT]={
   {"OBJ_0035","Champignon",IC_MATERIAL,2,-1},
   {"OBJ_0036","Bois",IC_MATERIAL,2,-1},
   {"OBJ_0037","Dague",IC_WEAPON,0,-1},
+  {"OBJ_0038","Collier d'hermine",IC_QUEST,1,-1},
 };
 static constexpr uint16_t MONSTER_COUNT=24;
 struct Monster{const char* id;const char* name;uint8_t level;const char* category;};
