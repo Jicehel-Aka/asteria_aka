@@ -53,6 +53,8 @@ void CombatScene::update(SceneManager& m){
           if(ca>=0 && !player().inv.has(ca,1)) player().inv.add(ca,1);   // casque de mineur (Q1 Doran)
           complete_quest_reward(6);
           snprintf(msg,64,"Chef Gobelin vaincu ! Clef du Puits + Pierre noire"); }
+        else if(g_enc==19){ flag_set("boss_gardien"); snprintf(msg,64,"Le Gardien du Seuil tombe. La voie du coeur s'ouvre."); }
+        else if(g_enc==24){ flag_set("boss_coeur"); snprintf(msg,64,"Tu as libere cet univers du joug de son tyran."); }
         else snprintf(msg,64,"Victoire ! +%d XP  +%d or",xp,gold);
         if(g_enc!=9) audio::play(player().level>lvl0 ? audio::TUNE_LEVELUP : audio::TUNE_VICTORY);  // boss : jingle joue par complete_quest_reward
         result=1; phase=3; }

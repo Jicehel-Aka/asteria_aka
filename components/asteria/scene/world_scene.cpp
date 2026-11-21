@@ -33,6 +33,8 @@ static const char* gate_block(int target_loc){
     return "La voie est coupee : il te faut la Clef du Puits et plus d'experience (niv. 5).";
   if(target_loc==10 && !flag_get("caravane_ok"))
     return "Les portes de Grand-Castel sont closes. Retrouve d'abord le carnet de la caravane.";
+  if(target_loc==21 && quest_status(7)!=2)
+    return "Une porte scellee des Tenebres. Fais d'abord parler la Pierre noire a Maitre Albin.";
   return nullptr;
 }
 // couleurs de tuiles provisoires (avant sprites) : herbe,chemin,mur,eau,porte,pont,arbre,toit
@@ -86,10 +88,35 @@ void WorldScene::update(SceneManager& mgr){
   const Map& M=MAPS[map]; uint32_t p=gb::buttons_pressed();
   if(MAPS[map].location==10 && !flag_get("gc_intro")){ flag_set("gc_intro"); quest_start(8); notice=true; noticeTxt="Les hautes tours de Grand-Castel se dressent devant toi."; }
   if(MAPS[map].location==20 && !flag_get("route_intro")){ flag_set("route_intro"); quest_start(9); notice=true; noticeTxt="La Route Royale s'ouvre devant toi. Des marchands auraient disparu sur ses chemins..."; }
+  if(MAPS[map].location==21 && !flag_get("antre_intro")){ flag_set("antre_intro"); notice=true; noticeTxt="Tu penetres dans l'Antre Malefique. L'air brule et pue l'acide."; }
   if(quest_status(0)==2 && quest_status(2)==0) quest_start(2);
   if(quest_status(2)==2 && quest_status(3)==0) quest_start(3);   // Q3 Les empreintes (annexe)
   if(confirmQuit){ if(p&gb::BTN_A){ mgr.set(SceneId::TITLE); } else if(p&gb::BTN_B){ confirmQuit=false; } return; }
   if(notice){ if(p&(gb::BTN_A|gb::BTN_B)) notice=false; return; }
+  // ---- Final de l'Arc I : l'Antre Malefique (loc 21) ----
+  if(MAPS[map].location==21){
+    if(flag_get("boss_coeur")){                               // le tyran est vaincu -> denouement
+      if(!flag_get("fin_arc1")){
+        static int di=0; static const char* D[]={
+          "Le Coeur de Haine s'effondre dans un dernier spasme.",
+          "Une lumiere pale revient : les Tenebres refluent de la region.",
+          "Les disparus perdus ne reviendront pas tous... mais le pays respire.",
+          "Sur l'autel, un pendentif d'hermine. Tu le reconnais aussitot.",
+          "C'est celui de ta mere. Elle est passee ici, vivante.",
+          "La piste des tiens mene vers l'Est, au-dela des Monts. (Fin de l'Arc I)" };
+        if(di<6){ notice=true; noticeTxt=D[di++]; return; } else flag_set("fin_arc1");
+      }
+    } else {                                                  // sinon : combats a l'autel (centre haut)
+      bool atAltar=(py<=5 && px>=8 && px<=12);
+      if(atAltar){
+        if(!flag_get("boss_gardien")){
+          if(!flag_get("vu_gardien")){ flag_set("vu_gardien"); notice=true; noticeTxt="Le Gardien du Seuil, lieutenant du Coeur de Haine, surgit !"; return; }
+          set_combat_return(SceneId::WORLD); start_combat(19,"/sdcard/ASTERIA/battle/MINE_L.BMP"); mgr.set(SceneId::COMBAT); return; }
+        if(!flag_get("vu_coeur")){ flag_set("vu_coeur"); notice=true; noticeTxt="Au centre, une chose sombre bat comme un coeur. Les veinules rouges palpitent."; return; }
+        set_combat_return(SceneId::WORLD); start_combat(24,"/sdcard/ASTERIA/battle/MINE_L.BMP"); mgr.set(SceneId::COMBAT); return;
+      }
+    }
+  }
   if(dlg){ const dlg::Node& N=dlg::DIALOG[dlgNpc].nodes[dlgNode];
     if(p&gb::BTN_A){ dlgLine++; if(dlgLine>=N.nlines){ if(N.set_flag) flag_set(N.set_flag); if(N.give_item>=0) player().inv.add(N.give_item,1); if(N.complete_quest>=0) complete_quest_reward(N.complete_quest); if(N.start_quest>=0) quest_start(N.start_quest); dlg=false; } }
     if(p&gb::BTN_B) dlg=false; return; }
