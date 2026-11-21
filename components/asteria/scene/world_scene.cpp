@@ -45,7 +45,7 @@ static const gb::Color TCOL(uint8_t t){
 struct ChestDef { int loc,x,y,item,gold; const char* flag; int complete_q; const char* setflag; };
 // Le "coffre" de la forêt porte aussi le tissu déchiré : s'il est ouvert alors
 // que Q5 est en cours, il termine Q5 et pose piste_mine (la Mine s'ouvre).
-static const ChestDef CHESTS[]={ {8,16,10,4,8,"coffre_foret",5,"piste_mine"}, {0,3,21,2,5,"coffre_valbois",-1,nullptr},
+static const ChestDef CHESTS[]={ {8,22,7,4,8,"coffre_foret",5,"piste_mine"}, {0,3,21,2,5,"coffre_valbois",-1,nullptr},
   {20,4,16,-1,0,"coffre_carnet",10,"caravane_ok"} };   // campement : carnet de la caravane (Q10)
 static const int NCHEST=3;
 static int chest_at(int map,int x,int y){ int loc=MAPS[map].location; for(int i=0;i<NCHEST;i++) if(CHESTS[i].loc==loc && CHESTS[i].x==x && CHESTS[i].y==y && !flag_get(CHESTS[i].flag)) return i; return -1; }

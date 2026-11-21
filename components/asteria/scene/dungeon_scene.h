@@ -5,7 +5,7 @@ namespace asteria {
 // Donjon en vue premiere personne (pseudo-3D grille facon Dark & Under),
 // avec panneau d'info a droite (boussole, auto-carte, PV/Mana/Or, journal).
 struct DungeonScene : Scene {
-  static const int GW=15, GH=15;
+  static const int GW=19, GH=19;
   uint8_t  cell[GW*GH];   // 0 sol, 1 mur, 2 filon (mur), 5 eau (sol)
   uint8_t  seen[GW*GH];   // auto-carte : 1 si deja vu
   int px=1, py=1, face=2; // 0=N 1=E 2=S 3=O (grille / logique)
