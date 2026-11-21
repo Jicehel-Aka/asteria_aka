@@ -31,8 +31,8 @@ static const char* gate_block(int target_loc){
     return "Rien ne t'indique encore où chercher. Enquete d'abord dans la foret.";
   if(target_loc==20 && (!player().inv.has(item_index("OBJ_0015"),1) || player().level<5))
     return "La voie est coupee : il te faut la Clef du Puits et plus d'experience (niv. 5).";
-  if(target_loc==10 && !flag_get("caravane_ok"))
-    return "Les portes de Grand-Castel sont closes. Retrouve d'abord le carnet de la caravane.";
+  if(target_loc==10 && !flag_get("boss_mine"))
+    return "La route vers Grand-Castel longe la Vieille Mine. Nettoie-la d'abord de sa corruption.";
   if(target_loc==21 && quest_status(7)!=2)
     return "Une porte scellee des Tenebres. Fais d'abord parler la Pierre noire a Maitre Albin.";
   return nullptr;
@@ -169,9 +169,9 @@ void WorldScene::update(SceneManager& mgr){
         }
       }
       else if(n==15 && _loc==10){ // Garrick (Guilde de Grand-Castel) : hub de contrats Q8
-        if(quest_status(8)==0){ quest_start(8); flag_set("q8_pris");
+        if(!flag_get("q8_pris")){ flag_set("q8_pris"); if(quest_status(8)==0) quest_start(8);
           int pli=item_index("OBJ_0039"); if(pli>=0 && !player().inv.has(pli,1)) player().inv.add(pli,1); }
-        else if(quest_status(8)==1 && flag_get("c_pli") && flag_get("c_herbes") && flag_get("c_aumone")){
+        else if(!flag_get("q8_fait") && flag_get("c_pli") && flag_get("c_herbes") && flag_get("c_aumone")){
           flag_set("q8_fait"); complete_quest_reward(8); }
       }
       else if(n==16 && _loc==10 && flag_get("q8_pris") && !flag_get("c_pli")){ // pli scelle -> Tomas Venn
