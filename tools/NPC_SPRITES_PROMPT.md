@@ -34,6 +34,31 @@ Complément de `tools/SPRITES_PROMPT.md` (qui couvre les tuiles 16×16). Ici : l
 Caïthness (héroïne, cape bordée d'hermine + dague), Aldren (maire), Lysa (traqueuse),
 Maître Albin (érudit), Garrick (Guilde). Mêmes contraintes 20 px de haut.
 
+## Ajouts de cette session (placeholders à remplacer)
+
+### Sprites de PNJ (format entité 20 px, mêmes contraintes que ci-dessus)
+- **Dame Orwenn** (PNJ 20, Valbois) — vieille femme digne, aïeule/gardienne du savoir féerique.
+  Châle sombre sur robe gris-mauve `#4A4256`, cheveux blancs noués, un bâton fin. Bienveillante,
+  un éclat fée dans le regard. (Actuellement : réutilise le sprite d'Iris, `NPC[20]`.)
+
+### Sprite de monstre (format combat, fond magenta)
+- **Corbeau Noir** (monstre 25, chef des brigands de la Route Royale, **~29×50**) — bandit humain
+  en manteau de plumes noires, capuche à bec de corbeau, dague courbe, écharpe rouge sombre.
+  Silhouette menaçante mais humaine (pas un oiseau). (Actuellement : réutilise le sprite Brigand `M10`.)
+
+### Tuile de décor (format tuile 16×16, BGR565, pas de magenta — c'est un décor solide)
+- **Pierre Murmurante / Monolithe** (tuile de carte, 16×16) — menhir gravé de runes, pierre
+  gris-bleu `#5A6472`, runes qui luisent faiblement en bleu froid `#6FA8C7`. Vue top-down 3/4,
+  base herbeuse. Doit se lire comme « pierre dressée ancienne », distinct d'un simple rocher.
+  (Actuellement : réutilise la tuile rocher 28.) → à ajouter comme nouvelle tuile dédiée.
+
+### Icônes d'objets (optionnel — 16×16 ou 24×24, fond magenta, si le moteur affiche des icônes)
+- **Anneau de l'Aube** — anneau d'or pâle serti d'une petite gemme aube/rose `#F2C78C`, halo doux.
+- **Collier d'hermine** — pendentif crème/blanc en forme d'hermine stylisée sur chaîne fine.
+- **Pli scellé de la Guilde** — lettre pliée, cachet de cire rouge frappé d'un écusson.
+- **Clef du Puits** — grosse clef de fer rouillée à anneau carré.
+- **Pierre noire gravée** — éclat de pierre noire lustrée, rune rouge gravée luisante.
+
 ## Pipeline de réintégration
 1. Un **PNG par personnage**, fond `#FF00FF`, dimensions exactes ci-dessus.
 2. Baker en tableau C `uint16_t NPC_x[]` (BGR565, clé `0xF81F`) et remplacer l'entrée
