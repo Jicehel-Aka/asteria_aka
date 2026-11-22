@@ -10,6 +10,7 @@
 #include "generated/asteria_tiles.h"
 #include "audio/jingle.h"
 #include "autotile.h"
+#include "content_i18n.h"
 #include "generated/asteria_water.h"
 #include "generated/asteria_npc.h"
 #include "generated/asteria_dialog.h"
@@ -288,8 +289,8 @@ void WorldScene::render(){
   if(dlg){ const dlg::NpcDialog& D=dlg::DIALOG[dlgNpc];
     gb::fill_rect(8,158,304,74,gb::rgb(20,16,10));
     gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
-    ui::gold(16,162,D.name,true);
-    const dlg::Node& _N=D.nodes[dlgNode]; const char* t=(dlgLine<_N.nlines)?_N.lines[dlgLine]:"";
+    ui::gold(16,162,trc(D.name),true);
+    const dlg::Node& _N=D.nodes[dlgNode]; const char* t=(dlgLine<_N.nlines)?trc(_N.lines[dlgLine]):"";
     // wrap simple ~38 c
     char l1[64]={0},l2[64]={0}; int n=0; while(t[n])n++;
     if(n<=38){ for(int i=0;i<n;i++)l1[i]=t[i]; }
@@ -304,16 +305,16 @@ void WorldScene::render(){
     if(qi>=0){ int qs=quest_status(qi);
       gb::fill_rect(150,2,166,30,gb::rgb(20,16,10));
       ui::text(156,5,i18n::tr(i18n::W_QUEST),gb::rgb(200,180,110));
-      ui::text(156,18,quest::QUEST[qi].name,gb::rgb(230,220,180));
+      ui::text(156,18,trc(quest::QUEST[qi].name),gb::rgb(230,220,180));
       if(qs==1){ int o=quest_obj(qi); if(o>=quest::QUEST[qi].nobj)o=quest::QUEST[qi].nobj-1;
-        gb::fill_rect(8,2,120,14,gb::rgb(20,16,10)); ui::gold(10,4,">",true); ui::text(20,4,quest::QUEST[qi].obj[o],gb::rgb(220,210,180)); }
+        gb::fill_rect(8,2,120,14,gb::rgb(20,16,10)); ui::gold(10,4,">",true); ui::text(20,4,trc(quest::QUEST[qi].obj[o]),gb::rgb(220,210,180)); }
       else if(qs==2){ gb::fill_rect(8,2,120,14,gb::rgb(20,16,10)); ui::gold(10,4,i18n::tr(i18n::W_QDONE),true); }
     }
   }
   if(notice){ gb::fill_rect(8,158,304,74,gb::rgb(20,16,10)); gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
     ui::gold(16,162,i18n::tr(i18n::W_EVENT),true);
     // wrap ~38
-    const char* t=noticeTxt?noticeTxt:""; char a[64]={0},b[64]={0}; int n=0; while(t[n])n++;
+    const char* t=noticeTxt?trc(noticeTxt):""; char a[64]={0},b[64]={0}; int n=0; while(t[n])n++;
     if(n<=38){ for(int i=0;i<n;i++)a[i]=t[i]; } else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(!cut)cut=38; for(int i=0;i<cut;i++)a[i]=t[i]; int k=0; for(int i=cut+1;t[i];i++)b[k++]=t[i]; }
     ui::text(16,182,a,gb::rgb(236,226,192)); if(b[0])ui::text(16,198,b,gb::rgb(236,226,192));
     ui::text(206,214,i18n::tr(i18n::W_CONT),gb::rgb(170,160,132));

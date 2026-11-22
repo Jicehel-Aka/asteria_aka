@@ -7,6 +7,7 @@ idf_component_register(
     "player.cpp"
     "gamestate.cpp"
     "i18n.cpp"
+    "content_i18n.cpp"
     "autotile.cpp"
     "audio/jingle.cpp"
     "progress.cpp"

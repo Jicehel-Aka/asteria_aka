@@ -2,6 +2,7 @@
 #include "i18n.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
+#include "content_i18n.h"
 #include "player.h"
 #include <cstdio>
 namespace asteria {
@@ -23,7 +24,7 @@ void InnScene::update(SceneManager& m){
   if(p&gb::BTN_B) m.set(SceneId::WORLD);
   if(p&gb::BTN_A){
     if(sel==0){ if(player().gold>=REST_COST){ player().gold-=REST_COST; player().BL=0; player().mana=player().manaMax; snprintf(msg,72,"%s",i18n::tr(i18n::IN_RESTED)); } else snprintf(msg,72,"Pas assez d'or (%d requis).",REST_COST); }
-    else if(sel==1){ snprintf(msg,72,"\"%s\"",RUMORS[g_rum]); g_rum=(g_rum+1)%5; }
+    else if(sel==1){ snprintf(msg,72,"\"%s\"",trc(RUMORS[g_rum])); g_rum=(g_rum+1)%5; }
     else m.set(SceneId::WORLD);
   }
 }

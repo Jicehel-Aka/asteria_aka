@@ -1,6 +1,7 @@
 // Combat tour par tour (Defis & Sortileges) : 3D6 <= CO pour toucher, degats = des d'arme.
 #include "scene/combat_scene.h"
 #include "i18n.h"
+#include "content_i18n.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
 #include "player.h"
@@ -90,7 +91,7 @@ void CombatScene::render(){
   gb::draw_image_key(S.px,S.w,S.h,160-S.w/2,152-S.h,spr::KEY);   // pieds au sol
   // ennemi : nom + barre PV
   gb::fill_rect(8,8,150,26,gb::rgb(20,16,10)); gb::fill_rect(8,8,150,2,gb::rgb(200,170,90));
-  ui::gold(14,12,M.name,true);
+  ui::gold(14,12,trc(M.name),true);
   int bw=140, f=(int)((mhp*bw)/(unsigned)M.VIT); gb::fill_rect(160,14,bw,10,gb::rgb(60,20,20)); gb::fill_rect(160,14,f,10,gb::rgb(190,60,50));
   // joueur : VIT/BL
   gb::fill_rect(158,176,154,56,gb::rgb(20,16,10)); gb::fill_rect(158,176,154,2,gb::rgb(200,170,90));
@@ -112,7 +113,7 @@ void CombatScene::render(){
     ui::text(196,210,i18n::tr(i18n::CB_CAST_H),gb::rgb(170,160,132));
   } else {
     gb::fill_rect(8,176,304,56,gb::rgb(20,16,10)); gb::fill_rect(8,176,304,2,gb::rgb(200,170,90));
-    ui::text(16,190,msg,gb::rgb(236,226,192)); ui::text(230,210,i18n::tr(i18n::CB_NEXT),gb::rgb(170,160,132));
+    ui::text(16,190,trc(msg),gb::rgb(236,226,192)); ui::text(230,210,i18n::tr(i18n::CB_NEXT),gb::rgb(170,160,132));
   }
 }
 }

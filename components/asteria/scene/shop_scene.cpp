@@ -3,6 +3,7 @@
 #include "platform/gb_port.h"
 #include "ui/text.h"
 #include "player.h"
+#include "content_i18n.h"
 #include <cstdio>
 namespace asteria {
 struct ShopItem { const char* name; int item; int price; };
@@ -27,7 +28,7 @@ void ShopScene::render(){
   ui::text_big(64,10,i18n::tr(i18n::SH_TITLE),gb::rgb(230,210,140));
   char b[32]; snprintf(b,32,"%s %d",i18n::tr(i18n::SH_GOLD),player().gold); ui::gold(20,40,b,true);
   for(int i=0;i<NSHOP;i++){ int y=64+i*22; if(i==sel){ gb::fill_rect(16,y-3,288,18,gb::rgb(60,45,20)); ui::gold(20,y,">",true);} 
-    ui::text(36,y,SHOP[i].name,gb::rgb(235,225,190)); char pr[12]; snprintf(pr,12,"%d or",SHOP[i].price); ui::text(252,y,pr,gb::rgb(220,200,120)); }
+    ui::text(36,y,trc(SHOP[i].name),gb::rgb(235,225,190)); char pr[12]; snprintf(pr,12,"%d or",SHOP[i].price); ui::text(252,y,pr,gb::rgb(220,200,120)); }
   if(msg[0]) ui::text(20,188,msg,gb::rgb(190,230,180));
   ui::text(20,216,i18n::tr(i18n::SH_HINT),gb::rgb(180,170,140));
 }
