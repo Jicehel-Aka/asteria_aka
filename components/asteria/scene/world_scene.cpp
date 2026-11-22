@@ -132,7 +132,7 @@ void WorldScene::update(SceneManager& mgr){
       uint8_t t=M.tiles[ny*M.w+nx];
       if(!TILE_SOLID[t] && npc_at(M,nx,ny)<0 && chest_at(map,nx,ny)<0 && !(t==4 && !door_leads_somewhere(M,nx,ny))){ px=nx; py=ny; bool _tp=false;
         if(MAPS[map].location==8){ // cueillette d'herbes medicinales le long du sentier (Q8)
-          static const int HX[]={24,22,13,22}, HY[]={4,9,19,24}; static const char* HF[]={"herb_a","herb_b","herb_c","herb_d"};
+          static const int HX[]={16,24,20,13}, HY[]={4,11,16,23}; static const char* HF[]={"herb_a","herb_b","herb_c","herb_d"};
           for(int hi=0;hi<4;hi++) if(px==HX[hi]&&py==HY[hi]&&!flag_get(HF[hi])){ flag_set(HF[hi]);
             int h=item_index("OBJ_0034"); if(h>=0) player().inv.add(h,1); notice=true; noticeTxt="Tu cueilles une herbe medicinale."; break; } }
         for(int i=0;i<M.portal_n;++i){ const Portal& pt=M.portals[i];
@@ -209,8 +209,8 @@ void WorldScene::update(SceneManager& mgr){
         int lv=item_index("OBJ_0041"); if(lv>=0 && !player().inv.has(lv,1)) player().inv.add(lv,1);
       }
       dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0; }
-    else if(MAPS[map].location==23 && ((fx==5&&fy==14)||(fx==11&&fy==9)||(fx==17&&fy==7)||(fx==22&&fy==12))){ // Pierres Murmurantes (Q13, Vallee des Pierres)
-      static const char* PM[]={"pm6","pm12","pm22","pm36"}; const char* mf=(fx==5)?PM[0]:(fx==11)?PM[1]:(fx==17)?PM[2]:PM[3];
+    else if(MAPS[map].location==23 && ((fx==5&&fy==9)||(fx==12&&fy==4)||(fx==20&&fy==7)||(fx==21&&fy==16))){ // Pierres Murmurantes (Q13, Vallee des Pierres)
+      static const char* PM[]={"pm6","pm12","pm22","pm36"}; const char* mf=(fx==5)?PM[0]:(fx==12)?PM[1]:(fx==20)?PM[2]:PM[3];
       if(quest_status(13)<1){ notice=true; noticeTxt="Un monolithe grave, muet. Maitre Albin saurait peut-etre le lire."; }
       else if(!player().inv.has(item_index("OBJ_0014"),1)){ notice=true; noticeTxt="La pierre reste muette. Il te faudrait la Pierre noire gravee."; }
       else if(flag_get(mf)){ notice=true; noticeTxt="Cette pierre murmurante est deja eveillee."; }

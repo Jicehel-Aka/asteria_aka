@@ -177,8 +177,8 @@ int main(){
         else if(step==8){                                                        // detour Vallee des Pierres (Q13) puis Antre
           if(quest_status(13)==1){
             if(L==23){ int mx=-1,my=0;
-              if(!flag_get("pm6")){mx=5;my=14;} else if(!flag_get("pm12")){mx=11;my=9;}
-              else if(!flag_get("pm22")){mx=17;my=7;} else if(!flag_get("pm36")){mx=22;my=12;}
+              if(!flag_get("pm6")){mx=5;my=9;} else if(!flag_get("pm12")){mx=12;my=4;}
+              else if(!flag_get("pm22")){mx=20;my=7;} else if(!flag_get("pm36")){mx=21;my=16;}
               if(mx>=0){ tx=mx; ty=my; adjacent=true; interact=true; } else { portalCell(M,20,tx,ty); } }
             else if(L==20){ portalCell(M,23,tx,ty); }    // route -> Vallee
             else if(L==10){ portalCell(M,20,tx,ty); }    // Grand-Castel -> route

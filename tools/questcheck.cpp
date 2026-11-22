@@ -50,17 +50,17 @@ int main(){
 
   // --- Foret (loc8) : Lysa npc5 (11,18) : 1er dialogue termine Q2 + lance Q5, Q3 auto, 2e termine Q3
   world_scene().load_map(1); step(-1);
-  talk(21,24,2);        // Lysa npc5 (21,25) : 1er dialogue -> termine Q2 + lance Q5
+  talk(14,24,4);        // Lysa npc5 (15,24) : 1er dialogue -> termine Q2 + lance Q5
   step(-1); step(-1);   // Q3 auto-start si Q2==2
-  talk(21,24,2);        // 2e visite -> termine Q3
+  talk(14,24,4);        // 2e visite -> termine Q3
   printf("Q2 (traces)           : %d\n",Q(2));
   printf("Q3 (empreintes)       : %d\n",Q(3));
   printf("Q5 (tissu) demarree   : %d\n",Q(5));
   // Cueillette des herbes en FORET (pour Q8) : marcher sur chaque plante
   { WorldScene& w=world_scene();
     // 3 herbes (loc8) : se placer sur un voisin walkable et marcher SUR la plante
-    int sx[]={24,22,13}, sy[]={5,8,20}, mv[]={1,2,1};   // (24,4)<-(24,5)U ; (22,9)<-(22,8)D ; (13,19)<-(13,20)U
-    for(int i=0;i<3;i++){ w.px=sx[i]; w.py=sy[i]; w.notice=false; w.dlg=false; step(mv[i]); for(int k=0;k<4&&w.notice;k++) step(5); } }
+    int sx[]={16,24,20,13}, sy[]={5,12,17,24};   // herbes sur le sentier : s'en approcher par le bas et marcher dessus (U)
+    for(int i=0;i<4;i++){ w.px=sx[i]; w.py=sy[i]; w.notice=false; w.dlg=false; step(1); for(int k=0;k<4&&w.notice;k++) step(5); } }
   { int n=0,k=item_index("OBJ_0034"); while(player().inv.has(k,n+1)) n++; printf("Herbes cueillies en foret: %d (attendu >=3)\n",n); }
 
   // --- Grand-Castel (loc10) ---
