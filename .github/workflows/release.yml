@@ -67,7 +67,7 @@ jobs:
           A=components/asteria
           g++ -std=c++17 -O2 -I "$A" \
             $A/asteria_app.cpp $A/ui/text.cpp $A/player.cpp $A/gamestate.cpp \
-            $A/i18n.cpp $A/autotile.cpp $A/scene/*.cpp \
+            $A/i18n.cpp $A/content_i18n.cpp $A/autotile.cpp $A/audio/jingle.cpp $A/progress.cpp $A/scene/*.cpp \
             gb_port_sdl.cpp main_sdl.cpp $(sdl2-config --cflags --libs) \
             -o asteria_pc.exe
           mkdir -p dist
@@ -99,7 +99,7 @@ jobs:
           A=components/asteria
           g++ -std=c++17 -O2 -I "$A" \
             $A/asteria_app.cpp $A/ui/text.cpp $A/player.cpp $A/gamestate.cpp \
-            $A/i18n.cpp $A/autotile.cpp $A/scene/*.cpp \
+            $A/i18n.cpp $A/content_i18n.cpp $A/autotile.cpp $A/audio/jingle.cpp $A/progress.cpp $A/scene/*.cpp \
             gb_port_sdl.cpp main_sdl.cpp $(sdl2-config --cflags --libs) \
             -o asteria_pc
           mkdir -p dist

@@ -7,6 +7,7 @@ idf_component_register(
     "player.cpp"
     "gamestate.cpp"
     "i18n.cpp"
+    "content_i18n.cpp"
     "autotile.cpp"
     "audio/jingle.cpp"
     "progress.cpp"
@@ -22,6 +23,7 @@ idf_component_register(
     "scene/dice_scene.cpp"
     "scene/editor_scene.cpp"
     "scene/dungeon_scene.cpp"
+    "scene/gameover_scene.cpp"
     "platform/gb_port_aka.cpp"
   INCLUDE_DIRS "."
   REQUIRES gamebuino aka_runtime

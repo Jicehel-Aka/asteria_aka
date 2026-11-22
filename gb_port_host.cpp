@@ -30,13 +30,16 @@ bool blit_bmp(const char* path){ FILE* fp=fopen(mp(path).c_str(),"rb"); if(!fp) 
   if(bpp!=24){fclose(fp);return false;} fseek(fp,off,SEEK_SET); int row=((W*3+3)/4)*4; std::vector<unsigned char> b(row);
   for(int yy=0;yy<H;yy++){ if(fread(b.data(),1,row,fp)!=(size_t)row)break; int dy=H-1-yy; for(int xx=0;xx<W;xx++){ if(dy<SCREEN_H&&xx<SCREEN_W) FB[dy*SCREEN_W+xx]=rgb(b[xx*3+2],b[xx*3+1],b[xx*3]);} } fclose(fp); return true; }
 uint32_t buttons(){ return 0; }
-uint32_t buttons_pressed(){ if(g_scriptN<0) loadScript(); return (g_frame<g_scriptN)?code2btn(g_script[g_frame]):0; }
+static int g_inject=-1;   // autopilote : injection d'entree frame par frame
+uint32_t buttons_pressed(){ if(g_inject>=0) return code2btn(g_inject); if(g_scriptN<0) loadScript(); return (g_frame<g_scriptN)?code2btn(g_script[g_frame]):0; }
 uint32_t millis(){ return g_ms; }
 bool file_exists(const char* path){ FILE* f=fopen(mp(path).c_str(),"rb"); if(f){fclose(f);return true;} return false; }
 void return_to_loader(){}
 void log(const char* m){ printf("[host] %s\n",m); }
 }
 void host_set_budget(int n){ g_budget=n; }
+void host_inject(int code){ gb::g_inject=code; }   // -1 = aucune entree
+void host_tick(){ g_ms+=16; }                      // avance l'horloge (logique temporelle)
 
 namespace gb {
 void draw_image(const uint16_t* px, uint16_t w, uint16_t h, int x, int y){

@@ -1,6 +1,7 @@
 // Combat tour par tour (Defis & Sortileges) : 3D6 <= CO pour toucher, degats = des d'arme.
 #include "scene/combat_scene.h"
 #include "i18n.h"
+#include "content_i18n.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
 #include "player.h"
@@ -9,7 +10,6 @@
 #include "generated/asteria_monster.h"
 #include "audio/jingle.h"
 #include "progress.h"
-#include "player.h"
 #include <cstdio>
 #include <cstring>
 namespace asteria {
@@ -22,6 +22,13 @@ static uint32_t g_rng=1;
 static int d6(){ g_rng^=g_rng<<13; g_rng^=g_rng>>17; g_rng^=g_rng<<5; return (int)(g_rng%6)+1; }
 static int roll3(){ return d6()+d6()+d6(); }
 static int rollN(int n){ int s=0; for(int i=0;i<n;i++) s+=d6(); return s; }
+// Degats de l'arme equipee (l'Item n'a pas de champ degats : mapping local).
+// Anneau de l'Aube (OBJ_0040) : aide de debut de partie — +1 degat, +2 au toucher.
+static int ring_bonus(){ return player().inv.has(item_index("OBJ_0040"),1)?1:0; }
+static int weapon_dmg(){ int w=player().weapon; int rb=ring_bonus();
+  if(w==item_index("OBJ_0001")) return rollN(1)+2+rb;   // Épée usée
+  if(w==item_index("OBJ_0002")) return rollN(1)+3+rb;   // Hache de bûcheron
+  return rollN(1)+rb; }                                  // Dague (depart) / defaut : 1D6
 // phases: 0 menu, 1 msg joueur, 2 msg ennemi, 3 fin
 void CombatScene::enter(){ phase=0; sel=0; result=0; g_rng=gb::millis()|1u; mhp=(unsigned)mon::MON[g_enc].VIT; msg[0]=0; stunned=false; spellSel=0; }
 void CombatScene::update(SceneManager& m){
@@ -31,9 +38,9 @@ void CombatScene::update(SceneManager& m){
     if(p&gb::BTN_DOWN) sel=(sel+1)%4;
     if(p&gb::BTN_UP)   sel=(sel+3)%4;
     if(p&gb::BTN_A){
-      if(sel==0){ int r=roll3(); if(r<=player().CO){ lastDmg=rollN(1); if((unsigned)lastDmg>=mhp)mhp=0; else mhp-=lastDmg; snprintf(msg,64,"Touche ! (%d<=CO) -%d",r,lastDmg); audio::sfx_hit(); } else snprintf(msg,64,"Manque ! (%d>CO)",r); phase=1; }
+      if(sel==0){ int r=roll3(); if(r<=player().CO+2*ring_bonus()){ lastDmg=weapon_dmg(); if((unsigned)lastDmg>=mhp)mhp=0; else mhp-=lastDmg; snprintf(msg,64,"Touche ! (%d<=CO) -%d",r,lastDmg); audio::sfx_hit(); } else snprintf(msg,64,"Manque ! (%d>CO)",r); phase=1; }
       else if(sel==3){ int r=roll3(); if(r<=player().IN){ snprintf(msg,64,"Tu prends la fuite."); result=3; phase=3; } else { snprintf(msg,64,"Fuite ratee ! (%d>IN)",r); phase=1; } }
-      else if(sel==2){ if(player().inv.has(4,1)){ player().inv.remove(4,1); int heal=8; player().BL-=heal; if(player().BL<0)player().BL=0; snprintf(msg,64,"Tu bois une potion. Blessures -%d",heal); phase=1; }
+      else if(sel==2){ int pot=item_index("OBJ_0005"); if(pot>=0 && player().inv.has(pot,1)){ player().inv.remove(pot,1); int heal=8; player().BL-=heal; if(player().BL<0)player().BL=0; snprintf(msg,64,"Tu bois une potion. Blessures -%d",heal); phase=1; }
                        else { snprintf(msg,64,"Aucune potion !"); phase=4; } }
       else { spellSel=0; phase=5; }
     }
@@ -49,8 +56,11 @@ void CombatScene::update(SceneManager& m){
           if(ca>=0 && !player().inv.has(ca,1)) player().inv.add(ca,1);   // casque de mineur (Q1 Doran)
           complete_quest_reward(6);
           snprintf(msg,64,"Chef Gobelin vaincu ! Clef du Puits + Pierre noire"); }
+        else if(g_enc==19){ flag_set("boss_gardien"); snprintf(msg,64,"Le Gardien du Seuil tombe. La voie du coeur s'ouvre."); }
+        else if(g_enc==24){ flag_set("boss_coeur"); snprintf(msg,64,"Tu as libere cet univers du joug de son tyran."); }
+        else if(g_enc==25){ flag_set("boss_corbeau"); complete_quest_reward(11); snprintf(msg,64,"Corbeau Noir tombe ! La route est libre."); }
         else snprintf(msg,64,"Victoire ! +%d XP  +%d or",xp,gold);
-        audio::play(player().level>lvl0 ? audio::TUNE_LEVELUP : audio::TUNE_VICTORY);
+        if(g_enc!=9 && g_enc!=25) audio::play(player().level>lvl0 ? audio::TUNE_LEVELUP : audio::TUNE_VICTORY);  // boss : jingle joue par complete_quest_reward
         result=1; phase=3; }
       else if(stunned){ stunned=false; snprintf(msg,64,"%s est engourdi et ne bouge pas.",M.name); phase=2; }
       else { int r=roll3(); if(r<=M.CO){ int dmg=rollN(M.BLd); player().BL+=dmg; snprintf(msg,64,"%s attaque ! -%d",M.name,dmg); audio::sfx_hurt();
@@ -65,8 +75,8 @@ void CombatScene::update(SceneManager& m){
     if(p&gb::BTN_B) phase=0;
     if(p&gb::BTN_A){ static const int COST[3]={3,3,3}; int cost=COST[spellSel];
       if(player().mana<cost){ snprintf(msg,64,"Pas assez de pouvoir !"); phase=4; }
-      else { player().mana-=cost; int r=roll3()+player().level;
-        if(r<=player().MA){
+      else { player().mana-=cost; int r=roll3();   // roll-under : le niveau AIDE (bonus a MA)
+        if(r<=player().MA+player().level){
           if(spellSel==0){ player().BL-=8; if(player().BL<0)player().BL=0; snprintf(msg,64,"Soins ! Blessures -8"); }
           else if(spellSel==1){ stunned=true; snprintf(msg,64,"Engourdissement reussi !"); }
           else { int d=6; if((unsigned)d>=mhp)mhp=0; else mhp-=d; snprintf(msg,64,"Repulsion ! -%d",d); }
@@ -81,7 +91,7 @@ void CombatScene::render(){
   gb::draw_image_key(S.px,S.w,S.h,160-S.w/2,152-S.h,spr::KEY);   // pieds au sol
   // ennemi : nom + barre PV
   gb::fill_rect(8,8,150,26,gb::rgb(20,16,10)); gb::fill_rect(8,8,150,2,gb::rgb(200,170,90));
-  ui::gold(14,12,M.name,true);
+  ui::gold(14,12,trc(M.name),true);
   int bw=140, f=(int)((mhp*bw)/(unsigned)M.VIT); gb::fill_rect(160,14,bw,10,gb::rgb(60,20,20)); gb::fill_rect(160,14,f,10,gb::rgb(190,60,50));
   // joueur : VIT/BL
   gb::fill_rect(158,176,154,56,gb::rgb(20,16,10)); gb::fill_rect(158,176,154,2,gb::rgb(200,170,90));
@@ -103,7 +113,7 @@ void CombatScene::render(){
     ui::text(196,210,i18n::tr(i18n::CB_CAST_H),gb::rgb(170,160,132));
   } else {
     gb::fill_rect(8,176,304,56,gb::rgb(20,16,10)); gb::fill_rect(8,176,304,2,gb::rgb(200,170,90));
-    ui::text(16,190,msg,gb::rgb(236,226,192)); ui::text(230,210,i18n::tr(i18n::CB_NEXT),gb::rgb(170,160,132));
+    ui::text(16,190,trc(msg),gb::rgb(236,226,192)); ui::text(230,210,i18n::tr(i18n::CB_NEXT),gb::rgb(170,160,132));
   }
 }
 }

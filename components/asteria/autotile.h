@@ -4,6 +4,13 @@ void draw_water_autotile(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool
 void draw_path_autotile (int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw);
 void draw_natural_water(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw);
 void draw_natural_path(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw);
+void draw_natural_road(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw);
+void draw_grass(int sx,int sy,int gx,int gy);
+void draw_grove(int sx,int sy);
+void draw_bridge(int sx,int sy, bool ww,bool we,bool wn,bool ws);
+void draw_hearth(int sx,int sy);
+void draw_round_table(int sx,int sy);
+void draw_rug(int sx,int sy,bool up,bool down,bool left,bool right);
 void draw_roof_tile(int sx,int sy, bool up,bool down,bool left,bool right, int tileIdx);
 void draw_wall_tile(int sx,int sy, bool up,bool down,bool left,bool right, int tileIdx);
 void draw_rampart_tile(int sx,int sy, bool up,bool down,bool left,bool right);
