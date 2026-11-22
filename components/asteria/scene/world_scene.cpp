@@ -75,6 +75,10 @@ static int map_for_loc(int loc);  // fwd map_for_loc
 static bool door_leads_somewhere(const Map& M,int x,int y){ for(int i=0;i<M.portal_n;++i) if(M.portals[i].x==x&&M.portals[i].y==y) return map_for_loc(M.portals[i].target_loc)>=0; return false; }
 static int npc_at(const Map& M,int x,int y){ for(int i=0;i<M.spawn_n;++i) if(M.spawns[i].x==x&&M.spawns[i].y==y) return M.spawns[i].npc; return -1; }
 static int pick_node(const dlg::NpcDialog& D){ for(int i=0;i<D.nnodes;i++){ const char* r=D.nodes[i].require; bool ok; if(!r||!r[0]) ok=true; else if(r[0]=='!') ok=!flag_get(r+1); else ok=flag_get(r); if(ok) return i; } return D.nnodes>0?D.nnodes-1:0; }
+// BUG-06 : PRNG xorshift32 independant de l'horloge CPU pour les rencontres aleatoires
+bool g_no_encounters=false;   // mis a true par les harnais de validation (questcheck) ; jeu reel = false
+static uint32_t ws_rng=0u;
+static inline uint32_t ws_rand(){ if(!ws_rng) ws_rng=(gb::millis()|1u); ws_rng^=ws_rng<<13; ws_rng^=ws_rng>>17; ws_rng^=ws_rng<<5; return ws_rng; }
 WorldScene& world_scene(){ static WorldScene s; return s; }
 void new_game_reset(){ WorldScene& w=world_scene(); w.started=false; w.confirmQuit=false; state_reset(); progress_reset(); player()=new_caithness(); dungeon_reset(); }
 static int map_for_loc(int loc){ for(int i=0;i<MAP_COUNT;++i) if(MAPS[i].location==loc) return i; return -1; }
@@ -149,7 +153,7 @@ void WorldScene::update(SceneManager& mgr){
           if(!_tp && _loc==20 && py<=20 && !flag_get("boss_corbeau")){ if(quest_status(11)==0) quest_start(11);
             notice=true; noticeTxt="Corbeau Noir, le chef des brigands, te barre la route !"; flag_set("vu_corbeau");
             set_combat_return(SceneId::WORLD); start_combat(25,"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; }
-          if(!_tp && (_loc==8||_loc==9||_loc==20) && (gb::millis()%9==0)){ int _m=(_loc==8)?5+(int)((gb::millis()/3)%4):(_loc==20)?(10+(int)((gb::millis()/3)%2)):((gb::millis()%2)?16:23); set_combat_return(SceneId::WORLD); start_combat(_m, _loc==9?"/sdcard/ASTERIA/battle/MINE_L.BMP":"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; } }
+          if(!_tp && !g_no_encounters && (_loc==8||_loc==9||_loc==20) && (ws_rand()%9==0)){ int _m=(_loc==8)?5+(int)(ws_rand()%4):(_loc==20)?(10+(int)(ws_rand()%2)):((ws_rand()&1u)?16:23); set_combat_return(SceneId::WORLD); start_combat(_m, _loc==9?"/sdcard/ASTERIA/battle/MINE_L.BMP":"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; } }
       }
     }
   }
@@ -296,7 +300,7 @@ void WorldScene::render(){
     char l1[64]={0},l2[64]={0}; int n=0; while(t[n])n++;
     if(n<=38){ for(int i=0;i<n;i++)l1[i]=t[i]; }
     else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(cut==0)cut=38;
-      for(int i=0;i<cut;i++)l1[i]=t[i]; int k=0; for(int i=cut+1;t[i];i++)l2[k++]=t[i]; }
+      for(int i=0;i<cut;i++)l1[i]=t[i]; int k=0; for(int i=cut+1;t[i]&&k<63;i++)l2[k++]=t[i]; }  // SEC-03 : borne k<63
     ui::text(16,182,l1,gb::rgb(236,226,192)); if(l2[0]) ui::text(16,198,l2,gb::rgb(236,226,192));
     ui::text(192,214,i18n::tr(i18n::W_DLG_H),gb::rgb(170,160,132));
   }
@@ -316,7 +320,7 @@ void WorldScene::render(){
     ui::gold(16,162,i18n::tr(i18n::W_EVENT),true);
     // wrap ~38
     const char* t=noticeTxt?trc(noticeTxt):""; char a[64]={0},b[64]={0}; int n=0; while(t[n])n++;
-    if(n<=38){ for(int i=0;i<n;i++)a[i]=t[i]; } else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(!cut)cut=38; for(int i=0;i<cut;i++)a[i]=t[i]; int k=0; for(int i=cut+1;t[i];i++)b[k++]=t[i]; }
+    if(n<=38){ for(int i=0;i<n;i++)a[i]=t[i]; } else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(!cut)cut=38; for(int i=0;i<cut;i++)a[i]=t[i]; int k=0; for(int i=cut+1;t[i]&&k<63;i++)b[k++]=t[i]; }  // SEC-03 : borne k<63
     ui::text(16,182,a,gb::rgb(236,226,192)); if(b[0])ui::text(16,198,b,gb::rgb(236,226,192));
     ui::text(206,214,i18n::tr(i18n::W_CONT),gb::rgb(170,160,132));
   }

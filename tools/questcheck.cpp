@@ -22,8 +22,10 @@ static void talk(int px,int py,int faceCode){
 static void grant(const char* id,int n){ int k=item_index(id); if(k>=0) for(int i=0;i<n;i++) player().inv.add(k,1); }
 static int Q(int n){ return quest_status(n); }
 
+namespace asteria { extern bool g_no_encounters; }
 int main(){
   audio::init(); host_set_budget(1000000000);
+  asteria::g_no_encounters=true;   // harnais : isoler la logique de quete des rencontres aleatoires
   new_game_reset();
   SceneManager mgr; MG=&mgr; mgr.set(SceneId::WORLD);
   printf("== VALIDATION DES QUETES SECONDAIRES ==\n");

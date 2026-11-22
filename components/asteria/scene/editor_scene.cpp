@@ -1,6 +1,7 @@
 // Mode EDITEUR v2 : hub (carte / sprites), edition de carte (tuiles/depart/PNJ/portails/coffres)
 // et editeur de sprites couleur (tuiles, heros, PNJ, monstres). Tout multilingue. Export fichiers.
 #include "scene/editor_scene.h"
+#include <cstdarg>
 #include "platform/gb_port.h"
 #include "ui/text.h"
 #include "i18n.h"
@@ -14,6 +15,16 @@
 #include <cstring>
 #include <cstdlib>
 namespace asteria {
+// SEC-04 : append borne (evite le sous-depassement size_t de sizeof(buf)-o et tout depassement)
+static int app(char* buf,int cap,int o,const char* fmt,...){
+  if(o>=cap-1) return cap-1;
+  va_list ap; va_start(ap,fmt);
+  int w=vsnprintf(buf+o,(size_t)(cap-o),fmt,ap);
+  va_end(ap);
+  if(w<0) return o;
+  o+=w; if(o>=cap) o=cap-1;
+  return o;
+}
 using namespace data;
 
 // ============ etat general ============
@@ -47,18 +58,18 @@ static void map_load(){
 
 static void map_export(){
   static char buf[8000]; int o=0;
-  o+=snprintf(buf+o,sizeof(buf)-o,"// MAP_%04d (editeur) start px=%d py=%d  w=%d h=%d\n",mp+1,mpx,mpy,mw,mh);
-  o+=snprintf(buf+o,sizeof(buf)-o,"static const uint8_t MAP%d_T[]={",mp);
-  for(int i=0;i<mw*mh;i++) o+=snprintf(buf+o,sizeof(buf)-o,"%s%d",i?", ":"",mtiles[i]);
-  o+=snprintf(buf+o,sizeof(buf)-o,"};\nstatic const Spawn MAP%d_S[]={",mp);
-  if(mspn==0) o+=snprintf(buf+o,sizeof(buf)-o,"{-1,0,0}");
-  for(int i=0;i<mspn;i++) o+=snprintf(buf+o,sizeof(buf)-o,"%s{%d,%d,%d}",i?", ":"",msp[i].npc,msp[i].x,msp[i].y);
-  o+=snprintf(buf+o,sizeof(buf)-o,"};\nstatic const Portal MAP%d_P[]={",mp);
-  if(mpon==0) o+=snprintf(buf+o,sizeof(buf)-o,"{0,0,-1,-1,-1}");
-  for(int i=0;i<mpon;i++) o+=snprintf(buf+o,sizeof(buf)-o,"%s{%d,%d,%d,%d,%d}",i?", ":"",mpo[i].x,mpo[i].y,mpo[i].target,mpo[i].ax,mpo[i].ay);
-  o+=snprintf(buf+o,sizeof(buf)-o,"};\n// Coffres (a cabler dans world CHESTS) : ");
-  for(int i=0;i<mchn;i++) o+=snprintf(buf+o,sizeof(buf)-o,"%s{loc,%d,%d}",i?", ":"",mch[i].x,mch[i].y);
-  o+=snprintf(buf+o,sizeof(buf)-o,"\n");
+  o=app(buf,sizeof(buf),o,"// MAP_%04d (editeur) start px=%d py=%d  w=%d h=%d\n",mp+1,mpx,mpy,mw,mh);
+  o=app(buf,sizeof(buf),o,"static const uint8_t MAP%d_T[]={",mp);
+  for(int i=0;i<mw*mh;i++) o=app(buf,sizeof(buf),o,"%s%d",i?", ":"",mtiles[i]);
+  o=app(buf,sizeof(buf),o,"};\nstatic const Spawn MAP%d_S[]={",mp);
+  if(mspn==0) o=app(buf,sizeof(buf),o,"{-1,0,0}");
+  for(int i=0;i<mspn;i++) o=app(buf,sizeof(buf),o,"%s{%d,%d,%d}",i?", ":"",msp[i].npc,msp[i].x,msp[i].y);
+  o=app(buf,sizeof(buf),o,"};\nstatic const Portal MAP%d_P[]={",mp);
+  if(mpon==0) o=app(buf,sizeof(buf),o,"{0,0,-1,-1,-1}");
+  for(int i=0;i<mpon;i++) o=app(buf,sizeof(buf),o,"%s{%d,%d,%d,%d,%d}",i?", ":"",mpo[i].x,mpo[i].y,mpo[i].target,mpo[i].ax,mpo[i].ay);
+  o=app(buf,sizeof(buf),o,"};\n// Coffres (a cabler dans world CHESTS) : ");
+  for(int i=0;i<mchn;i++) o=app(buf,sizeof(buf),o,"%s{loc,%d,%d}",i?", ":"",mch[i].x,mch[i].y);
+  o=app(buf,sizeof(buf),o,"\n");
   gb::write_text("/sdcard/ASTERIA/export_map.txt", buf);
 }
 
@@ -188,9 +199,9 @@ static void spr_load(){
 static void spr_export(){
   static char buf[32000]; int o=0; int c,s; asset_of(sasset,c,s);
   const char* cat[4]={"tile","hero","npc","mon"};
-  o+=snprintf(buf+o,sizeof(buf)-o,"// sprite edite : %s #%d  (%dx%d, 0xF81F=transparent)\nstatic const uint16_t EDIT_%s_%d[] = {\n  ",cat[c],s,sw,sh,cat[c],s);
-  for(int i=0;i<sw*sh;i++){ o+=snprintf(buf+o,sizeof(buf)-o,"0x%04X%s",sbuf[i],(i<sw*sh-1)?",":""); if((i%16)==15) o+=snprintf(buf+o,sizeof(buf)-o,"\n  "); }
-  o+=snprintf(buf+o,sizeof(buf)-o,"\n};\n");
+  o=app(buf,sizeof(buf),o,"// sprite edite : %s #%d  (%dx%d, 0xF81F=transparent)\nstatic const uint16_t EDIT_%s_%d[] = {\n  ",cat[c],s,sw,sh,cat[c],s);
+  for(int i=0;i<sw*sh;i++){ o=app(buf,sizeof(buf),o,"0x%04X%s",sbuf[i],(i<sw*sh-1)?",":""); if((i%16)==15) o=app(buf,sizeof(buf),o,"\n  "); }
+  o=app(buf,sizeof(buf),o,"\n};\n");
   gb::write_text("/sdcard/ASTERIA/export_sprite.txt", buf);
 }
 static void spr_update(SceneManager& mgr){

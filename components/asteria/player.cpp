@@ -11,10 +11,11 @@ int recipe_index(const char* id){ for(int i=0;i<RECIPE_COUNT;++i) if(!strcmp(REC
 int Inventory::find(int item) const { for(int i=0;i<n;++i) if(slots[i].item==item) return i; return -1; }
 bool Inventory::has(int item,int qty) const { int i=find(item); return i>=0 && slots[i].qty>=qty; }
 bool Inventory::add(int item,int qty){
+  if(qty<=0) return true;
   int i=find(item);
-  if(i>=0){ slots[i].qty+=qty; return true; }
+  if(i>=0){ int nq=slots[i].qty+qty; slots[i].qty=(uint8_t)(nq>255?255:nq); return true; }  // BUG-07 : saturation
   if(n>=CAP) return false;
-  slots[n++]={(int16_t)item,(uint8_t)qty}; return true;
+  slots[n++]={(int16_t)item,(uint8_t)(qty>255?255:qty)}; return true;
 }
 bool Inventory::remove(int item,int qty){
   int i=find(item); if(i<0||slots[i].qty<qty) return false;

@@ -28,6 +28,7 @@ static int ring_bonus(){ return player().inv.has(item_index("OBJ_0040"),1)?1:0; 
 static int weapon_dmg(){ int w=player().weapon; int rb=ring_bonus();
   if(w==item_index("OBJ_0001")) return rollN(1)+2+rb;   // Épée usée
   if(w==item_index("OBJ_0002")) return rollN(1)+3+rb;   // Hache de bûcheron
+  if(w==item_index("OBJ_0032")) return rollN(1)+4+rb;   // BUG-02 : Épée de fer (meilleure arme, enfin utile)
   return rollN(1)+rb; }                                  // Dague (depart) / defaut : 1D6
 // phases: 0 menu, 1 msg joueur, 2 msg ennemi, 3 fin
 void CombatScene::enter(){ phase=0; sel=0; result=0; g_rng=gb::millis()|1u; mhp=(unsigned)mon::MON[g_enc].VIT; msg[0]=0; stunned=false; spellSel=0; }
@@ -64,7 +65,7 @@ void CombatScene::update(SceneManager& m){
         result=1; phase=3; }
       else if(stunned){ stunned=false; snprintf(msg,64,"%s est engourdi et ne bouge pas.",M.name); phase=2; }
       else { int r=roll3(); if(r<=M.CO){ int dmg=rollN(M.BLd); player().BL+=dmg; snprintf(msg,64,"%s attaque ! -%d",M.name,dmg); audio::sfx_hurt();
-               if(player().BL>player().VIT){ result=2; phase=3; } else phase=2; }
+               if(player().BL>=player().VIT){ result=2; phase=3; } else phase=2; }   // BUG-05 : mort des 0 PV (BL>=VIT)
              else { snprintf(msg,64,"%s te manque. (%d>CO)",M.name,r); phase=2; } }
     }
   } else if(phase==2){ if(p&gb::BTN_A) phase=0; }

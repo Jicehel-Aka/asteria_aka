@@ -24,10 +24,13 @@ void frame_end(){ dumpPPM(); g_frame++; g_ms+=16; }
 void clear(Color c){ for(int i=0;i<SCREEN_W*SCREEN_H;i++) FB[i]=c; }
 void pixel(int x,int y,Color c){ if((unsigned)x<(unsigned)SCREEN_W&&(unsigned)y<(unsigned)SCREEN_H) FB[y*SCREEN_W+x]=c; }
 void fill_rect(int x,int y,int w,int h,Color c){ for(int j=0;j<h;j++)for(int i=0;i<w;i++) pixel(x+i,y+j,c); }
-static std::string mp(const char* p){ std::string s=p,k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size()); return s; }
+static std::string mp(const char* p){ if(!p) return ""; std::string s=p,k="/sdcard/";
+  if(s.rfind(k,0)!=0 || s.find("..")!=std::string::npos || s.find('\\')!=std::string::npos) return "";  // SEC-05 : anti traversee
+  return "./sdcard_files/"+s.substr(k.size()); }
 bool blit_bmp(const char* path){ FILE* fp=fopen(mp(path).c_str(),"rb"); if(!fp) return false; unsigned char h[54]; if(fread(h,1,54,fp)!=54){fclose(fp);return false;}
   int W=h[18]|h[19]<<8|h[20]<<16|h[21]<<24,H=h[22]|h[23]<<8|h[24]<<16|h[25]<<24,bpp=h[28]|h[29]<<8,off=h[10]|h[11]<<8|h[12]<<16|h[13]<<24;
-  if(bpp!=24){fclose(fp);return false;} fseek(fp,off,SEEK_SET); int row=((W*3+3)/4)*4; std::vector<unsigned char> b(row);
+  if(bpp!=24 || W<=0 || H<=0 || W>(int)SCREEN_W || H>(int)SCREEN_H || off<54){fclose(fp);return false;}  // SEC-02 : bornes
+  fseek(fp,off,SEEK_SET); int row=((W*3+3)/4)*4; std::vector<unsigned char> b(row);
   for(int yy=0;yy<H;yy++){ if(fread(b.data(),1,row,fp)!=(size_t)row)break; int dy=H-1-yy; for(int xx=0;xx<W;xx++){ if(dy<SCREEN_H&&xx<SCREEN_W) FB[dy*SCREEN_W+xx]=rgb(b[xx*3+2],b[xx*3+1],b[xx*3]);} } fclose(fp); return true; }
 uint32_t buttons(){ return 0; }
 static int g_inject=-1;   // autopilote : injection d'entree frame par frame
@@ -52,14 +55,14 @@ void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, ui
 
 namespace gb {
 bool write_text(const char* path, const char* content){
-    std::string s=path, k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size());
+    std::string s=mp(path); if(s.empty()) return false;   // SEC-05
     FILE* f=fopen(s.c_str(),"w"); if(!f) return false; fputs(content,f); fclose(f); return true;
 }
 }
 
 namespace gb {
 int read_text(const char* path, char* out, int maxlen){
-    std::string s=path, k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size());
+    std::string s=mp(path); if(s.empty()||maxlen<=0) return -1;   // SEC-05
     FILE* f=fopen(s.c_str(),"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
 }
 }

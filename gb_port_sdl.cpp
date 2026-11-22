@@ -34,8 +34,9 @@ namespace gb {
 bool running(){ return !g_quit; }
 void frame_begin(){
   if(!win){ SDL_Init(SDL_INIT_VIDEO);
-    win=SDL_CreateWindow("ASTERIA (PC)",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,SCREEN_W*SCALE,SCREEN_H*SCALE,0);
+    win=SDL_CreateWindow("ASTERIA",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,SCREEN_W*SCALE,SCREEN_H*SCALE,SDL_WINDOW_RESIZABLE|SDL_WINDOW_ALLOW_HIGHDPI);  // OPT-PC-1 : fenetre redimensionnable
     ren=SDL_CreateRenderer(win,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
+    SDL_RenderSetLogicalSize(ren,SCREEN_W,SCREEN_H);  // OPT-PC-1 : mise a l'echelle logique (plein ecran/redim. propre)
     tex=SDL_CreateTexture(ren,SDL_PIXELFORMAT_RGB565,SDL_TEXTUREACCESS_STREAMING,SCREEN_W,SCREEN_H);
   }
   pump();
@@ -47,12 +48,14 @@ void frame_end(){
     unsigned b=(c>>11)&0x1F,g=(c>>5)&0x3F,r=c&0x1F; conv[i]=(r<<11)|(g<<5)|b; }
   SDL_UpdateTexture(tex,nullptr,conv,SCREEN_W*2);
   SDL_RenderClear(ren); SDL_RenderCopy(ren,tex,nullptr,nullptr); SDL_RenderPresent(ren);
-  SDL_Delay(16);
+  // OPT-PC-1 : plus de SDL_Delay(16) — le cadencement vient de PRESENTVSYNC (fini le double-wait a 30 FPS)
 }
 void clear(Color c){ for(int i=0;i<SCREEN_W*SCREEN_H;i++) FB[i]=c; }
 void pixel(int x,int y,Color c){ if((unsigned)x<(unsigned)SCREEN_W&&(unsigned)y<(unsigned)SCREEN_H) FB[y*SCREEN_W+x]=c; }
 void fill_rect(int x,int y,int w,int h,Color c){ for(int j=0;j<h;j++)for(int i=0;i<w;i++) pixel(x+i,y+j,c); }
-static std::string mp(const char* p){ std::string s=p,k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size()); return s; }
+static std::string mp(const char* p){ if(!p) return ""; std::string s=p,k="/sdcard/";
+  if(s.rfind(k,0)!=0 || s.find("..")!=std::string::npos || s.find('\\')!=std::string::npos) return "";  // SEC-05 : anti traversee
+  return "./sdcard_files/"+s.substr(k.size()); }
 bool blit_bmp(const char* path){
   SDL_Surface* s=SDL_LoadBMP(mp(path).c_str()); if(!s) return false;
   SDL_Surface* c=SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_RGB24,0); SDL_FreeSurface(s); if(!c) return false;
@@ -80,14 +83,14 @@ void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, ui
 
 namespace gb {
 bool write_text(const char* path, const char* content){
-    std::string s=path, k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size());
+    std::string s=mp(path); if(s.empty()) return false;   // SEC-05
     FILE* f=fopen(s.c_str(),"w"); if(!f) return false; fputs(content,f); fclose(f); return true;
 }
 }
 
 namespace gb {
 int read_text(const char* path, char* out, int maxlen){
-    std::string s=path, k="/sdcard/"; if(s.rfind(k,0)==0) s="./sdcard_files/"+s.substr(k.size());
+    std::string s=mp(path); if(s.empty()||maxlen<=0) return -1;   // SEC-05
     FILE* f=fopen(s.c_str(),"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
 }
 }
@@ -115,12 +118,13 @@ static const int SR=44100;
 static float voice_sample(Voice& v){
   if(!v.on) return 0.f;
   if(v.idx>=v.total){ v.on=false; return 0.f; }
-  float t=(float)v.idx/(float)SR;
+  // OPT-PC-2 : accumulateur de phase continu (zero clic lors d'un changement de frequence)
+  v.phase += (double)v.freq/(double)SR; if(v.phase>=1.0) v.phase-=1.0;
   float s=0.f;
   switch(v.type){
-    case TONE_SINE:   s=sinf(6.28318530718f*v.freq*t); break;
-    case TONE_SQUARE: s=(fmodf(v.freq*t,1.f)<0.5f)?1.f:-1.f; break;
-    case TONE_TRI:   { float p=fmodf(v.freq*t,1.f); s=4.f*fabsf(p-0.5f)-1.f; } break;
+    case TONE_SINE:   s=sinf((float)(v.phase*6.28318530718)); break;
+    case TONE_SQUARE: s=(v.phase<0.5)?1.f:-1.f; break;
+    case TONE_TRI:    s=4.f*fabsf((float)v.phase-0.5f)-1.f; break;
     case TONE_NOISE: { v.lfsr=(v.lfsr>>1)^(-(int)(v.lfsr&1u)&0xB400u); s=((v.lfsr&0xFF)/127.5f)-1.f; } break;
   }
   // enveloppe anti-clic : 3 ms d'attaque / 6 ms de release
@@ -153,7 +157,7 @@ void audio_init(){
 static void set_voice(Voice& v,float f,float vol,uint16_t ms,uint8_t type){
   if(!s_dev) return;
   SDL_LockAudioDevice(s_dev);
-  v.freq=f; v.amp=vol; v.type=type; v.total=(uint32_t)((uint32_t)ms*SR/1000); v.idx=0; v.on=true;
+  v.freq=f; v.amp=vol; v.type=type; v.total=(uint32_t)((uint32_t)ms*SR/1000); v.idx=0; v.phase=0; v.on=true;
   SDL_UnlockAudioDevice(s_dev);
 }
 void tone_music(float f,float vol,uint16_t ms,uint8_t type){ set_voice(s_music,f,vol,ms,type); }

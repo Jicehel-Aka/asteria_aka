@@ -3,6 +3,7 @@
 // Ce fichier est le SEUL à dépendre de gb_graphics / gb_core.
 #if defined(ESP_PLATFORM)
 #include "platform/gb_port.h"
+#include <cstdint>  // INT32_MIN
 
 #include "gb_core.h"
 #include "gb_graphics.h"
@@ -108,7 +109,9 @@ bool blit_bmp(const char* path) {
     bool flip_y = height_raw > 0;              // BMP standard : lignes stockees bas -> haut
     int32_t height = flip_y ? height_raw : -height_raw;
 
-    if (compression != 0 || (bpp != 24 && bpp != 16) || width <= 0 || height <= 0) {
+    // SEC-01 : bornes (ecran 320x240 fixe), garde contre INT32_MIN et data_offset invalide
+    if (compression != 0 || (bpp != 24 && bpp != 16) || height_raw == INT32_MIN ||
+        width <= 0 || width > 320 || height <= 0 || height > 240 || data_offset < 54) {
         fclose(f);
         return false;   // format non supporte (compresse, palette indexee, etc.)
     }
