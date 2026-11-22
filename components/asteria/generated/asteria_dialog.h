@@ -92,7 +92,14 @@ static const char* const D11_0_L[] = {"Je suis Maitre Edrik, j'etudie les vieill
 static const Node D11_N[] = {{"",D11_0_L,3,nullptr,-1,-1}};
 static const char* const D14_0_L[] = {"Je m'appelle Selene. Je lis parfois ce que la lune murmure.","Tu viens d'ailleurs, fille des fees... et tu cherches les tiens.","Suis le fil de l'hermine : il te menera plus loin que tu ne crois."};
 static const Node D14_N[] = {{"",D14_0_L,3,nullptr,-1,-1}};
-static const NpcDialog DIALOG[21] = {
+// --- Arc 0 : le Voyageur Encapuchonne, Grande Plaine ---
+static const char* const D21_0_L[] = {"Ainsi tu as franchi la Breche, enfant d'Asterion.","Garde le Livre des Elements de Misris : tes pouvoirs s'y reveillent.","Au sud s'etend Valbois. Cherches-y les tiens ; je veille, de loin."};
+static const char* const D21_1_L[] = {"Le vent d'Asteria porte d'etranges presages, voyageuse."};
+static const Node D21_N[] = {
+  {"vu_voyageur",D21_0_L,3,nullptr,-1,-1},
+  {"",D21_1_L,1,nullptr,-1,-1}
+};
+static const NpcDialog DIALOG[22] = {
   {"Aldren",D0_N,2},
   {"Doran",D1_N,1},
   {"Mira",D2_N,1},
@@ -113,7 +120,8 @@ static const NpcDialog DIALOG[21] = {
   {"Iris",D17_N,2},
   {"Racha",D18_N,4},
   {"Meluve",D19_N,4},
-  {"Dame Orwenn",D20_N,2}
+  {"Dame Orwenn",D20_N,2},
+  {"Voyageur Encapuchonne",D21_N,2}
 };
 }
 }

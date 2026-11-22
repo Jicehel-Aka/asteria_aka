@@ -18,7 +18,8 @@ static const char* const Q13_O[] = {"Explorer la vallee oubliee","Examiner les m
 static const char* const Q14_O[] = {"Explorer le Temple Oublie","Resoudre les mecanismes antiques","Atteindre la Salle du Gardien","Vaincre le Gardien du Seuil","Examiner la fresque du sanctuaire","Quitter le temple apres l'effondrement"};
 static const char* const Q15_O[] = {"Ecouter Meluve a la Cour des Miracles","Retrouver le collier d'hermine aupres de Racha","Rendre le collier a Meluve"};
 static const char* const Q16_O[] = {"Rencontrer Dame Orwenn a Valbois","Recevoir l'Anneau de l'Aube"};
-static const int QUEST_COUNT=17;
+static const char* const Q17_O[] = {"Franchir la Breche vers Asteria","Parler au Voyageur Encapuchonne","Gagner le village de Valbois"};
+static const int QUEST_COUNT=18;
 static const Quest QUEST[] = {
   {"Bienvenue a Valbois",Q0_O,3,true,50},
   {"Les Outils perdus",Q1_O,2,false,70},
@@ -36,7 +37,8 @@ static const Quest QUEST[] = {
   {"Les Pierres Murmurantes",Q13_O,4,true,280},
   {"Le Temple Oublie",Q14_O,6,true,400},
   {"Le Collier d'hermine",Q15_O,3,false,180},
-  {"L'Anneau de l'Aube",Q16_O,2,false,40}
+  {"L'Anneau de l'Aube",Q16_O,2,false,40},
+  {"Le Passage d'Asterion",Q17_O,3,true,30}
 };
 }
 }

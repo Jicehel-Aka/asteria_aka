@@ -268,8 +268,8 @@ static const uint16_t NPC_19[] = {
   0xF81F,0xF81F,0x1064,0x0841,0x2105,0x2945,0x1041,0x1063,0xF81F,0xF81F,0xF81F,0xF81F,
   0xF81F,0xF81F,0x2127,0x2168,0xF81F,0xF81F,0xF81F,0xF81F
 };
-static const int16_t NPC_COUNT=21;
-static const Sprite NPC[21] = {
+static const int16_t NPC_COUNT=22;
+static const Sprite NPC[22] = {
   {NPC_0,12,20},
   {NPC_1,11,20},
   {NPC_2,10,20},
@@ -290,7 +290,8 @@ static const Sprite NPC[21] = {
   {NPC_17,10,20},
   {NPC_18,13,20},  // 18 Racha
   {NPC_19,10,20},  // 19 Meluve
-  {NPC_17,10,20}   // 20 Dame Orwenn (sprite reutilise, a reskinner)
+  {NPC_17,10,20},  // 20 Dame Orwenn (sprite reutilise de la banque)
+  {NPC_6,10,20}    // 21 Voyageur Encapuchonne (sprite encapuchonne reutilise de la banque)
 };
 }
 }

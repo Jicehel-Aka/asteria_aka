@@ -99,7 +99,7 @@ int main(){
   // transitions). Le combat reste joue normalement ; seul l'enjeu de survie est retire.
   player().VIT=250; player().CO=16; player().MA=16;
   printf("== RUN COMPLET ASTERIA (mode validation : stats gonflees) ==\n");
-  SceneManager mgr; mgr.set(SceneId::WORLD); world_scene().load_map(0);
+  SceneManager mgr; mgr.set(SceneId::WORLD);   // Arc 0 : enter() charge la Grande Plaine
   int step=0; const char* MILE[]={
     "S0 parler au maire (vu_maire)","S1 entrer en foret","S2 coffre -> piste_mine",
     "S3 entrer dans la mine","S4 mine: boss + niv5 -> Route Royale","S5 vaincre Corbeau Noir",
@@ -163,7 +163,10 @@ int main(){
       else {
         const Map& M=CM(); int L=loc();
         int tx=-1,ty=-1; bool adjacent=false; bool interact=false;
-        if(step==0){ if(!flag_get("anneau_recu")){ npcCell(M,20,tx,ty); adjacent=true; interact=true; } // Dame Orwenn : anneau
+        if(L==22){ // Arc 0 : Grande Plaine -> Voyageur -> Valbois
+          if(!flag_get("vu_voyageur")){ npcCell(M,21,tx,ty); adjacent=true; interact=true; }
+          else { portalCell(M,0,tx,ty); } }
+        else if(step==0){ if(!flag_get("anneau_recu")){ npcCell(M,20,tx,ty); adjacent=true; interact=true; } // Dame Orwenn : anneau
                      else { npcCell(M,0,tx,ty); adjacent=true; interact=true; } }               // maire
         else if(step==1){ portalCell(M,8,tx,ty); }
         else if(step==2){ tx=22; ty=7; adjacent=true; interact=true; }           // coffre foret
@@ -220,5 +223,7 @@ int main(){
       player().inv.has(item_index("OBJ_0015"),1),player().inv.has(item_index("OBJ_0014"),1));
   printf("Anneau(OBJ_0040)=%d  Q16=%d  Q13=%d  Q14=%d\n",
       player().inv.has(item_index("OBJ_0040"),1),quest_status(16),quest_status(13),quest_status(14));
+  printf("Arc0: Q17=%d  Livre(OBJ_0041)=%d  vu_voyageur=%d\n",
+      quest_status(17),player().inv.has(item_index("OBJ_0041"),1),flag_get("vu_voyageur"));
   return 0;
 }

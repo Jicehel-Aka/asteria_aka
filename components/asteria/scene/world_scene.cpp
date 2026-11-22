@@ -80,12 +80,14 @@ static int map_for_loc(int loc){ for(int i=0;i<MAP_COUNT;++i) if(MAPS[i].locatio
 void WorldScene::load_map(int m){ map=m; px=MAPS[m].px; py=MAPS[m].py; gb::log(MAPS[m].id); }
 void WorldScene::enter(){
   if(started) return;            // retour de combat : on garde la carte/position
-  started=true; load_map(0);
-  flag_set("valbois_intro"); quest_start(0); discover_zone(0);
-  notice=true; noticeTxt=evt::EVENTS[0].desc;
+  started=true; int gp=map_for_loc(22); load_map(gp>=0?gp:0);   // Arc 0 : demarrage dans la Grande Plaine
+  if(MAPS[map].location==22){ quest_start(17); discover_zone(22); notice=true;
+    noticeTxt="La Breche se referme derriere toi. Te voici dans la Grande Plaine d'Asteria."; }
 }
 void WorldScene::update(SceneManager& mgr){
   const Map& M=MAPS[map]; uint32_t p=gb::buttons_pressed();
+  if(MAPS[map].location==0 && !flag_get("valbois_intro")){ flag_set("valbois_intro"); quest_start(0); discover_zone(0);
+    if(quest_status(17)==1) complete_quest_reward(17); notice=true; noticeTxt=evt::EVENTS[0].desc; }
   if(MAPS[map].location==10 && !flag_get("gc_intro")){ flag_set("gc_intro"); quest_start(8); notice=true; noticeTxt="Les hautes tours de Grand-Castel se dressent devant toi."; }
   if(MAPS[map].location==20 && !flag_get("route_intro")){ flag_set("route_intro"); quest_start(9); notice=true; noticeTxt="La Route Royale s'ouvre devant toi. Des marchands auraient disparu sur ses chemins..."; }
   if(MAPS[map].location==21 && !flag_get("antre_intro")){ flag_set("antre_intro"); if(quest_status(14)==0) quest_start(14); notice=true; noticeTxt="Tu penetres dans l'Antre Malefique. L'air brule et pue l'acide."; }
@@ -155,7 +157,7 @@ void WorldScene::update(SceneManager& mgr){
     if(_loc==1 && n==13){ mgr.set(SceneId::INN); }
     else if(_loc==1 && n==10){ mgr.set(SceneId::DICE); }
     else if(n==2){ mgr.set(SceneId::SHOP); }
-    else if(n>=0 && n<21 && dlg::DIALOG[n].nnodes>0){
+    else if(n>=0 && n<22 && dlg::DIALOG[n].nnodes>0){
       // --- Annexes de l'Acte I (démarrage au 1er dialogue, remise au retour) ---
       if(n==1){ // Doran : Q1 Les Outils perdus (remise = rapporter le casque de la mine)
         if(quest_status(1)==0) quest_start(1);
@@ -199,6 +201,10 @@ void WorldScene::update(SceneManager& mgr){
         flag_set("anneau_recu"); if(quest_status(16)==0) quest_start(16);
         int rg=item_index("OBJ_0040"); if(rg>=0 && !player().inv.has(rg,1)) player().inv.add(rg,1);
         complete_quest_reward(16);
+      }
+      else if(n==21 && !flag_get("vu_voyageur")){ // Voyageur Encapuchonne : remet le Livre des Elements (Arc 0)
+        flag_set("vu_voyageur");
+        int lv=item_index("OBJ_0041"); if(lv>=0 && !player().inv.has(lv,1)) player().inv.add(lv,1);
       }
       dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0; }
     else if(MAPS[map].location==20 && fx==9 && (fy==6||fy==12||fy==22||fy==36)){ // Pierres Murmurantes (Q13)
