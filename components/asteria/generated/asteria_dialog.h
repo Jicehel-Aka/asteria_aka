@@ -87,6 +87,11 @@ static const Node D20_N[] = {
   {"anneau_recu",D20_gift_L,3,nullptr,-1,-1},
   {"",D20_intro_L,2,nullptr,-1,-1}
 };
+// --- PNJ d'ambiance du hameau : Maitre Edrik (erudit) et Selene (songe) ---
+static const char* const D11_0_L[] = {"Je suis Maitre Edrik, j'etudie les vieilles pierres de la region.","On dit qu'un Temple dort sous la Vallee, scelle depuis des ages.","Si tu croises des monolithes graves, ecoute-les : ils se souviennent."};
+static const Node D11_N[] = {{"",D11_0_L,3,nullptr,-1,-1}};
+static const char* const D14_0_L[] = {"Je m'appelle Selene. Je lis parfois ce que la lune murmure.","Tu viens d'ailleurs, fille des fees... et tu cherches les tiens.","Suis le fil de l'hermine : il te menera plus loin que tu ne crois."};
+static const Node D14_N[] = {{"",D14_0_L,3,nullptr,-1,-1}};
 static const NpcDialog DIALOG[21] = {
   {"Aldren",D0_N,2},
   {"Doran",D1_N,1},
@@ -99,10 +104,10 @@ static const NpcDialog DIALOG[21] = {
   {"Agnes",D8_N,1},
   {"Edric",D9_N,1},
   {"Capitaine Roland",D10_N,1},
-  {"Maitre Edrik",nullptr,0},
+  {"Maitre Edrik",D11_N,1},
   {"Sœur Helena",D12_N,2},
   {"Maitre Albin",D13_N,1},
-  {"Selene",nullptr,0},
+  {"Selene",D14_N,1},
   {"Garrick",D15_N,3},
   {"Tomas Venn",D16_N,4},
   {"Iris",D17_N,2},
