@@ -171,16 +171,24 @@ int main(){
         else if(step==1){ portalCell(M,8,tx,ty); }
         else if(step==2){ tx=22; ty=7; adjacent=true; interact=true; }           // coffre foret
         else if(step==3){ portalCell(M,9,tx,ty); }
-        else if(step==5){ tx=10; ty=1; }                                         // monter la route (ambush)
+        else if(step==5){ portalCell(M,10,tx,ty); }                              // monter la route -> Grand-Castel (ambush Corbeau en chemin)
         else if(step==6){ portalCell(M,10,tx,ty); }
         else if(step==7){ npcCell(M,13,tx,ty); adjacent=true; interact=true; }   // Albin
-        else if(step==8){                                                        // detour Pierres Murmurantes (Q13) puis Antre
-          if(quest_status(13)==1 && L==20){ int my=-1;
-            if(!flag_get("pm6"))my=6; else if(!flag_get("pm12"))my=12; else if(!flag_get("pm22"))my=22; else if(!flag_get("pm36"))my=36;
-            if(my>=0){ tx=9; ty=my; adjacent=true; interact=true; } else { portalCell(M,10,tx,ty); } }
-          else if(quest_status(13)==1 && L==10){ portalCell(M,20,tx,ty); }
-          else if(L==20){ portalCell(M,10,tx,ty); }
-          else { portalCell(M,21,tx,ty); }
+        else if(step==8){                                                        // detour Vallee des Pierres (Q13) puis Antre
+          if(quest_status(13)==1){
+            if(L==23){ int mx=-1,my=0;
+              if(!flag_get("pm6")){mx=5;my=14;} else if(!flag_get("pm12")){mx=11;my=9;}
+              else if(!flag_get("pm22")){mx=17;my=7;} else if(!flag_get("pm36")){mx=22;my=12;}
+              if(mx>=0){ tx=mx; ty=my; adjacent=true; interact=true; } else { portalCell(M,20,tx,ty); } }
+            else if(L==20){ portalCell(M,23,tx,ty); }    // route -> Vallee
+            else if(L==10){ portalCell(M,20,tx,ty); }    // Grand-Castel -> route
+            else { portalCell(M,21,tx,ty); }
+          } else {                                       // Q13 absente/finie -> cap sur l'Antre
+            if(L==10){ portalCell(M,21,tx,ty); }
+            else if(L==20){ portalCell(M,10,tx,ty); }
+            else if(L==23){ portalCell(M,20,tx,ty); }
+            else { portalCell(M,21,tx,ty); }
+          }
         }
         else if(step>=9){ tx=10; ty=4; }                                         // autel de l'Antre
         if(tx<0){ inj=-1; }

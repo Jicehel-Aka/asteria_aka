@@ -92,6 +92,7 @@ void WorldScene::update(SceneManager& mgr){
   if(MAPS[map].location==10 && !flag_get("gc_intro")){ flag_set("gc_intro"); quest_start(8); notice=true; noticeTxt="Les hautes tours de Grand-Castel se dressent devant toi."; }
   if(MAPS[map].location==20 && !flag_get("route_intro")){ flag_set("route_intro"); quest_start(9); notice=true; noticeTxt="La Route Royale s'ouvre devant toi. Des marchands auraient disparu sur ses chemins..."; }
   if(MAPS[map].location==21 && !flag_get("antre_intro")){ flag_set("antre_intro"); if(quest_status(14)==0) quest_start(14); notice=true; noticeTxt="Tu penetres dans l'Antre Malefique. L'air brule et pue l'acide."; }
+  if(MAPS[map].location==23 && !flag_get("vallee_intro")){ flag_set("vallee_intro"); notice=true; noticeTxt="La Vallee des Pierres Murmurantes. Des monolithes graves veillent entre les rochers."; }
   if(quest_status(0)==2 && quest_status(2)==0) quest_start(2);
   if(quest_status(2)==2 && quest_status(3)==0) quest_start(3);   // Q3 Les empreintes (annexe)
   if(confirmQuit){ if(p&gb::BTN_A){ mgr.set(SceneId::TITLE); } else if(p&gb::BTN_B){ confirmQuit=false; } return; }
@@ -131,7 +132,7 @@ void WorldScene::update(SceneManager& mgr){
       uint8_t t=M.tiles[ny*M.w+nx];
       if(!TILE_SOLID[t] && npc_at(M,nx,ny)<0 && chest_at(map,nx,ny)<0 && !(t==4 && !door_leads_somewhere(M,nx,ny))){ px=nx; py=ny; bool _tp=false;
         if(MAPS[map].location==8){ // cueillette d'herbes medicinales le long du sentier (Q8)
-          static const int HX[]={17,20,19,14}, HY[]={2,8,12,19}; static const char* HF[]={"herb_a","herb_b","herb_c","herb_d"};
+          static const int HX[]={24,22,13,22}, HY[]={4,9,19,24}; static const char* HF[]={"herb_a","herb_b","herb_c","herb_d"};
           for(int hi=0;hi<4;hi++) if(px==HX[hi]&&py==HY[hi]&&!flag_get(HF[hi])){ flag_set(HF[hi]);
             int h=item_index("OBJ_0034"); if(h>=0) player().inv.add(h,1); notice=true; noticeTxt="Tu cueilles une herbe medicinale."; break; } }
         for(int i=0;i<M.portal_n;++i){ const Portal& pt=M.portals[i];
@@ -208,8 +209,8 @@ void WorldScene::update(SceneManager& mgr){
         int lv=item_index("OBJ_0041"); if(lv>=0 && !player().inv.has(lv,1)) player().inv.add(lv,1);
       }
       dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0; }
-    else if(MAPS[map].location==20 && fx==9 && (fy==6||fy==12||fy==22||fy==36)){ // Pierres Murmurantes (Q13)
-      static const char* PM[]={"pm6","pm12","pm22","pm36"}; const char* mf=(fy==6)?PM[0]:(fy==12)?PM[1]:(fy==22)?PM[2]:PM[3];
+    else if(MAPS[map].location==23 && ((fx==5&&fy==14)||(fx==11&&fy==9)||(fx==17&&fy==7)||(fx==22&&fy==12))){ // Pierres Murmurantes (Q13, Vallee des Pierres)
+      static const char* PM[]={"pm6","pm12","pm22","pm36"}; const char* mf=(fx==5)?PM[0]:(fx==11)?PM[1]:(fx==17)?PM[2]:PM[3];
       if(quest_status(13)<1){ notice=true; noticeTxt="Un monolithe grave, muet. Maitre Albin saurait peut-etre le lire."; }
       else if(!player().inv.has(item_index("OBJ_0014"),1)){ notice=true; noticeTxt="La pierre reste muette. Il te faudrait la Pierre noire gravee."; }
       else if(flag_get(mf)){ notice=true; noticeTxt="Cette pierre murmurante est deja eveillee."; }

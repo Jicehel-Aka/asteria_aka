@@ -182,7 +182,7 @@ void DungeonScene::enter(){ if(!gen){ rng=gb::millis()|1u; generate(); }
 static void exit_forest(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(1); w.px=18; w.py=1; m.set(SceneId::WORLD); }
 // Après le boss : on débouche sur la Route Royale (loc 20, carte index 5),
 // pas directement sur Grand-Castel. Verrou : Clef du Puits + niveau 5.
-static void exit_route(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(5); w.px=10; w.py=38; m.set(SceneId::WORLD); }
+static void exit_route(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(5); w.px=6; w.py=50; m.set(SceneId::WORLD); }
 
 void DungeonScene::update(SceneManager& m){
   if(anim){                                  // animation de pas / rotation en cours
