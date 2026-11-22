@@ -135,10 +135,14 @@ void WorldScene::update(SceneManager& mgr){
     if(nx>=0&&ny>=0&&nx<M.w&&ny<M.h){
       uint8_t t=M.tiles[ny*M.w+nx];
       if(!TILE_SOLID[t] && npc_at(M,nx,ny)<0 && chest_at(map,nx,ny)<0 && !(t==4 && !door_leads_somewhere(M,nx,ny))){ px=nx; py=ny; bool _tp=false;
-        if(MAPS[map].location==8){ // cueillette d'herbes medicinales le long du sentier (Q8)
-          static const int HX[]={16,24,20,13}, HY[]={4,11,16,23}; static const char* HF[]={"herb_a","herb_b","herb_c","herb_d"};
-          for(int hi=0;hi<4;hi++) if(px==HX[hi]&&py==HY[hi]&&!flag_get(HF[hi])){ flag_set(HF[hi]);
-            int h=item_index("OBJ_0034"); if(h>=0) player().inv.add(h,1); notice=true; noticeTxt="Tu cueilles une herbe medicinale."; break; } }
+        if(MAPS[map].location==8){ // cueillette dans les clairieres : 9 herbes (OBJ_0034) + 4 champignons (OBJ_0035)
+          static const int PKX[]={31,34,7,25,30,16,12,8,23, 4,33,13,26};
+          static const int PKY[]={24,24,14,8,8,6,29,29,31, 14,8,6,31};
+          static const bool PKM[]={false,false,false,false,false,false,false,false,false, true,true,true,true};
+          static const char* PKF[]={"pk0","pk1","pk2","pk3","pk4","pk5","pk6","pk7","pk8","pk9","pk10","pk11","pk12"};
+          for(int i=0;i<13;i++) if(px==PKX[i]&&py==PKY[i]&&!flag_get(PKF[i])){ flag_set(PKF[i]);
+            int it=item_index(PKM[i]?"OBJ_0035":"OBJ_0034"); if(it>=0) player().inv.add(it,1);
+            notice=true; noticeTxt=PKM[i]?"Tu ramasses un champignon.":"Tu cueilles une herbe medicinale."; break; } }
         for(int i=0;i<M.portal_n;++i){ const Portal& pt=M.portals[i];
           if(pt.x==px&&pt.y==py){
             const char* blk=gate_block(pt.target_loc);
@@ -149,7 +153,7 @@ void WorldScene::update(SceneManager& mgr){
             else gb::log("WORLD: portail (zone sans carte encore)");
           } }
         { int _loc=MAPS[map].location;
-          if(!_tp && _loc==9 && py<=3 && !flag_get("boss_mine")){ set_combat_return(SceneId::WORLD); start_combat(9,"/sdcard/ASTERIA/battle/MINE_L.BMP"); mgr.set(SceneId::COMBAT); return; }
+          if(!_tp && _loc==9 && py<=3 && !flag_get("boss_mine")){ set_combat_return(SceneId::WORLD); start_combat(9,"/sdcard/ASTERIA/battle/CHEF.BMP"); mgr.set(SceneId::COMBAT); return; }
           if(!_tp && _loc==20 && py<=20 && !flag_get("boss_corbeau")){ if(quest_status(11)==0) quest_start(11);
             notice=true; noticeTxt="Corbeau Noir, le chef des brigands, te barre la route !"; flag_set("vu_corbeau");
             set_combat_return(SceneId::WORLD); start_combat(25,"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; }
@@ -169,9 +173,11 @@ void WorldScene::update(SceneManager& mgr){
         if(quest_status(1)==0) quest_start(1);
         else if(quest_status(1)==1 && player().inv.has(item_index("OBJ_0010"),1)){ complete_quest_reward(1); flag_set("doran_resolu"); }
       }
-      else if(n==8){ // Agnès : Q4 Les plantes (remise à la 2e visite)
-        if(quest_status(4)==0) quest_start(4);
-        else if(quest_status(4)==1) complete_quest_reward(4);
+      else if(n==8){ // Agnès : Q4 Les plantes (remise = 5 herbes medicinales + 3 champignons)
+        if(quest_status(4)==0){ quest_start(4); notice=true; noticeTxt="Agnes : rapporte-moi 5 herbes medicinales et 3 champignons de la Foret de Brume."; }
+        else if(quest_status(4)==1){ int h=item_index("OBJ_0034"), c=item_index("OBJ_0035");
+          if(player().inv.has(h,5) && player().inv.has(c,3)){ player().inv.remove(h,5); player().inv.remove(c,3); complete_quest_reward(4); }
+          else { notice=true; noticeTxt="Agnes : il me faut 5 herbes medicinales et 3 champignons."; } }
       }
       else if(n==5){ // Lysa : Q3 Les empreintes se résout en lui reparlant
         if(quest_status(3)==1) complete_quest_reward(3);

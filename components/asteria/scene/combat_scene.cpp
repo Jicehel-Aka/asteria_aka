@@ -89,7 +89,7 @@ void CombatScene::update(SceneManager& m){
 void CombatScene::render(){
   gb::blit_bmp(g_bmp);
   const mon::Stats& M=mon::MON[g_enc]; const spr::Sprite& S=spr::MONSTER[g_enc];
-  gb::draw_image_key(S.px,S.w,S.h,160-S.w/2,152-S.h,spr::KEY);   // pieds au sol
+  if(g_enc!=9) gb::draw_image_key(S.px,S.w,S.h,160-S.w/2,152-S.h,spr::KEY);   // pieds au sol (boss mine g_enc==9 : l'illustration CHEF.BMP montre deja l'orc)
   // ennemi : nom + barre PV
   gb::fill_rect(8,8,150,26,gb::rgb(20,16,10)); gb::fill_rect(8,8,150,2,gb::rgb(200,170,90));
   ui::gold(14,12,trc(M.name),true);

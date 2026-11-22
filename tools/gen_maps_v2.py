@@ -38,32 +38,28 @@ def emit_grid(g):
     for r in g: flat+=r
     return w,h,",".join(str(v) for v in flat)
 
-# ---------------- FORET DE BRUME (loc8) 32x28 : sentier orthogonal sinueux ----------------
+# ---------------- FORET DE BRUME (loc8) 38x34 : explorable, clairieres a herbes/champignons ----------------
 def build_forest():
-    w,h=32,28; g=blank(w,h,TREE)
-    segs=[(16,0,16,8),(16,8,24,8),(24,8,24,16),(24,16,13,16),(13,16,13,27)]
-    # clairieres d'herbe autour du sentier, puis le sentier
-    cells=path_cells(segs,2)
-    for (x,y) in list(cells):
-        for dx in range(-1,2):
-            for dy in range(-1,2):
-                nx,ny=x+dx,y+dy
-                if 0<=nx<w and 0<=ny<h and g[ny][nx]==TREE: g[ny][nx]=HERB
-    for s in segs: seg(g,PATH,*s,2)
-    # riviere + pont (le sentier traverse a x=24)
-    ry=14
+    w,h=38,34; g=blank(w,h,TREE)
+    # sentier principal orthogonal (largeur 2) ; lignes 0-1 laissees en marge (HUD) -> sortie haut en ligne 2
+    main=[(18,33,18,26),(18,26,28,26),(28,26,28,18),(28,18,10,18),(10,18,10,10),(10,10,20,10),(20,10,20,2)]
+    # ramifications (largeur 1) qui s'enfoncent entre les arbres vers des clairieres de cueillette
+    spurs=[(28,24,35,24),(10,14,3,14),(20,8,34,8),(20,6,12,6),(18,29,6,29),(18,31,26,31),(22,8,22,8),(18,32,20,32)]
+    for s in main: seg(g,PATH,*s,2)
+    for s in spurs: seg(g,PATH,*s,1)
+    # riviere + pont (le sentier principal traverse a la colonne 28)
+    ry=22
     for x in range(w): g[ry][x]=WATER
-    g[ry][24]=BRIDGE; g[ry][25]=BRIDGE
-    # deco
-    for (x,y) in [(6,6),(28,10),(8,22),(27,22),(4,12),(20,24)]:
-        if g[y][x]==TREE: g[y][x]=TALL
-    # herbes cueillette SUR le sentier (le joueur les ramasse en marchant)
-    herb=[(16,4),(24,11),(20,16),(13,23)]
-    for x,y in herb: g[y][x]=PATH
-    spawns=[(5,15,24)]                      # Lysa a cote du sentier pres de l'entree
-    portals=[(13,27,0,16,2),(16,0,9,10,13)] # bas->Valbois ; haut->loc9
-    start=(13,26)
-    return w,h,start,g,spawns,portals,{"herb":herb,"top":(16,0),"entree":start,"lysa":(15,24)}
+    g[ry][28]=BRIDGE; g[ry][29]=BRIDGE
+    # noeuds de cueillette dans les clairieres (hors du sentier principal) : 9 herbes + 4 champignons
+    herb=[(31,24),(34,24),(7,14),(25,8),(30,8),(16,6),(12,29),(8,29),(23,31)]
+    mush=[(4,14),(33,8),(13,6),(26,31)]
+    for x,y in herb: g[y][x]=FLOWER        # fleurs = herbes medicinales
+    for x,y in mush: g[y][x]=TALL          # herbe haute = champignons
+    spawns=[(5,20,32)]                      # Lysa pres de l'entree
+    portals=[(18,33,0,16,2),(20,2,9,10,13)] # bas->Valbois ; haut->loc9 (sortie en ligne 2)
+    start=(18,32)
+    return w,h,start,g,spawns,portals,{"herb":herb,"mush":mush,"top":(20,2),"entree":start,"lysa":(20,32),"chest":(22,7)}
 
 # ---------------- ROUTE ROYALE (loc20) 24x52 : route pavee orthogonale large ----------------
 def build_route():

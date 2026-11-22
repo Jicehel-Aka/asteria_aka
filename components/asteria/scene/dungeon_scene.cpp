@@ -128,7 +128,7 @@ static void draw_panel(DungeonScene& d){
   for(int y=0;y<GH;y++)for(int x=0;x<GW;x++){ if(!d.seen[y*GW+x])continue; uint8_t t=d.cell[y*GW+x]; gb::Color c;
     if(t==1)c=gb::rgb(70,64,58); else if(t==2)c=gb::rgb(150,130,60); else if(t==3)c=gb::rgb(210,120,40); else if(t==5)c=gb::rgb(50,80,130); else c=gb::rgb(120,112,100);
     gb::fill_rect(mx+x*mc,my+y*mc,mc-1,mc-1,c); }
-  if(d.seen[d.by*GW+d.bx]&&!flag_get("boss_mine")) gb::fill_rect(mx+d.bx*mc,my+d.by*mc,mc-1,mc-1,gb::rgb(205,62,50));
+  if(!flag_get("boss_mine") && d.seen[d.oy*GW+d.ox]) gb::fill_rect(mx+d.ox*mc,my+d.oy*mc,mc-1,mc-1,gb::rgb(205,62,50));  // orc (position courante)
   gb::fill_rect(mx+d.px*mc,my+d.py*mc,mc-1,mc-1,gb::rgb(242,212,92));
   gb::fill_rect(mx+d.px*mc+2+DX[d.face]*2,my+d.py*mc+2+DY[d.face]*2,2,2,gb::rgb(255,255,255));
   int jy=my+GH*mc+8, jmaxw=320-(PX+5)-3;
@@ -158,6 +158,7 @@ void DungeonScene::generate(){
         cell[(cy+ddy/2)*GW+(cx+ddx/2)]=0; cell[ny*GW+nx]=0; sx[sp]=nx; sy[sp]=ny; sp++; carved=true; break; } }
     if(!carved) sp--; }
   enx=1; eny=1; px=1; py=1; face=(cell[2*GW+1]==0)?2:1; bx=GW-2; by=GH-2;
+  ox=bx; oy=by; oalert=false;   // l'orc commence au fond de la mine (pres du puits)
   for(int yy=GH-4; yy<=GH-2; yy++) for(int xx=GW-4; xx<=GW-2; xx++) if(xx>0&&yy>0) cell[yy*GW+xx]=0;
   int placed=0;
   for(int t=0;t<300 && placed<12;t++){ int x=1+(int)(rnd()%(GW-2)), y=1+(int)(rnd()%(GH-2));
@@ -179,7 +180,7 @@ void DungeonScene::enter(){ if(!gen){ rng=gb::millis()|1u; generate(); }
   if(quest_status(6)==1) quest_set_obj(6,0);
 }
 
-static void exit_forest(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(1); w.px=16; w.py=1; m.set(SceneId::WORLD); }
+static void exit_forest(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(1); w.px=20; w.py=3; m.set(SceneId::WORLD); }
 // Après le boss : on débouche sur la Route Royale (loc 20, carte index 5),
 // pas directement sur Grand-Castel. Verrou : Clef du Puits + niveau 5.
 static void exit_route(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(5); w.px=8; w.py=50; m.set(SceneId::WORLD); }
@@ -190,6 +191,24 @@ void DungeonScene::update(SceneManager& m){
     if(at>=1.f){ at=1.f; anim=false; vx=atx; vy=aty; vdx=atdx; vdy=atdy;
       if(animKind==1 && pendEnc){ pendEnc=false;
         if(cellAt(*this,px,py)==5) journal("Flaque d'eau.");
+        // --- Chef Gobelin actif : il repere le joueur en ligne de vue, le poursuit et engage le combat ---
+        if(!flag_get("boss_mine")){
+          bool see=false;
+          if(px==ox){ see=true; int a=(py<oy?py:oy)+1,b=(py<oy?oy:py); for(int yy=a;yy<b;yy++) if(isWall(*this,px,yy)){see=false;break;} }
+          else if(py==oy){ see=true; int a=(px<ox?px:ox)+1,b=(px<ox?ox:px); for(int xx=a;xx<b;xx++) if(isWall(*this,xx,py)){see=false;break;} }
+          if(see && !oalert){ oalert=true; journal("L'orc t'a repere !"); journal("Il fonce sur toi !"); }
+          if(oalert){
+            int dx=(px>ox)-(px<ox), dy=(py>oy)-(py<oy);
+            int adx=(px>ox?px-ox:ox-px), ady=(py>oy?py-oy:oy-py);
+            if(adx>=ady){ if(dx&&!isWall(*this,ox+dx,oy)) ox+=dx; else if(dy&&!isWall(*this,ox,oy+dy)) oy+=dy; }
+            else        { if(dy&&!isWall(*this,ox,oy+dy)) oy+=dy; else if(dx&&!isWall(*this,ox+dx,oy)) ox+=dx; }
+            int mdist=(ox>px?ox-px:px-ox)+(oy>py?oy-py:py-oy);
+            if(mdist<=1){   // contact (meme case ou adjacent) -> combat automatique
+              if(quest_status(6)==1) quest_set_obj(6,3);
+              set_combat_return(SceneId::DUNGEON); start_combat(9,"/sdcard/ASTERIA/battle/CHEF.BMP");
+              journal("L'orc t'attaque !"); m.set(SceneId::COMBAT); return; }
+          }
+        }
         if(steps>1 && (rnd()%5==0) && !(px==bx&&py==by)){ set_combat_return(SceneId::DUNGEON);
           start_combat((rnd()%2)?16:23,"/sdcard/ASTERIA/battle/MINE_L.BMP"); journal("Un monstre !"); m.set(SceneId::COMBAT); return; } }
     } else { float t=at, te=t*t*(3.f-2.f*t);     // smoothstep
@@ -208,7 +227,7 @@ void DungeonScene::update(SceneManager& m){
       anim=true; animKind=1; at=0.f; afx=vx; afy=vy; atx=px+0.5f; aty=py+0.5f; afdx=atdx=vdx; afdy=atdy=vdy; pendEnc=true; }
     else journal("Un mur."); return; }
   if(p&gb::BTN_A){ int fx=px+DX[face], fy=py+DY[face];
-    if(fx==bx&&fy==by && !flag_get("boss_mine")){ if(quest_status(6)==1) quest_set_obj(6,3); set_combat_return(SceneId::DUNGEON); start_combat(9,"/sdcard/ASTERIA/battle/MINE_L.BMP"); m.set(SceneId::COMBAT); return; }
+    if(fx==ox&&fy==oy && !flag_get("boss_mine")){ if(quest_status(6)==1) quest_set_obj(6,3); set_combat_return(SceneId::DUNGEON); start_combat(9,"/sdcard/ASTERIA/battle/CHEF.BMP"); m.set(SceneId::COMBAT); return; }
     if(px==bx&&py==by && flag_get("boss_mine")){
       if(!player().inv.has(item_index("OBJ_0015"),1)){ journal("Le puits est verrouille."); journal("Il te faut la Clef du Puits."); }
       else if(player().level<5){ char jb[64]; snprintf(jb,64,"Pas encore prete (niv.%d/5).",player().level); journal(jb); journal("Gagne de l'experience dans la mine."); }
@@ -290,8 +309,9 @@ void DungeonScene::render(){
   }
 
   // boss / escalier en billboard si la ligne droit devant est degagee
+  int tgx=flag_get("boss_mine")?bx:ox, tgy=flag_get("boss_mine")?by:oy;   // apres boss : le puits ; avant : l'orc (ou qu'il soit)
   int cxg=px,cyg=py,dist=0; bool clear=false;
-  for(int s=1;s<=6;s++){ cxg+=DX[face]; cyg+=DY[face]; if(!inbg(cxg,cyg))break; if(cxg==bx&&cyg==by){clear=true;dist=s;break;} if(isWall(*this,cxg,cyg))break; }
+  for(int s=1;s<=10;s++){ cxg+=DX[face]; cyg+=DY[face]; if(!inbg(cxg,cyg))break; if(cxg==tgx&&cyg==tgy){clear=true;dist=s;break;} if(isWall(*this,cxg,cyg))break; }
   if(clear){ float pd=dist-0.3f; if(pd<0.5f)pd=0.5f; int lh=(int)(VH/pd), feet=CY+lh/2;
     if(!flag_get("boss_mine")){ const spr::Sprite& S=spr::MONSTER[9]; int dh=(int)(lh*0.85f); int dw=dh*S.w/S.h; blit_scaled(S,CX-dw/2,feet-dh,dw,dh); }
     else { int w=lh/4; gb::fill_rect(CX-w/2,CY-lh/3,w,lh/3,gb::rgb(205,195,120)); ui::text(CX-4,CY-lh/3+4,"^",gb::rgb(60,50,20)); } }

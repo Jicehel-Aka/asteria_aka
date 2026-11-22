@@ -28,7 +28,7 @@ void CreateScene::update(SceneManager& m){
   }
 }
 void CreateScene::render(){
-  gb::clear(gb::rgb(26,20,14));
+  if(!gb::blit_bmp("/sdcard/ASTERIA/CAITH.BMP")) gb::clear(gb::rgb(26,20,14));   // illustration HD de Caithness en fond
   if(step==0){
     ui::text_big(64,14,i18n::tr(i18n::CR_TITLE),gb::rgb(230,210,140));
     const char* o[2]={i18n::tr(i18n::CR_PRESET),i18n::tr(i18n::CR_CUSTOM)};

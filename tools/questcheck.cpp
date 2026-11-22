@@ -38,8 +38,10 @@ int main(){
   // Q16 : Dame Orwenn npc20 (14,20)
   talk(14,21,1);
   printf("Q16 (anneau Orwenn)   : %d  anneau=%d\n",Q(16),player().inv.has(item_index("OBJ_0040"),1));
-  // Q4 : Agnes npc8 (18,12) -> 2 visites
-  talk(18,13,1); talk(18,13,1);
+  // Q4 : Agnes npc8 (18,12) -> lance, puis remise avec 5 herbes + 3 champignons
+  talk(18,13,1);
+  grant("OBJ_0034",5); grant("OBJ_0035",3);   // cueillette simulee (reachabilite verifiee par ailleurs)
+  talk(18,13,1);
   printf("Q4 (plantes Agnes)    : %d\n",Q(4));
   // Q1 : Doran npc1 (14,12) -> besoin du casque OBJ_0010 ; 1re visite lance, 2e termine
   talk(14,13,1);                      // lance Q1
@@ -52,17 +54,17 @@ int main(){
 
   // --- Foret (loc8) : Lysa npc5 (11,18) : 1er dialogue termine Q2 + lance Q5, Q3 auto, 2e termine Q3
   world_scene().load_map(1); step(-1);
-  talk(14,24,4);        // Lysa npc5 (15,24) : 1er dialogue -> termine Q2 + lance Q5
+  talk(19,32,4);        // Lysa npc5 (20,32) : 1er dialogue -> termine Q2 + lance Q5
   step(-1); step(-1);   // Q3 auto-start si Q2==2
-  talk(14,24,4);        // 2e visite -> termine Q3
+  talk(19,32,4);        // 2e visite -> termine Q3
   printf("Q2 (traces)           : %d\n",Q(2));
   printf("Q3 (empreintes)       : %d\n",Q(3));
   printf("Q5 (tissu) demarree   : %d\n",Q(5));
   // Cueillette des herbes en FORET (pour Q8) : marcher sur chaque plante
   { WorldScene& w=world_scene();
-    // 3 herbes (loc8) : se placer sur un voisin walkable et marcher SUR la plante
-    int sx[]={16,24,20,13}, sy[]={5,12,17,24};   // herbes sur le sentier : s'en approcher par le bas et marcher dessus (U)
-    for(int i=0;i<4;i++){ w.px=sx[i]; w.py=sy[i]; w.notice=false; w.dlg=false; step(1); for(int k=0;k<4&&w.notice;k++) step(5); } }
+    // 4 noeuds d'herbes dans les clairieres : voisin sur la ramification -> marcher SUR la plante
+    int sx[]={22,17,24,9}, sy[]={31,6,8,29}, mv[]={4,3,4,3};   // (23,31)(16,6)(25,8)(8,29)
+    for(int i=0;i<4;i++){ w.px=sx[i]; w.py=sy[i]; w.notice=false; w.dlg=false; step(mv[i]); for(int k=0;k<4&&w.notice;k++) step(5); } }
   { int n=0,k=item_index("OBJ_0034"); while(player().inv.has(k,n+1)) n++; printf("Herbes cueillies en foret: %d (attendu >=3)\n",n); }
 
   // --- Grand-Castel (loc10) ---
