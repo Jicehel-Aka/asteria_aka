@@ -127,6 +127,10 @@ void WorldScene::update(SceneManager& mgr){
     if(nx>=0&&ny>=0&&nx<M.w&&ny<M.h){
       uint8_t t=M.tiles[ny*M.w+nx];
       if(!TILE_SOLID[t] && npc_at(M,nx,ny)<0 && chest_at(map,nx,ny)<0 && !(t==4 && !door_leads_somewhere(M,nx,ny))){ px=nx; py=ny; bool _tp=false;
+        if(MAPS[map].location==8){ // cueillette d'herbes medicinales le long du sentier (Q8)
+          static const int HX[]={17,20,19,14}, HY[]={2,8,12,19}; static const char* HF[]={"herb_a","herb_b","herb_c","herb_d"};
+          for(int hi=0;hi<4;hi++) if(px==HX[hi]&&py==HY[hi]&&!flag_get(HF[hi])){ flag_set(HF[hi]);
+            int h=item_index("OBJ_0034"); if(h>=0) player().inv.add(h,1); notice=true; noticeTxt="Tu cueilles une herbe medicinale."; break; } }
         for(int i=0;i<M.portal_n;++i){ const Portal& pt=M.portals[i];
           if(pt.x==px&&pt.y==py){
             const char* blk=gate_block(pt.target_loc);

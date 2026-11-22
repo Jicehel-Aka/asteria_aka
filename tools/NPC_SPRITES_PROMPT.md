@@ -34,7 +34,20 @@ Complément de `tools/SPRITES_PROMPT.md` (qui couvre les tuiles 16×16). Ici : l
 Caïthness (héroïne, cape bordée d'hermine + dague), Aldren (maire), Lysa (traqueuse),
 Maître Albin (érudit), Garrick (Guilde). Mêmes contraintes 20 px de haut.
 
-## Ajouts de cette session (placeholders à remplacer)
+## Ajouts de cette session — RÉUTILISER la banque existante d'abord
+
+> Règle : avant de générer un nouveau sprite, **piocher dans la banque déjà créée**
+> (NPC_0..19 dans `asteria_npc.h`, M0..M24 dans `asteria_monster.h`). Les placeholders
+> ci-dessous **réutilisent déjà** un sprite de la banque ; les prompts ne servent que si
+> tu veux, plus tard, un visuel dédié.
+
+| Élément | Réutilise actuellement | Dédié nécessaire ? |
+|---|---|---|
+| Dame Orwenn (PNJ 20) | `NPC_17` (Iris) | non — reskin optionnel |
+| Corbeau Noir (monstre 25) | `M10` (Brigand) | non — reskin optionnel |
+| Pierre Murmurante | tuile rocher 28 | tuile dédiée = seul vrai manque (sinon rocher OK) |
+
+### Prompts (optionnels, seulement si art dédié voulu)
 
 ### Sprites de PNJ (format entité 20 px, mêmes contraintes que ci-dessus)
 - **Dame Orwenn** (PNJ 20, Valbois) — vieille femme digne, aïeule/gardienne du savoir féerique.
