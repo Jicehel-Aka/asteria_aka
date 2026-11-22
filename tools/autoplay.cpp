@@ -163,14 +163,22 @@ int main(){
       else {
         const Map& M=CM(); int L=loc();
         int tx=-1,ty=-1; bool adjacent=false; bool interact=false;
-        if(step==0){ npcCell(M,0,tx,ty); adjacent=true; interact=true; }        // maire
+        if(step==0){ if(!flag_get("anneau_recu")){ npcCell(M,20,tx,ty); adjacent=true; interact=true; } // Dame Orwenn : anneau
+                     else { npcCell(M,0,tx,ty); adjacent=true; interact=true; } }               // maire
         else if(step==1){ portalCell(M,8,tx,ty); }
         else if(step==2){ tx=22; ty=7; adjacent=true; interact=true; }           // coffre foret
         else if(step==3){ portalCell(M,9,tx,ty); }
         else if(step==5){ tx=10; ty=1; }                                         // monter la route (ambush)
         else if(step==6){ portalCell(M,10,tx,ty); }
         else if(step==7){ npcCell(M,13,tx,ty); adjacent=true; interact=true; }   // Albin
-        else if(step==8){ portalCell(M,21,tx,ty); }
+        else if(step==8){                                                        // detour Pierres Murmurantes (Q13) puis Antre
+          if(quest_status(13)==1 && L==20){ int my=-1;
+            if(!flag_get("pm6"))my=6; else if(!flag_get("pm12"))my=12; else if(!flag_get("pm22"))my=22; else if(!flag_get("pm36"))my=36;
+            if(my>=0){ tx=9; ty=my; adjacent=true; interact=true; } else { portalCell(M,10,tx,ty); } }
+          else if(quest_status(13)==1 && L==10){ portalCell(M,20,tx,ty); }
+          else if(L==20){ portalCell(M,10,tx,ty); }
+          else { portalCell(M,21,tx,ty); }
+        }
         else if(step>=9){ tx=10; ty=4; }                                         // autel de l'Antre
         if(tx<0){ inj=-1; }
         else if(step>=9 && w.py<=5 && w.px>=8 && w.px<=12){ inj=-1; } // a l'autel : laisser la logique se declencher
@@ -210,5 +218,7 @@ int main(){
   printf("flags:"); for(auto f:F) printf(" %s=%d",f,flag_get(f)?1:0); printf("\n");
   printf("Q7=%d  Clef(OBJ_0015)=%d  Pierre(OBJ_0014)=%d\n",quest_status(7),
       player().inv.has(item_index("OBJ_0015"),1),player().inv.has(item_index("OBJ_0014"),1));
+  printf("Anneau(OBJ_0040)=%d  Q16=%d  Q13=%d  Q14=%d\n",
+      player().inv.has(item_index("OBJ_0040"),1),quest_status(16),quest_status(13),quest_status(14));
   return 0;
 }

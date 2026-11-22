@@ -88,7 +88,7 @@ void WorldScene::update(SceneManager& mgr){
   const Map& M=MAPS[map]; uint32_t p=gb::buttons_pressed();
   if(MAPS[map].location==10 && !flag_get("gc_intro")){ flag_set("gc_intro"); quest_start(8); notice=true; noticeTxt="Les hautes tours de Grand-Castel se dressent devant toi."; }
   if(MAPS[map].location==20 && !flag_get("route_intro")){ flag_set("route_intro"); quest_start(9); notice=true; noticeTxt="La Route Royale s'ouvre devant toi. Des marchands auraient disparu sur ses chemins..."; }
-  if(MAPS[map].location==21 && !flag_get("antre_intro")){ flag_set("antre_intro"); notice=true; noticeTxt="Tu penetres dans l'Antre Malefique. L'air brule et pue l'acide."; }
+  if(MAPS[map].location==21 && !flag_get("antre_intro")){ flag_set("antre_intro"); if(quest_status(14)==0) quest_start(14); notice=true; noticeTxt="Tu penetres dans l'Antre Malefique. L'air brule et pue l'acide."; }
   if(quest_status(0)==2 && quest_status(2)==0) quest_start(2);
   if(quest_status(2)==2 && quest_status(3)==0) quest_start(3);   // Q3 Les empreintes (annexe)
   if(confirmQuit){ if(p&gb::BTN_A){ mgr.set(SceneId::TITLE); } else if(p&gb::BTN_B){ confirmQuit=false; } return; }
@@ -104,7 +104,7 @@ void WorldScene::update(SceneManager& mgr){
           "Sur l'autel, un pendentif d'hermine. Tu le reconnais aussitot.",
           "C'est celui de ta mere. Elle est passee ici, vivante.",
           "La piste des tiens mene vers l'Est, au-dela des Monts. (Fin de l'Arc I)" };
-        if(di<6){ notice=true; noticeTxt=D[di++]; return; } else flag_set("fin_arc1");
+        if(di<6){ notice=true; noticeTxt=D[di++]; return; } else { if(quest_status(14)==1) complete_quest_reward(14); flag_set("fin_arc1"); }
       }
     } else {                                                  // sinon : combats a l'autel (centre haut)
       bool atAltar=(py<=5 && px>=8 && px<=12);
@@ -151,7 +151,7 @@ void WorldScene::update(SceneManager& mgr){
     if(_loc==1 && n==13){ mgr.set(SceneId::INN); }
     else if(_loc==1 && n==10){ mgr.set(SceneId::DICE); }
     else if(n==2){ mgr.set(SceneId::SHOP); }
-    else if(n>=0 && n<20 && dlg::DIALOG[n].nnodes>0){
+    else if(n>=0 && n<21 && dlg::DIALOG[n].nnodes>0){
       // --- Annexes de l'Acte I (démarrage au 1er dialogue, remise au retour) ---
       if(n==1){ // Doran : Q1 Les Outils perdus (remise = rapporter le casque de la mine)
         if(quest_status(1)==0) quest_start(1);
@@ -168,7 +168,8 @@ void WorldScene::update(SceneManager& mgr){
         int pn=item_index("OBJ_0014");
         if(pn>=0 && player().inv.has(pn,1)){
           if(quest_status(7)==0) quest_start(7);           // 1re présentation : ouvre l'enquête
-          else if(quest_status(7)==1) complete_quest_reward(7); // retour : consultation terminée
+          else if(quest_status(7)==1){ complete_quest_reward(7); // retour : consultation terminée
+            if(quest_status(13)==0) quest_start(13); }     // Albin oriente vers les Pierres Murmurantes (Q13)
         }
       }
       else if(n==15 && _loc==10){ // Garrick (Guilde de Grand-Castel) : hub de contrats Q8
@@ -190,7 +191,22 @@ void WorldScene::update(SceneManager& mgr){
       else if(n==12 && _loc==10 && flag_get("q8_pris") && !flag_get("c_aumone")){ // potion -> Sœur Helena
         int pot=item_index("OBJ_0005"); if(pot>=0 && player().inv.has(pot,1)){ player().inv.remove(pot,1); flag_set("c_aumone"); }
       }
+      else if(n==20 && !flag_get("anneau_recu")){ // Dame Orwenn : don de l'Anneau de l'Aube (Q16)
+        flag_set("anneau_recu"); if(quest_status(16)==0) quest_start(16);
+        int rg=item_index("OBJ_0040"); if(rg>=0 && !player().inv.has(rg,1)) player().inv.add(rg,1);
+        complete_quest_reward(16);
+      }
       dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0; }
+    else if(MAPS[map].location==20 && fx==9 && (fy==6||fy==12||fy==22||fy==36)){ // Pierres Murmurantes (Q13)
+      static const char* PM[]={"pm6","pm12","pm22","pm36"}; const char* mf=(fy==6)?PM[0]:(fy==12)?PM[1]:(fy==22)?PM[2]:PM[3];
+      if(quest_status(13)<1){ notice=true; noticeTxt="Un monolithe grave, muet. Maitre Albin saurait peut-etre le lire."; }
+      else if(!player().inv.has(item_index("OBJ_0014"),1)){ notice=true; noticeTxt="La pierre reste muette. Il te faudrait la Pierre noire gravee."; }
+      else if(flag_get(mf)){ notice=true; noticeTxt="Cette pierre murmurante est deja eveillee."; }
+      else { flag_set(mf); notice=true; noticeTxt="La Pierre noire effleure le monolithe : il s'illumine et murmure.";
+        if(flag_get("pm6")&&flag_get("pm12")&&flag_get("pm22")&&flag_get("pm36")){
+          if(quest_status(13)==1) complete_quest_reward(13);
+          noticeTxt="Les quatre pierres resonnent a l'unisson. Le chemin du Temple t'est revele."; } }
+    }
     else { int ci=chest_at(map,fx,fy);
       if(ci>=0){ const ChestDef& c=CHESTS[ci]; if(c.item>=0) player().inv.add(c.item,1); player().gold+=c.gold; flag_set(c.flag); notice=true; asteria::audio::sfx_coin();
         noticeTxt="Un coffre ! Tu recuperes du butin.";

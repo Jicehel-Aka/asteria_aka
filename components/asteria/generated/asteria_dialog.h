@@ -80,7 +80,14 @@ static const Node D19_N[] = {
   {"!vu_meluve",D19_2_L,3,"vu_meluve",-1,-1,15},
   {"",D19_3_L,2,nullptr,-1,-1}
 };
-static const NpcDialog DIALOG[20] = {
+// --- Dame Orwenn (Valbois) : quete de depart Q16, don de l'Anneau de l'Aube ---
+static const char* const D20_gift_L[] = {"Prends l'Anneau de l'Aube, enfant des fees : il etait aux tiens.","Il affermira ta main dans tes premiers combats.","Que l'Aube veille sur toi."};
+static const char* const D20_intro_L[] = {"Approche, enfant. Je reconnais en toi le sang des fees.","J'ai quelque chose qui t'appartient de droit."};
+static const Node D20_N[] = {
+  {"anneau_recu",D20_gift_L,3,nullptr,-1,-1},
+  {"",D20_intro_L,2,nullptr,-1,-1}
+};
+static const NpcDialog DIALOG[21] = {
   {"Aldren",D0_N,2},
   {"Doran",D1_N,1},
   {"Mira",D2_N,1},
@@ -100,7 +107,8 @@ static const NpcDialog DIALOG[20] = {
   {"Tomas Venn",D16_N,4},
   {"Iris",D17_N,2},
   {"Racha",D18_N,4},
-  {"Meluve",D19_N,4}
+  {"Meluve",D19_N,4},
+  {"Dame Orwenn",D20_N,2}
 };
 }
 }
