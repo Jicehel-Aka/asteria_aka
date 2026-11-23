@@ -91,16 +91,17 @@ void fill_rect(int x, int y, int w, int h, Color c) {
 // Charge un BMP non compresse (24 bits RGB ou 16 bits BGR565) depuis la SD
 // et le dessine plein ecran. Format d'export standard (GIMP/Photoshop/PIL
 // "BMP 24 bits" -- pas de compression RLE, pas de palette indexee).
-// OPT-AKA-2 : cache statique zero-allocation du dernier BMP decode.
-// Un combat/ecran reaffiche le meme fond a chaque frame : sans cache on relisait
-// ~226 Ko sur la SD + un malloc de 150 Ko a 60 fps. On garde le dernier chemin et
-// ses pixels en RAM statique et on se contente d'un drawImage si c'est le meme.
-static char     s_bmp_path[160] = {0};
-static uint16_t s_bmp_buf[320 * 240];              // 150 Ko statique (DRAM/PSRAM)
-static uint16_t s_bmp_w = 0, s_bmp_h = 0;
+// OPT-AKA-2 : cache du dernier BMP decode. Un combat/ecran reaffiche le meme fond
+// a chaque frame : sans cache on relisait ~226 Ko sur la SD + un malloc de 150 Ko
+// a 60 fps. On garde le dernier chemin et ses pixels et on se contente d'un
+// drawImage si c'est le meme. Le tampon (150 Ko) est alloue UNE fois sur le tas
+// (pas en .bss, qui deborderait la DRAM interne de l'ESP32).
+static char      s_bmp_path[160] = {0};
+static uint16_t* s_bmp_buf = nullptr;
+static uint16_t  s_bmp_w = 0, s_bmp_h = 0;
 
 bool blit_bmp(const char* path) {
-    if (path && s_bmp_w > 0 && strcmp(s_bmp_path, path) == 0) {   // cache hit : aucun acces SD
+    if (path && s_bmp_buf && s_bmp_w > 0 && strcmp(s_bmp_path, path) == 0) {   // cache hit : aucun acces SD
         gfx.drawImage(0, 0, s_bmp_buf, s_bmp_w, s_bmp_h);
         return true;
     }
@@ -128,14 +129,20 @@ bool blit_bmp(const char* path) {
         return false;   // format non supporte (compresse, palette indexee, etc.)
     }
 
+    // Tampon de destination : le cache persistant (alloue une fois) si possible,
+    // sinon un tampon temporaire par appel (comportement d'origine, sans cache).
+    if (!s_bmp_buf) s_bmp_buf = (uint16_t*)malloc(320u * 240u * sizeof(uint16_t));
+    uint16_t* buf = s_bmp_buf; bool temp = false;
+    if (!buf) { buf = (uint16_t*)malloc((size_t)width * height * sizeof(uint16_t)); temp = true; if (!buf) { fclose(f); return false; } }
+
     static uint8_t row[320 * 3 + 4];                        // ligne source : tampon statique (max 320px * 24 bits, aligne 4)
     int row_bytes_src = ((width * (bpp / 8) + 3) / 4) * 4;   // BMP : lignes alignees sur 4 octets
 
     fseek(f, data_offset, SEEK_SET);
     for (int32_t y = 0; y < height; ++y) {
-        if (fread(row, 1, row_bytes_src, f) != (size_t)row_bytes_src) { fclose(f); return false; }
+        if (fread(row, 1, row_bytes_src, f) != (size_t)row_bytes_src) { if (temp) free(buf); fclose(f); return false; }
         int dst_y = flip_y ? (height - 1 - y) : y;
-        uint16_t* dst_row = s_bmp_buf + (size_t)dst_y * width;   // decode directement dans le cache statique
+        uint16_t* dst_row = buf + (size_t)dst_y * width;
         for (int32_t x = 0; x < width; ++x) {
             uint16_t c;
             if (bpp == 24) {
@@ -149,9 +156,12 @@ bool blit_bmp(const char* path) {
     }
     fclose(f);
 
-    s_bmp_w = (uint16_t)width; s_bmp_h = (uint16_t)height;   // memorise le cache pour les frames suivantes
-    strncpy(s_bmp_path, path, sizeof(s_bmp_path) - 1); s_bmp_path[sizeof(s_bmp_path) - 1] = 0;
-    gfx.drawImage(0, 0, s_bmp_buf, s_bmp_w, s_bmp_h);
+    if (!temp) {   // decode dans le cache -> memorise pour les frames suivantes
+        s_bmp_w = (uint16_t)width; s_bmp_h = (uint16_t)height;
+        strncpy(s_bmp_path, path, sizeof(s_bmp_path) - 1); s_bmp_path[sizeof(s_bmp_path) - 1] = 0;
+    }
+    gfx.drawImage(0, 0, buf, (uint16_t)width, (uint16_t)height);
+    if (temp) free(buf);
     return true;
 }
 
