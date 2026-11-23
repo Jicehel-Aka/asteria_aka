@@ -2,6 +2,7 @@
 // aka_runtime (memes composants partages que tous les autres jeux AKA).
 // Ce fichier est le SEUL a dependre de gb_graphics / gb_core.
 
+#if defined(ESP_PLATFORM)
 
 #include "platform/gb_port.h"
 #include <cstdint>  // INT32_MIN
