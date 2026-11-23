@@ -114,6 +114,61 @@ def build_vallee():
     start=(2,11)
     return w,h,start,g,spawns,portals,{"mono":mono,"entree":start}
 
+
+# ---------------- GRANDE PLAINE (loc22) 24x18 : Arc 0, la Breche au SUD, sortie NORD -> Valbois (DELTA-01) ----------------
+def build_plaine():
+    w,h=24,18; g=blank(w,h,HERB)
+    for y in range(h):
+        for x in range(w):
+            if x in (0,w-1) or y in (0,1,h-1): g[y][x]=TREE      # lisiere (lignes 0-1 sous le bandeau HUD)
+    # chemin orthogonal (largeur 2) : Breche (bas) -> coude -> gue sur le ruisseau -> sortie haut (ligne 2)
+    segs=[(12,15,12,11),(12,11,8,11),(8,11,8,6),(8,6,12,6),(12,6,12,2)]
+    for s in segs: seg(g,PATH,*s,2)
+    ry=8                                                         # ruisseau est-ouest, pont sur le chemin
+    for x in range(1,w-1): g[ry][x]=WATER
+    g[ry][8]=BRIDGE; g[ry][9]=BRIDGE
+    # la Breche : deux pierres levees de part et d'autre de l'arrivee
+    for (x,y) in [(10,15),(15,15),(10,16),(15,16)]: g[y][x]=ROCK
+    for (x,y) in [(4,4),(19,5),(3,13),(20,12),(17,3),(5,15)]: g[y][x]=TREE
+    for (x,y) in [(6,3),(16,10),(4,10),(19,14),(14,4)]: g[y][x]=FLOWER
+    for (x,y) in [(5,12),(18,4),(2,6),(21,9)]: g[y][x]=TALL
+    spawns=[(21,10,10)]                  # Voyageur encapuchonne, au bord du chemin (coude)
+    portals=[(12,2,0,16,24),(13,2,0,17,24)]   # sortie nord -> Valbois (arrivee au sud du village)
+    start=(12,15)
+    return w,h,start,g,spawns,portals,{"breche":start,"sortie":(12,2)}
+
+# ---------------- FORGE DE DORAN (loc2) 14x12 : interieur (DELTA-01) ----------------
+def build_forge():
+    WALL,FLOOR,DOOR,COUNTER,TABLE,BARREL,STOOL,HEARTH,ROUND=2,5,4,23,24,25,27,30,32
+    w,h=14,12; g=blank(w,h,FLOOR)
+    for x in range(w): g[0][x]=WALL; g[h-1][x]=WALL
+    for y in range(h): g[y][0]=WALL; g[y][w-1]=WALL
+    g[h-1][7]=DOOR
+    g[1][6]=HEARTH; g[1][7]=HEARTH                       # foyers de la forge
+    g[4][7]=ROUND                                        # enclume
+    for x in (10,11,12): g[3][x]=COUNTER                 # ratelier d'armes
+    for (x,y) in [(2,4),(3,4),(2,5),(3,5)]: g[y][x]=TABLE  # etabli
+    g[6][4]=STOOL
+    for (x,y) in [(1,1),(12,1),(1,10),(12,10),(1,9)]: g[y][x]=BARREL   # charbon, lingots
+    spawns=[(1,6,4)]                     # Doran a cote de l'enclume
+    portals=[(7,11,0,12,17)]             # porte -> devant la forge, Valbois
+    start=(7,10)
+    return w,h,start,g,spawns,portals,{"doran":(6,4)}
+
+# ---------------- VALBOIS (loc0) : retouches DELTA-01 sur la carte existante ----------------
+def patch_valbois(txt):
+    m=re.search(r'static const uint8_t MAP0_T\[\]=\{([^}]*)\};',txt); v=[int(x) for x in m.group(1).split(',')]
+    W=34
+    for x in range(18,28): v[23*W+x]=PATH                # allee vers la maison du sud-est (ligne 23)
+    txt=txt.replace(m.group(0), arr("MAP0_T",",".join(str(t) for t in v)))
+    sp=[(0,6,8),(2,17,8),(3,16,14),(6,12,17),(7,27,14),(9,22,20),(8,18,12),(20,14,20)]   # Doran (1) part dans sa forge
+    po=[(16,0,8,18,32),(5,6,1,10,13),(12,16,2,7,10),(16,25,22,12,3),(17,25,22,13,3)]   # + forge, + sortie sud -> Plaine
+    txt=re.sub(r'static const Spawn MAP0_S\[\]=\{.*?\};', spawns_c("MAP0_S",sp), txt, flags=re.S)
+    txt=re.sub(r'static const Portal MAP0_P\[\]=\{.*?\};', portals_c("MAP0_P",po), txt, flags=re.S)
+    txt=re.sub(r'\{"MAP_0001",0,([0-9]+),([0-9]+),([0-9]+),([0-9]+),MAP0_T,MAP0_S,[0-9]+,MAP0_P,[0-9]+\}',
+               lambda mm:'{"MAP_0001",0,%s,%s,%s,%s,MAP0_T,MAP0_S,%d,MAP0_P,%d}'%(mm.group(1),mm.group(2),mm.group(3),mm.group(4),len(sp),len(po)), txt)
+    return txt
+
 def arr(name,csv): return f"static const uint8_t {name}[]={{{csv}}};"
 def spawns_c(name,sp): return f"static const Spawn {name}[]={{"+(", ".join("{%d,%d,%d}"%(n,x,y) for n,x,y in sp) if sp else "{-1,0,0}")+"};"
 def portals_c(name,po): return f"static const Portal {name}[]={{"+", ".join("{%d,%d,%d,%d,%d}"%p for p in po)+"};"
@@ -144,7 +199,30 @@ def main():
         txt=re.sub(r'(\{"MAP_0008",22,[^}]*\})', r'\1,\n  {"MAP_0009",23,%d,%d,%d,%d,MAP8_T,MAP8_S,%d,MAP8_P,%d}'%(vw,vh,vs[0],vs[1],len(vsp),len(vpo)), txt)
     else:
         txt=re.sub(r'\{"MAP_0009",23,[^}]*\}', '{"MAP_0009",23,%d,%d,%d,%d,MAP8_T,MAP8_S,%d,MAP8_P,%d}'%(vw,vh,vs[0],vs[1],len(vsp),len(vpo)), txt)
+    # --- DELTA-01 : Grande Plaine re-dessinee, Forge de Doran (MAP9), Valbois relie ---
+    pw,ph,ps,pg,psp,ppo,pi=build_plaine(); _,_,pc=emit_grid(pg)
+    txt=re.sub(r'static const uint8_t MAP7_T\[\]=\{.*?\};', arr("MAP7_T",pc), txt, flags=re.S)
+    txt=re.sub(r'static const Spawn MAP7_S\[\]=\{.*?\};', spawns_c("MAP7_S",psp), txt, flags=re.S)
+    txt=re.sub(r'static const Portal MAP7_P\[\]=\{.*?\};', portals_c("MAP7_P",ppo), txt, flags=re.S)
+    txt=re.sub(r'\{"MAP_0008",22,[^}]*\}', '{"MAP_0008",22,%d,%d,%d,%d,MAP7_T,MAP7_S,%d,MAP7_P,%d}'%(pw,ph,ps[0],ps[1],len(psp),len(ppo)), txt)
+    gw,gh,gs,gg,gsp,gpo,gi=build_forge(); _,_,gc=emit_grid(gg)
+    block="\n".join([arr("MAP9_T",gc), spawns_c("MAP9_S",gsp), portals_c("MAP9_P",gpo)])+"\n"
+    if "MAP9_T[]" not in txt:
+        txt=txt.replace("static const Map MAPS[MAP_COUNT]={", block+"static const Map MAPS[MAP_COUNT]={")
+    else:
+        txt=re.sub(r'static const uint8_t MAP9_T\[\]=\{.*?\};', arr("MAP9_T",gc), txt, flags=re.S)
+        txt=re.sub(r'static const Spawn MAP9_S\[\]=\{.*?\};', spawns_c("MAP9_S",gsp), txt, flags=re.S)
+        txt=re.sub(r'static const Portal MAP9_P\[\]=\{.*?\};', portals_c("MAP9_P",gpo), txt, flags=re.S)
+    txt=re.sub(r'MAP_COUNT=9\b','MAP_COUNT=10',txt)
+    entry='{"MAP_0010",2,%d,%d,%d,%d,MAP9_T,MAP9_S,%d,MAP9_P,%d}'%(gw,gh,gs[0],gs[1],len(gsp),len(gpo))
+    if '"MAP_0010"' not in txt:
+        txt=re.sub(r'(\{"MAP_0009",23,[^}]*\})', lambda mm: mm.group(1)+',\n  '+entry, txt)
+    else:
+        txt=re.sub(r'\{"MAP_0010",2,[^}]*\}', entry, txt)
+    txt=patch_valbois(txt)
     open(HDR,"w").write(txt)
+    print("PLAINE:", pi)
+    print("FORGE :", gi)
     print("FORET :", fi)
     print("ROUTE :", ri)
     print("VALLEE:", vi)

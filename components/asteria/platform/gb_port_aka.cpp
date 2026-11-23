@@ -14,7 +14,9 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <sys/stat.h>            // mkdir (VFS FAT)
 #include "esp_timer.h"
+#include "esp_heap_caps.h"     // heap_caps_malloc (PSRAM)
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -78,14 +80,24 @@ void frame_end() {
 
 void clear(Color c) { gfx.clear(c); }
 
+// Primitives : si le raster est neutre (cas courant) on garde les appels gfx
+// d'origine ; sinon origine/clip/cible hors ecran passent par raster_map()
+// (voir gb_raster.h : cache de carte OPT-AKA-3, tampon donjon OPT-AKA-1).
+static inline void put(int x, int y, Color c) {
+    RasterState& r = raster_state();
+    if (!raster_map(x, y, SCREEN_W, SCREEN_H)) return;
+    if (r.buf) r.buf[y * r.bw + x] = c;
+    else gfx.drawPixel((int16_t)x, (int16_t)y, c);
+}
+
 void pixel(int x, int y, Color c) {
-    gfx.setColor(c);
-    gfx.drawPixel((int16_t)x, (int16_t)y);
+    if (raster_state().neutral()) { gfx.drawPixel((int16_t)x, (int16_t)y, c); return; }   // lcd_putpixel clippe deja
+    put(x, y, c);
 }
 
 void fill_rect(int x, int y, int w, int h, Color c) {
-    gfx.setColor(c);
-    gfx.fillRect((int16_t)x, (int16_t)y, (int16_t)w, (int16_t)h);
+    if (raster_state().neutral()) { gfx.setColor(c); gfx.fillRect((int16_t)x, (int16_t)y, (int16_t)w, (int16_t)h); return; }
+    for (int j = 0; j < h; ++j) for (int i = 0; i < w; ++i) put(x + i, y + j, c);
 }
 
 // Charge un BMP non compresse (24 bits RGB ou 16 bits BGR565) depuis la SD
@@ -138,7 +150,7 @@ bool blit_bmp(const char* path) {
     static uint8_t row[320 * 3 + 4];                        // ligne source : tampon statique (max 320px * 24 bits, aligne 4)
     int row_bytes_src = ((width * (bpp / 8) + 3) / 4) * 4;   // BMP : lignes alignees sur 4 octets
 
-    fseek(f, data_offset, SEEK_SET);
+    if (fseek(f, data_offset, SEEK_SET) != 0) { if (temp) free(buf); fclose(f); return false; }   // SEC-07
     for (int32_t y = 0; y < height; ++y) {
         if (fread(row, 1, row_bytes_src, f) != (size_t)row_bytes_src) { if (temp) free(buf); fclose(f); return false; }
         int dst_y = flip_y ? (height - 1 - y) : y;
@@ -185,22 +197,55 @@ void log(const char* msg) { printf("[ASTERIA] %s\n", msg); }
 
 namespace gb {
 void draw_image(const uint16_t* px, uint16_t w, uint16_t h, int x, int y){
-    gfx.drawImage((int16_t)x, (int16_t)y, px, w, h);        // blit matériel opaque
+    if (raster_state().neutral()) { gfx.drawImage((int16_t)x, (int16_t)y, px, w, h); return; }   // blit opaque (clippe)
+    RasterState& r = raster_state();
+    if (r.buf && !r.clip) {                                   // cible tampon : copie ligne a ligne
+        for (int j = 0; j < h; ++j) { int dy = y + j - r.oy; if ((unsigned)dy >= (unsigned)r.bh) continue;
+            int dx0 = x - r.ox, i0 = dx0 < 0 ? -dx0 : 0, i1 = (dx0 + w > r.bw) ? r.bw - dx0 : w;
+            if (i1 > i0) memcpy(r.buf + dy * r.bw + dx0 + i0, px + j * w + i0, (size_t)(i1 - i0) * 2); }
+        return; }
+    for (int j = 0; j < h; ++j) for (int i = 0; i < w; ++i) put(x + i, y + j, px[j * w + i]);
 }
 void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, uint16_t key){
-    for(uint16_t j=0;j<h;++j) for(uint16_t i=0;i<w;++i){ uint16_t c=px[j*w+i];
-        if(c!=key){ gfx.setColor(c); gfx.drawPixel((int16_t)(x+i),(int16_t)(y+j)); } }
+    if (!raster_state().neutral()) {
+        for (int j = 0; j < h; ++j) for (int i = 0; i < w; ++i) { uint16_t c = px[j * w + i]; if (c != key) put(x + i, y + j, c); }
+        return; }
+    for(int j=0;j<h;++j){ int dy=y+j; if((unsigned)dy>=(unsigned)SCREEN_H) continue;      // SEC-07 : clipping
+      for(int i=0;i<w;++i){ int dx=x+i; if((unsigned)dx>=(unsigned)SCREEN_W) continue;
+        uint16_t c=px[j*w+i]; if(c!=key){ gfx.setColor(c); gfx.drawPixel((int16_t)dx,(int16_t)dy); } } }
 }
+void blit_region(const uint16_t* src, int src_w, int src_h, int sx, int sy, int w, int h, int dx, int dy){
+    if (raster_state().neutral() && sx >= 0 && sy >= 0 && sx + w <= src_w && sy + h <= src_h) {
+        gfx.drawImage((int16_t)dx, (int16_t)dy, src, (uint16_t)src_w, (uint16_t)src_h,
+                      (uint16_t)sx, (uint16_t)sy, (uint16_t)w, (uint16_t)h);   // blit d'atlas materiel
+        return; }
+    for (int j = 0; j < h; ++j) { int yy = sy + j; if ((unsigned)yy >= (unsigned)src_h) continue;
+        for (int i = 0; i < w; ++i) { int xx = sx + i; if ((unsigned)xx < (unsigned)src_w) put(dx + i, dy + j, src[yy * src_w + xx]); } }
+}
+// Gros tampons : PSRAM (8 Mo octal sur l'AKA) d'abord, tas interne en repli.
+void* alloc_big(unsigned bytes){
+    void* p = heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    return p ? p : malloc(bytes);
+}
+void free_big(void* p){ heap_caps_free(p); }
 }
 
 namespace gb {
+// SEC-07 : cree les dossiers parents (ex. /sdcard/ASTERIA) avant d'ecrire.
+static void mkdirs_for(const char* path){
+    char d[160]; size_t n=strlen(path); if(n>=sizeof(d)) return;
+    for(size_t i=1;i<n;++i) if(path[i]=='/'){ memcpy(d,path,i); d[i]=0; mkdir(d,0775); }
+}
 bool write_text(const char* path, const char* content){
+    if(!path||!content) return false;
+    mkdirs_for(path);
     FILE* f=fopen(path,"w"); if(!f) return false; fputs(content,f); fclose(f); return true;
 }
 }
 
 namespace gb {
 int read_text(const char* path, char* out, int maxlen){
+    if(!path||!out||maxlen<=0) return -1;                    // SEC-07
     FILE* f=fopen(path,"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
 }
 }

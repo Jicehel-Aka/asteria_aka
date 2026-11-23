@@ -19,6 +19,7 @@ bool game_save(){
   o += snprintf(buf+o, sizeof(buf)-o, "P %d %d %d %d %d %d %d %d %u %d %d %d %d %d %d %d %d %d\n",
      c.IN,c.CO,c.MA,c.AU,c.VIT,c.BL,c.PO,c.weapon,(unsigned)c.spells,c.xp,c.gold,c.level,c.mana,c.manaMax,
      c.attitude[0],c.attitude[1],c.attitude[2],c.attitude[3]);
+  o += snprintf(buf+o, sizeof(buf)-o, "N %d %s\n", c.female?1:0, c.name);   // DELTA-02 : sexe + nom (fin de ligne)
   o += snprintf(buf+o, sizeof(buf)-o, "W %d %d %d %d\n", w.map, w.px, w.py, w.dir);
   o += snprintf(buf+o, sizeof(buf)-o, "I %d\n", (int)c.inv.n);
   for(int i=0;i<c.inv.n;i++) o += snprintf(buf+o, sizeof(buf)-o, "i %d %d\n", (int)c.inv.slots[i].item, (int)c.inv.slots[i].qty);
@@ -43,6 +44,8 @@ bool game_load(){
         &c.IN,&c.CO,&c.MA,&c.AU,&c.VIT,&c.BL,&c.PO,&c.weapon,&sp,&c.xp,&c.gold,&c.level,&c.mana,&c.manaMax,
         &c.attitude[0],&c.attitude[1],&c.attitude[2],&c.attitude[3]);
       c.spells = sp; }
+    else if(line[0]=='N'){ int f=1; int off=0; if(sscanf(line,"N %d %n",&f,&off)>=1 && off>0){   // absent (vieille sauvegarde) -> Caithness
+        c.female=(f!=0); strncpy(c.name,line+off,sizeof(c.name)-1); c.name[sizeof(c.name)-1]=0; if(!c.name[0]) strcpy(c.name,"Caithness"); } }
     else if(line[0]=='W'){ sscanf(line,"W %d %d %d %d",&smap,&spx,&spy,&sdir); haveW=true; }
     else if(line[0]=='I'){ c.inv.n=0; }                 // la liste est reconstruite par les lignes 'i'
     else if(line[0]=='i'){ int it,q; if(sscanf(line,"i %d %d",&it,&q)==2 && c.inv.n < Inventory::CAP){

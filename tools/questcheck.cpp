@@ -8,6 +8,7 @@
 #include "progress.h"
 #include "audio/jingle.h"
 #include <cstdio>
+#include "generated/asteria_maps.h"
 void host_set_budget(int n); void host_inject(int code); void host_tick();
 using namespace asteria;
 static SceneManager* MG;
@@ -44,11 +45,19 @@ int main(){
   grant("OBJ_0034",5); grant("OBJ_0035",3);   // cueillette simulee (reachabilite verifiee par ailleurs)
   talk(18,13,1);
   printf("Q4 (plantes Agnes)    : %d\n",Q(4));
-  // Q1 : Doran npc1 (14,12) -> besoin du casque OBJ_0010 ; 1re visite lance, 2e termine
-  talk(14,13,1);                      // lance Q1
+  // DELTA-01 : la porte de la forge (12,16) mene a l'interieur (loc2) ; Doran y est (6,4)
+  { WorldScene& w=world_scene(); w.px=12; w.py=17; w.notice=false; w.dlg=false; step(1);   // haut : porte
+    printf("Porte forge -> loc %d (attendu 2)\n",(int)data::MAPS[w.map].location); }
+  // Q1 : Doran npc1 (forge, 6,4) -> besoin du casque OBJ_0010 ; 1re visite lance, 2e termine
+  talk(6,5,1);                        // lance Q1
   grant("OBJ_0010",1);                // le joueur a recupere le casque (boss mine)
-  talk(14,13,1);                      // remise
+  talk(6,5,1);                        // remise
   printf("Q1 (outils Doran)     : %d\n",Q(1));
+  { WorldScene& w=world_scene(); w.px=7; w.py=10; w.notice=false; w.dlg=false; step(2);    // bas : sortie
+    printf("Sortie forge -> loc %d (%d,%d)\n",(int)data::MAPS[w.map].location,w.px,w.py);
+    w.px=16; w.py=24; step(2);                                                            // sortie sud de Valbois
+    printf("Sortie sud Valbois -> loc %d (attendu 22)\n",(int)data::MAPS[w.map].location);
+    w.load_map(0); }
   // Q2 auto-start quand Q0==2 (fait a la prochaine update)
   step(-1); step(-1);
   printf("Q2 demarree ? status  : %d (attendu 1)\n",Q(2));

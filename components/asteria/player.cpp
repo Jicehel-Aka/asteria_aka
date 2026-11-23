@@ -35,6 +35,7 @@ Character new_caithness(){
   c.spells=0;
   for(int i=0;i<SPELL_COUNT;++i) if(SPELLS[i].tier==ST_BASE) c.spells|=(1u<<i);
   c.manaMax=6+c.MA/2; c.mana=c.manaMax;
+  strcpy(c.name,"Caithness"); c.female=true;   // heroine prétiree (Bible)
   return c;
 }
 void add_attitude(Character& c,int a){ if(a<0||a>3) return; c.attitude[a]++; c.PO++; }
@@ -50,4 +51,35 @@ bool try_craft(Character& c,int r,bool at_forge){
 }
 }
 
-namespace asteria { Character& player(){ static Character c = new_caithness(); return c; } }
+namespace asteria { Character& player(){ static Character c = new_caithness(); return c; } 
+// --- DELTA-02 : nom et accords du heros dans les textes affiches -------------
+// Remplace toutes les occurrences de 'from' par 'to' dans dst (taille cap).
+static void repl_all(char* dst,int cap,const char* from,const char* to){
+  static char tmp[256]; int fl=(int)strlen(from), tl=(int)strlen(to), o=0;
+  for(const char* p=dst; *p && o<(int)sizeof(tmp)-1; ){
+    if(strncmp(p,from,fl)==0){ for(int k=0;k<tl && o<(int)sizeof(tmp)-1;k++) tmp[o++]=to[k]; p+=fl; }
+    else tmp[o++]=*p++; }
+  tmp[o]=0; strncpy(dst,tmp,cap-1); dst[cap-1]=0;
+}
+const char* hero_text(const char* s){
+  const Character& c=player();
+  if(!s) return "";
+  bool rename=strcmp(c.name,"Caithness")!=0;
+  if(c.female && !rename) return s;                       // cas par defaut : aucun travail
+  static char buf[2][256]; static int k=0; char* b=buf[k^=1];
+  strncpy(b,s,255); b[255]=0;
+  if(rename) repl_all(b,256,"Caithness",c.name);
+  if(!c.female){
+    // ordre : formes longues (avec article) d'abord
+    static const char* const M[][2]={
+      {"la voyageuse","le voyageur"},{"voyageuse","voyageur"},                       // FR
+      {"la viajera","el viajero"},{"viajera","viajero"},{"Bienvenida","Bienvenido"},  // ES
+      {"die Reisende","der Reisende"},{", Reisende",", Reisender"},                   // DE
+      {"la viaggiatrice","il viaggiatore"},{"viaggiatrice","viaggiatore"},{"Benvenuta","Benvenuto"},  // IT
+      {"fille des fees","fils des fees"},{"fae daughter","fae son"},{"hija de las hadas","hijo de las hadas"},
+      {"Feentochter","Feensohn"},{"figlia delle fate","figlio delle fate"} };       // "enfant des fees" (Orwenn, Voyageur)
+    for(const auto& r:M) repl_all(b,256,r[0],r[1]);
+  }
+  return b;
+}
+}

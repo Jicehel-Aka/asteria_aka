@@ -4,6 +4,7 @@
 #include "scene/world_scene.h"
 #include "save.h"
 #include "scene/dungeon_scene.h"
+#include "scene/combat_scene.h"   // spell_known / spell_cost (soins hors combat)
 #include "ui/text.h"
 #include "platform/gb_port.h"
 #include "generated/asteria_maps.h"
@@ -86,6 +87,7 @@ static const char* loc_name(int loc){
   switch(loc){
     case 0:  return "Valbois";
     case 1:  return "Taverne de Valbois";
+    case 2:  return "Forge de Doran";
     case 8:  return "Foret de Brume";
     case 9:  return "Vieille Mine";
     case 10: return "Grand-Castel";
@@ -97,7 +99,7 @@ static const char* loc_name(int loc){
   }
 }
 WorldScene& world_scene(){ static WorldScene s; return s; }
-void new_game_reset(){ WorldScene& w=world_scene(); w.started=false; w.confirmQuit=false; state_reset(); progress_reset(); player()=new_caithness(); dungeon_reset(); }
+void new_game_reset(){ WorldScene& w=world_scene(); w.started=false; w.confirmQuit=false; w.pauseSel=0; w.pauseMsg=nullptr; w.epiLine=0; w.notice=false; w.dlg=false; w.savedMap=-2; state_reset(); progress_reset(); player()=new_caithness(); dungeon_reset(); }
 static int map_for_loc(int loc){ for(int i=0;i<MAP_COUNT;++i) if(MAPS[i].location==loc) return i; return -1; }
 void WorldScene::load_map(int m){ map=m; px=MAPS[m].px; py=MAPS[m].py; gb::log(MAPS[m].id); }
 void WorldScene::enter(){
@@ -105,6 +107,35 @@ void WorldScene::enter(){
   started=true; int gp=map_for_loc(22); load_map(gp>=0?gp:0);   // Arc 0 : demarrage dans la Grande Plaine
   if(MAPS[map].location==22){ quest_start(17); discover_zone(22); notice=true;
     noticeTxt="La Breche se referme derriere toi. Te voici dans la Grande Plaine d'Asteria."; }
+}
+// ---------------------------------------------------------------------------
+// DELTA-03 : menu pause (MENU ou B en exploration). Entrees dynamiques : les sorts
+// de soin n'apparaissent que s'ils sont connus. Hors combat, on a le temps de se
+// concentrer : le sort reussit toujours (seul le cout en pouvoir s'applique).
+// ---------------------------------------------------------------------------
+enum PauseItem{ PI_RESUME, PI_SAVE, PI_HEAL, PI_HEAL_MAJOR, PI_QUIT };
+static int pause_items(int* out){ int n=0; out[n++]=PI_RESUME; out[n++]=PI_SAVE;
+  if(spell_known(4)) out[n++]=PI_HEAL; if(spell_known(7)) out[n++]=PI_HEAL_MAJOR; out[n++]=PI_QUIT; return n; }
+static const char* pause_label(int it){
+  switch(it){ case PI_RESUME: return "Reprendre"; case PI_SAVE: return "Sauvegarder"; case PI_HEAL: return "Soins";
+    case PI_HEAL_MAJOR: return "Guerison majeure"; default: return "Quitter vers le titre"; } }
+static int d6w(){ return (int)(ws_rand()%6)+1; }
+void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
+  int it[5]; int n=pause_items(it); if(pauseSel>=n) pauseSel=n-1;
+  if(p&gb::BTN_DOWN){ pauseSel=(pauseSel+1)%n; pauseMsg=nullptr; }
+  if(p&gb::BTN_UP)  { pauseSel=(pauseSel+n-1)%n; pauseMsg=nullptr; }
+  if(p&(gb::BTN_B|gb::BTN_MENU)){ confirmQuit=false; return; }
+  if(!(p&gb::BTN_A)) return;
+  switch(it[pauseSel]){
+    case PI_RESUME: confirmQuit=false; break;
+    case PI_SAVE:   pauseMsg=game_save()?"Partie sauvegardee.":"Echec de la sauvegarde (carte SD ?)"; break;
+    case PI_HEAL: case PI_HEAL_MAJOR: { int s=(it[pauseSel]==PI_HEAL)?4:7; int cost=spell_cost(s); Character& c=player();
+      if(c.BL<=0) pauseMsg="Tu n'as aucune blessure.";
+      else if(c.mana<cost) pauseMsg="Pas assez de pouvoir !";
+      else { c.mana-=cost; int h=0; for(int k=0;k<(s==4?2:4);k++) h+=d6w(); c.BL-=h; if(c.BL<0)c.BL=0;
+        pauseMsg=(s==4)?"Soins : tes blessures se referment.":"Guerison majeure : tes forces reviennent."; } } break;
+    default: mgr.set(SceneId::TITLE); break;
+  }
 }
 void WorldScene::update(SceneManager& mgr){
   const Map& M=MAPS[map]; uint32_t p=gb::buttons_pressed();
@@ -116,21 +147,21 @@ void WorldScene::update(SceneManager& mgr){
   if(MAPS[map].location==23 && !flag_get("vallee_intro")){ flag_set("vallee_intro"); notice=true; noticeTxt="La Vallee des Pierres Murmurantes. Des monolithes graves veillent entre les rochers."; }
   if(quest_status(0)==2 && quest_status(2)==0) quest_start(2);
   if(quest_status(2)==2 && quest_status(3)==0) quest_start(3);   // Q3 Les empreintes (annexe)
-  if(confirmQuit){ if(p&gb::BTN_A){ mgr.set(SceneId::TITLE); } else if(p&gb::BTN_B){ confirmQuit=false; } return; }
+  if(confirmQuit){ pause_update(mgr,p); return; }   // DELTA-03 : menu pause (reprendre / sauvegarder / soins / quitter)
   if(notice){ if(p&(gb::BTN_A|gb::BTN_B)) notice=false; return; }
   if(started && !dlg && map!=savedMap){ savedMap=map; if(g_autosave) game_save(); }   // auto-sauvegarde a chaque arrivee sur une carte
   // ---- Final de l'Arc I : l'Antre Malefique (loc 21) ----
   if(MAPS[map].location==21){
     if(flag_get("boss_coeur")){                               // le tyran est vaincu -> denouement
       if(!flag_get("fin_arc1")){
-        static int di=0; static const char* D[]={
+        static const char* D[]={
           "Le Coeur de Haine s'effondre dans un dernier spasme.",
           "Une lumiere pale revient : les Tenebres refluent de la region.",
           "Les disparus perdus ne reviendront pas tous... mais le pays respire.",
           "Sur l'autel, un pendentif d'hermine. Tu le reconnais aussitot.",
           "C'est celui de ta mere. Elle est passee ici, vivante.",
           "La piste des tiens mene vers l'Est, au-dela des Monts. (Fin de l'Arc I)" };
-        if(di<6){ notice=true; noticeTxt=D[di++]; return; } else { if(quest_status(14)==1) complete_quest_reward(14); flag_set("fin_arc1"); }
+        if(epiLine<6){ notice=true; noticeTxt=D[epiLine++]; return; } else { if(quest_status(14)==1) complete_quest_reward(14); flag_set("fin_arc1"); }
       }
     } else {                                                  // sinon : combats a l'autel (centre haut)
       bool atAltar=(py<=5 && px>=8 && px<=12);
@@ -233,6 +264,7 @@ void WorldScene::update(SceneManager& mgr){
         int rg=item_index("OBJ_0040"); if(rg>=0 && !player().inv.has(rg,1)) player().inv.add(rg,1);
         complete_quest_reward(16);
       }
+      else if(n==20 && !flag_get("orwenn_apres")) flag_set("orwenn_apres");   // DELTA-02 : visites suivantes -> noeud "apres le don"
       else if(n==21 && !flag_get("vu_voyageur")){ // Voyageur Encapuchonne : remet le Livre des Elements (Arc 0)
         flag_set("vu_voyageur");
         int lv=item_index("OBJ_0041"); if(lv>=0 && !player().inv.has(lv,1)) player().inv.add(lv,1);
@@ -263,17 +295,17 @@ void WorldScene::update(SceneManager& mgr){
             if(c.complete_q==5) noticeTxt="Un tissu dechire, arrache a un villageois... Les traces menent a la Vieille Mine.";
             else if(c.complete_q==10) noticeTxt="Le carnet du chef de caravane ! Ses notes mènent à Grand-Castel."; } } }
       else if(fx>=0&&fy>=0&&fx<M.w&&fy<M.h && M.tiles[fy*M.w+fx]==4 && !door_leads_somewhere(M,fx,fy)){ notice=true; noticeTxt=i18n::tr(i18n::W_CLOSED); } } }
-  if(p&(gb::BTN_MENU|gb::BTN_B)){ confirmQuit=true; }
+  if(p&(gb::BTN_MENU|gb::BTN_B)){ confirmQuit=true; pauseSel=0; pauseMsg=nullptr; }
 }
-void WorldScene::render(){
-  const Map& M=MAPS[map];
-  int camx=px*TILE_SIZE+TILE_SIZE/2-160, camy=py*TILE_SIZE+TILE_SIZE/2-120;
-  int maxx=M.w*TILE_SIZE-320, maxy=M.h*TILE_SIZE-240;
-  if(maxx<0) camx=maxx/2; else { if(camx<0)camx=0; if(camx>maxx)camx=maxx; }
-  if(maxy<0) camy=maxy/2; else { if(camy<0)camy=0; if(camy>maxy)camy=maxy; }
-  int x0=camx/TILE_SIZE-1, y0=camy/TILE_SIZE-1, x1=x0+25, y1=y0+20;
-  if(x0<0)x0=0; if(y0<0)y0=0; if(x1>M.w)x1=M.w; if(y1>M.h)y1=M.h;
-  for(int y=y0;y<y1;++y){ for(int x=x0;x<x1;++x){ uint8_t _t=M.tiles[y*M.w+x]; int dx=x*TILE_SIZE-camx, dy=y*TILE_SIZE-camy;
+// ---------------------------------------------------------------------------
+// Dessin d'UNE tuile de carte en coordonnees CARTE (pixels absolus x*16,y*16).
+// L'appelant fixe gb::set_origin(camx,camy) pour la placer a l'ecran, ou dessine
+// dans le cache de carte (origine 0). Les variations pseudo-aleatoires des tuiles
+// (hash des arbres, rives...) dependent donc de la position sur la CARTE et ne
+// changent plus quand la camera defile.
+// ---------------------------------------------------------------------------
+void draw_map_tile(const Map& M,int x,int y){
+  uint8_t _t=M.tiles[y*M.w+x]; int dx=x*TILE_SIZE, dy=y*TILE_SIZE;
       if(_t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; int t=M.tiles[yy*M.w+xx]; return t==3||t==5; }; // hors-carte = eau continue -> pas de rive au bord, l'eau s'ecoule
         draw_natural_water(dx,dy, W(x,y-1),W(x,y+1),W(x+1,y),W(x-1,y), W(x+1,y-1),W(x-1,y-1),W(x+1,y+1),W(x-1,y+1)); }
       else if(_t==1){ auto P=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; return M.tiles[yy*M.w+xx]==1; }; // hors-carte = chemin continue -> il sort de la carte au lieu de s'arreter
@@ -305,12 +337,74 @@ void WorldScene::render(){
       else if(_t==28) gb::draw_image(spr::MONT_SPR.px,16,16,dx,dy);   // rocher/mont (importe Wargame)
       else if(_t==29) draw_grove(dx,dy);                              // bosquet : style maison (uniforme)
       else if(_t<23) gb::draw_image(spr::TILE[_t].px,spr::TILE[_t].w,spr::TILE[_t].h,dx,dy);
-      else gb::fill_rect(dx,dy,TILE_SIZE,TILE_SIZE,TCOL(_t)); }
+      else gb::fill_rect(dx,dy,TILE_SIZE,TILE_SIZE,TCOL(_t));
+}
+
+// ---------------------------------------------------------------------------
+// OPT-AKA-3 : cache de la carte entiere (rendu procedural fait UNE fois par carte).
+// Le decor est statique : on le rend dans un tampon (PSRAM sur AKA, ~650 Ko pour la
+// plus grande carte) a l'arrivee sur la carte, puis chaque image ne fait qu'un blit
+// de la fenetre visible + le redessin, sous chaque personnage, des tuiles de la
+// rangee suivante (arbres, toits) qui doivent le masquer. Rendu identique au dessin
+// direct. Retour au dessin tuile par tuile : -DASTERIA_MAP_CACHE=0 (ou si
+// l'allocation echoue).
+// ---------------------------------------------------------------------------
+#ifndef ASTERIA_MAP_CACHE
+#define ASTERIA_MAP_CACHE 1
+#endif
+static uint16_t* s_mc=nullptr; static int s_mcMap=-1, s_mcW=0, s_mcH=0; static unsigned s_mcCap=0;
+static bool map_cache_ready(int map){
+#if ASTERIA_MAP_CACHE
+  if(s_mc && s_mcMap==map) return true;
+  const Map& M=MAPS[map]; int W=M.w*TILE_SIZE, H=M.h*TILE_SIZE; unsigned need=(unsigned)W*(unsigned)H*2u;
+  if(need>s_mcCap){ if(s_mc) gb::free_big(s_mc); s_mc=(uint16_t*)gb::alloc_big(need); s_mcCap=s_mc?need:0; }
+  if(!s_mc){ s_mcMap=-1; return false; }
+  s_mcW=W; s_mcH=H; s_mcMap=map;
+  gb::reset_raster(); gb::set_target(s_mc,W,H);
+  for(int i=0;i<W*H;i++) s_mc[i]=0;
+  for(int y=0;y<M.h;++y) for(int x=0;x<M.w;++x) draw_map_tile(M,x,y);
+  gb::reset_raster();
+  return true;
+#else
+  (void)map; return false;
+#endif
+}
+// Redessine, limitees au rectangle ecran (bx,by,bw,bh), les tuiles des rangees > row
+// qui recouvrent ce rectangle (les arbres debordent de 14 px vers le haut, 3 px
+// sur les cotes) : reproduit l'ordre de dessin d'origine par-dessus un personnage.
+static void occlude(const Map& M,int row,int camx,int camy,int bx,int by,int bw,int bh){
+  int mx0=(bx+camx-19)/TILE_SIZE, mx1=(bx+bw+camx+3)/TILE_SIZE;
+  if(mx0<0)mx0=0; if(mx1>=M.w)mx1=M.w-1;
+  gb::set_origin(camx,camy); gb::set_clip(bx,by,bw,bh);
+  for(int y=row+1;y<=row+2 && y<M.h;++y) for(int x=mx0;x<=mx1;++x) draw_map_tile(M,x,y);
+  gb::reset_raster();
+}
+
+void WorldScene::render(){
+  const Map& M=MAPS[map];
+  int camx=px*TILE_SIZE+TILE_SIZE/2-160, camy=py*TILE_SIZE+TILE_SIZE/2-120;
+  int maxx=M.w*TILE_SIZE-320, maxy=M.h*TILE_SIZE-240;
+  if(maxx<0) camx=maxx/2; else { if(camx<0)camx=0; if(camx>maxx)camx=maxx; }
+  if(maxy<0) camy=maxy/2; else { if(camy<0)camy=0; if(camy>maxy)camy=maxy; }
+  int x0=camx/TILE_SIZE-1, y0=camy/TILE_SIZE-1, x1=x0+25, y1=y0+20;
+  if(x0<0)x0=0; if(y0<0)y0=0; if(x1>M.w)x1=M.w; if(y1>M.h)y1=M.h;
+  const bool cached=map_cache_ready(map);
+  if(cached){                                   // fenetre visible du cache (cartes plus petites que l'ecran : centrees)
+    int sx=camx, sy=camy, dx=0, dy=0, w=320, h=240;
+    if(sx<0){ dx=-sx; w+=sx; sx=0; } if(sy<0){ dy=-sy; h+=sy; sy=0; }
+    if(sx+w>s_mcW) w=s_mcW-sx; if(sy+h>s_mcH) h=s_mcH-sy;
+    if(dx>0||dy>0||w<320||h<240) gb::clear(gb::rgb(0,0,0));
+    if(w>0&&h>0) gb::blit_region(s_mc,s_mcW,s_mcH,sx,sy,w,h,dx,dy);
+  }
+  for(int y=y0;y<y1;++y){
+    if(!cached){ gb::set_origin(camx,camy); for(int x=x0;x<x1;++x) draw_map_tile(M,x,y); gb::reset_raster(); }
     // Tri par profondeur : les entites de la rangee y sont dessinees APRES ses tuiles.
     // Un arbre/tour d'une rangee inferieure (en avant) sera dessine ensuite -> il masque le heros, qui "passe derriere".
     for(int i=0;i<M.spawn_n;++i){ const Spawn& s=M.spawns[i]; if(s.y!=y) continue;
-      if(s.npc>=0 && s.npc<spr::NPC_COUNT && spr::NPC[s.npc].px){ const spr::Sprite& ns=spr::NPC[s.npc]; gb::draw_image_key(ns.px,ns.w,ns.h,s.x*TILE_SIZE+(TILE_SIZE-ns.w)/2-camx,s.y*TILE_SIZE+TILE_SIZE-ns.h+2-camy,spr::KEY); } else gb::fill_rect(s.x*TILE_SIZE+4-camx,s.y*TILE_SIZE+2-camy,8,12,gb::rgb(230,220,120)); }
+      if(s.npc>=0 && s.npc<spr::NPC_COUNT && spr::NPC[s.npc].px){ const spr::Sprite& ns=spr::NPC[s.npc]; int nx=s.x*TILE_SIZE+(TILE_SIZE-ns.w)/2-camx, ny=s.y*TILE_SIZE+TILE_SIZE-ns.h+2-camy;
+        gb::draw_image_key(ns.px,ns.w,ns.h,nx,ny,spr::KEY); if(cached) occlude(M,y,camx,camy,nx,ny,ns.w,ns.h); } else gb::fill_rect(s.x*TILE_SIZE+4-camx,s.y*TILE_SIZE+2-camy,8,12,gb::rgb(230,220,120)); }
     if(py==y){ int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1; const spr::Sprite& hs=spr::HERO[dir][fr]; int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy; gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY);
+      if(cached) occlude(M,y,camx,camy,sx,sy,hs.w,hs.h);   // arbres/toits de la rangee suivante par-dessus le heros
       // marqueur : petite fleche doree au-dessus du heros quand il est entoure d'arbres/objets hauts
       auto tall=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; uint8_t q=M.tiles[yy*M.w+xx]; return q==6||q==22||q==28||q==29||q==2||q==13||q==14||q==15; };
       if(tall(px,py-1)||tall(px,py+1)||tall(px-1,py)||tall(px+1,py)){ int cxm=px*TILE_SIZE+TILE_SIZE/2-camx, ym=sy-7;
@@ -327,7 +421,7 @@ void WorldScene::render(){
     gb::fill_rect(8,158,304,74,gb::rgb(20,16,10));
     gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
     ui::gold(16,162,trc(D.name),true);
-    const dlg::Node& _N=D.nodes[dlgNode]; const char* t=(dlgLine<_N.nlines)?trc(_N.lines[dlgLine]):"";
+    const dlg::Node& _N=D.nodes[dlgNode]; const char* t=(dlgLine<_N.nlines)?hero_text(trc(_N.lines[dlgLine])):"";
     // wrap simple ~38 c
     char l1[64]={0},l2[64]={0}; int n=0; while(t[n])n++;
     if(n<=38){ for(int i=0;i<n;i++)l1[i]=t[i]; }
@@ -356,13 +450,22 @@ void WorldScene::render(){
   if(notice){ gb::fill_rect(8,158,304,74,gb::rgb(20,16,10)); gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
     ui::gold(16,162,i18n::tr(i18n::W_EVENT),true);
     // wrap ~38
-    const char* t=noticeTxt?trc(noticeTxt):""; char a[64]={0},b[64]={0}; int n=0; while(t[n])n++;
+    const char* t=noticeTxt?hero_text(trc(noticeTxt)):""; char a[64]={0},b[64]={0}; int n=0; while(t[n])n++;
     if(n<=38){ for(int i=0;i<n;i++)a[i]=t[i]; } else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(!cut)cut=38; for(int i=0;i<cut;i++)a[i]=t[i]; int k=0; for(int i=cut+1;t[i]&&k<63;i++)b[k++]=t[i]; }  // SEC-03 : borne k<63
     ui::text(16,182,a,gb::rgb(236,226,192)); if(b[0])ui::text(16,198,b,gb::rgb(236,226,192));
     ui::text(206,214,i18n::tr(i18n::W_CONT),gb::rgb(170,160,132));
   }
-  if(confirmQuit){ gb::fill_rect(56,88,208,64,gb::rgb(20,16,10)); gb::fill_rect(56,88,208,2,gb::rgb(200,170,90)); gb::fill_rect(56,150,208,2,gb::rgb(200,170,90));
-    ui::gold(74,100,i18n::tr(i18n::W_QUIT_Q),true);
-    ui::text(74,124,i18n::tr(i18n::W_YESNO),gb::rgb(230,220,180)); }
+  if(confirmQuit){   // DELTA-03 : menu pause
+    int it[5]; int n=pause_items(it); int h=30+n*16+30, y0=(240-h)/2+8;
+    gb::fill_rect(48,y0,224,h,gb::rgb(20,16,10)); gb::fill_rect(48,y0,224,2,gb::rgb(200,170,90)); gb::fill_rect(48,y0+h-2,224,2,gb::rgb(200,170,90));
+    ui::gold(60,y0+6,trc("Pause"),true);
+    char st[40]; int pv=player().VIT-player().BL; if(pv<0)pv=0;
+    snprintf(st,sizeof(st),"PV %d/%d   PO %d/%d",pv,player().VIT,player().mana,player().manaMax); ui::text(150,y0+7,st,gb::rgb(200,190,160));
+    for(int i=0;i<n;i++){ int y=y0+26+i*16;
+      if(i==pauseSel){ gb::fill_rect(56,y-2,208,14,gb::rgb(60,45,20)); ui::gold(60,y-1,">",true); }
+      char l[48]; if(it[i]==PI_HEAL||it[i]==PI_HEAL_MAJOR) snprintf(l,sizeof(l),"%s (%d PO)",trc(pause_label(it[i])),spell_cost(it[i]==PI_HEAL?4:7));
+      else snprintf(l,sizeof(l),"%s",trc(pause_label(it[i])));
+      ui::text(74,y-1,l,gb::rgb(235,225,190)); }
+    if(pauseMsg) ui::text(60,y0+h-18,hero_text(trc(pauseMsg)),gb::rgb(245,215,95)); }
 }
 }

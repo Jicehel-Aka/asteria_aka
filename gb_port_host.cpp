@@ -8,6 +8,13 @@
 #include <cstring>
 #include <cstdint>
 #include <string>
+#ifdef _WIN32
+#include <direct.h>
+#define MKDIR(d) _mkdir(d)
+#else
+#include <sys/stat.h>
+#define MKDIR(d) mkdir(d,0755)
+#endif
 #include <vector>
 static uint16_t FB[gb::SCREEN_W*gb::SCREEN_H];
 static int g_frame=0, g_budget=1; static uint32_t g_ms=0;
@@ -22,8 +29,11 @@ static void dumpPPM(){ char n[48]; snprintf(n,sizeof(n),"frame_%02d.ppm",g_frame
   for(int i=0;i<SCREEN_W*SCREEN_H;i++){ uint16_t c=FB[i]; unsigned b=((c>>11)&0x1F)<<3,g=((c>>5)&0x3F)<<2,r=(c&0x1F)<<3; unsigned char px[3]={(unsigned char)r,(unsigned char)g,(unsigned char)b}; fwrite(px,1,3,fp);} fclose(fp); }
 void frame_end(){ dumpPPM(); g_frame++; g_ms+=16; }
 void clear(Color c){ for(int i=0;i<SCREEN_W*SCREEN_H;i++) FB[i]=c; }
-void pixel(int x,int y,Color c){ if((unsigned)x<(unsigned)SCREEN_W&&(unsigned)y<(unsigned)SCREEN_H) FB[y*SCREEN_W+x]=c; }
-void fill_rect(int x,int y,int w,int h,Color c){ for(int j=0;j<h;j++)for(int i=0;i<w;i++) pixel(x+i,y+j,c); }
+// Primitives : chemin rapide d'origine si le raster est neutre, sinon passage par
+// raster_map() (origine, clip, cible hors ecran — voir gb_raster.h).
+static inline void put(int x,int y,Color c){ RasterState& r=raster_state(); if(!raster_map(x,y,SCREEN_W,SCREEN_H)) return; (r.buf?r.buf[y*r.bw+x]:FB[y*SCREEN_W+x])=c; }
+void pixel(int x,int y,Color c){ put(x,y,c); }
+void fill_rect(int x,int y,int w,int h,Color c){ for(int j=0;j<h;j++)for(int i=0;i<w;i++) put(x+i,y+j,c); }
 static std::string mp(const char* p){ if(!p) return ""; std::string s=p,k="/sdcard/";
   if(s.rfind(k,0)!=0 || s.find("..")!=std::string::npos || s.find('\\')!=std::string::npos) return "";  // SEC-05 : anti traversee
   return "./sdcard_files/"+s.substr(k.size()); }
@@ -38,10 +48,11 @@ bool blit_bmp(const char* path){
     for(int y=0;y<s_bmp_h;y++) for(int x=0;x<s_bmp_w;x++) FB[y*SCREEN_W+x]=s_bmp_buf[y*SCREEN_W+x];
     return true;
   }
-  FILE* fp=fopen(mp(path).c_str(),"rb"); if(!fp) return false; unsigned char h[54]; if(fread(h,1,54,fp)!=54){fclose(fp);return false;}
+  FILE* fp=fopen(mp(path).c_str(),"rb"); if(!fp) return false; unsigned char h[54]; if(fread(h,1,54,fp)!=54||h[0]!='B'||h[1]!='M'){fclose(fp);return false;}  // SEC-07 : signature
   int W=h[18]|h[19]<<8|h[20]<<16|h[21]<<24,H=h[22]|h[23]<<8|h[24]<<16|h[25]<<24,bpp=h[28]|h[29]<<8,off=h[10]|h[11]<<8|h[12]<<16|h[13]<<24;
   if(bpp!=24 || W<=0 || H<=0 || W>(int)SCREEN_W || H>(int)SCREEN_H || off<54){fclose(fp);return false;}  // SEC-02 : bornes
-  fseek(fp,off,SEEK_SET); int row=((W*3+3)/4)*4; std::vector<unsigned char> b(row);
+  if(fseek(fp,off,SEEK_SET)!=0){fclose(fp);return false;}                 // SEC-07
+  int row=((W*3+3)/4)*4; std::vector<unsigned char> b(row);
   for(int yy=0;yy<H;yy++){ if(fread(b.data(),1,row,fp)!=(size_t)row)break; int dy=H-1-yy;
     for(int xx=0;xx<W;xx++) s_bmp_buf[dy*SCREEN_W+xx]=rgb(b[xx*3+2],b[xx*3+1],b[xx*3]); }  // decode -> cache
   fclose(fp);
@@ -62,16 +73,27 @@ void host_tick(){ g_ms+=16; }                      // avance l'horloge (logique 
 
 namespace gb {
 void draw_image(const uint16_t* px, uint16_t w, uint16_t h, int x, int y){
-    for(uint16_t j=0;j<h;++j) for(uint16_t i=0;i<w;++i) pixel(x+i,y+j,px[j*w+i]);
+    for(int j=0;j<h;++j) for(int i=0;i<w;++i) put(x+i,y+j,px[j*w+i]);
 }
 void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, uint16_t key){
-    for(uint16_t j=0;j<h;++j) for(uint16_t i=0;i<w;++i){ uint16_t c=px[j*w+i]; if(c!=key) pixel(x+i,y+j,c); }
+    for(int j=0;j<h;++j) for(int i=0;i<w;++i){ uint16_t c=px[j*w+i]; if(c!=key) put(x+i,y+j,c); }   // SEC-07 : put() clippe
 }
+void blit_region(const uint16_t* src, int src_w, int src_h, int sx, int sy, int w, int h, int dx, int dy){
+    for(int j=0;j<h;++j){ int yy=sy+j; if((unsigned)yy>=(unsigned)src_h) continue;
+      for(int i=0;i<w;++i){ int xx=sx+i; if((unsigned)xx<(unsigned)src_w) put(dx+i,dy+j,src[yy*src_w+xx]); } }
+}
+void* alloc_big(unsigned bytes){ return malloc(bytes); }
+void  free_big(void* p){ free(p); }
 }
 
 namespace gb {
+// SEC-07 : cree les dossiers parents (ex. /sdcard/ASTERIA/) avant d'ecrire.
+static void mkdirs_for(const std::string& file){
+  for(size_t i=1;i<file.size();++i) if(file[i]=='/'){ std::string d=file.substr(0,i); MKDIR(d.c_str()); }
+}
 bool write_text(const char* path, const char* content){
-    std::string s=mp(path); if(s.empty()) return false;   // SEC-05
+    std::string s=mp(path); if(s.empty()||!content) return false;   // SEC-05
+    mkdirs_for(s);
     FILE* f=fopen(s.c_str(),"w"); if(!f) return false; fputs(content,f); fclose(f); return true;
 }
 }

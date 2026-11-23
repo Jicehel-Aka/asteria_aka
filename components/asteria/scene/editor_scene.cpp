@@ -1,6 +1,7 @@
 // Mode EDITEUR v2 : hub (carte / sprites), edition de carte (tuiles/depart/PNJ/portails/coffres)
 // et editeur de sprites couleur (tuiles, heros, PNJ, monstres). Tout multilingue. Export fichiers.
 #include "scene/editor_scene.h"
+#include "scene/world_scene.h"   // draw_map_tile
 #include <cstdarg>
 #include "platform/gb_port.h"
 #include "ui/text.h"
@@ -40,6 +41,8 @@ struct ESpawn{ int npc,x,y; };  static ESpawn msp[32]; static int mspn=0;
 struct EPortal{ int x,y,target,ax,ay; }; static EPortal mpo[16]; static int mpon=0;
 struct EChest{ int x,y; };     static EChest mch[16]; static int mchn=0;
 static int mcx=0,mcy=0,mtool=0,mtile=1,mnpc=0,mtarget=0;
+static const int EDIT_TILE_N=33;   // tuiles 0..32 (voir draw_map_tile)
+static const int EDIT_LOC_N=24;    // lieux 0..23 (cibles de portail)
 static char mmsg[56];
 
 void editor_set_map(int m){ mp=m; }
@@ -49,15 +52,18 @@ static int po_at(int x,int y){ for(int i=0;i<mpon;i++) if(mpo[i].x==x&&mpo[i].y=
 static int ch_at(int x,int y){ for(int i=0;i<mchn;i++) if(mch[i].x==x&&mch[i].y==y) return i; return -1; }
 
 static void map_load(){
-  const Map& M=MAPS[mp]; mw=M.w; mh=M.h; mpx=M.px; mpy=M.py; mcx=mcy=0;
+  const Map& M=MAPS[mp];
+  if(M.w<=0||M.h<=0||M.w>64||M.h>64) return;                 // SEC-04 : mtiles est 64x64
+  mw=M.w; mh=M.h; mpx=M.px; mpy=M.py; mcx=mcy=0;
   for(int i=0;i<mw*mh;i++) mtiles[i]=M.tiles[i];
   mspn=M.spawn_n; for(int i=0;i<M.spawn_n&&i<32;i++){ msp[i].npc=M.spawns[i].npc; msp[i].x=M.spawns[i].x; msp[i].y=M.spawns[i].y; }
   mpon=M.portal_n; for(int i=0;i<M.portal_n&&i<16;i++){ mpo[i].x=M.portals[i].x; mpo[i].y=M.portals[i].y; mpo[i].target=M.portals[i].target_loc; mpo[i].ax=M.portals[i].sx; mpo[i].ay=M.portals[i].sy; }
   mchn=0;
 }
 
-static void map_export(){
-  static char buf[8000]; int o=0;
+// SEC-04 : 64x64 tuiles * jusqu'a 4 octets ("32, ") = ~16 Ko + PNJ/portails -> 24 Ko.
+static bool map_export(){
+  static char buf[24576]; int o=0;
   o=app(buf,sizeof(buf),o,"// MAP_%04d (editeur) start px=%d py=%d  w=%d h=%d\n",mp+1,mpx,mpy,mw,mh);
   o=app(buf,sizeof(buf),o,"static const uint8_t MAP%d_T[]={",mp);
   for(int i=0;i<mw*mh;i++) o=app(buf,sizeof(buf),o,"%s%d",i?", ":"",mtiles[i]);
@@ -70,16 +76,17 @@ static void map_export(){
   o=app(buf,sizeof(buf),o,"};\n// Coffres (a cabler dans world CHESTS) : ");
   for(int i=0;i<mchn;i++) o=app(buf,sizeof(buf),o,"%s{loc,%d,%d}",i?", ":"",mch[i].x,mch[i].y);
   o=app(buf,sizeof(buf),o,"\n");
-  gb::write_text("/sdcard/ASTERIA/export_map.txt", buf);
+  if(o>=(int)sizeof(buf)-1){ snprintf(mmsg,56,"Export tronque !"); return false; }   // SEC-04 : jamais de fichier coupe
+  return gb::write_text("/sdcard/ASTERIA/export_map.txt", buf);
 }
 
 static void map_reload(){
-  static char buf[8000]; int n=gb::read_text("/sdcard/ASTERIA/export_map.txt",buf,sizeof(buf));
+  static char buf[24576]; int n=gb::read_text("/sdcard/ASTERIA/export_map.txt",buf,sizeof(buf));
   if(n<=0){ snprintf(mmsg,56,"export_map.txt introuvable"); return; }
   char key[16]; snprintf(key,16,"MAP%d_T[]={",mp);
   char* p=strstr(buf,key); if(!p){ snprintf(mmsg,56,"MAP%d_T absent",mp); return; }
   p+=strlen(key); int i=0; int cap=mw*mh;
-  while(*p && *p!='}' && i<cap){ while(*p==' '||*p==','){p++;} if(*p=='}'||!*p)break; mtiles[i++]=(uint8_t)atoi(p); while(*p&&*p!=','&&*p!='}')p++; }
+  while(*p && *p!='}' && i<cap){ while(*p==' '||*p==','){p++;} if(*p=='}'||!*p)break; { int v=atoi(p); mtiles[i++]=(uint8_t)((v>=0&&v<=32)?v:0); } while(*p&&*p!=','&&*p!='}')p++; }   // SEC-04 : valeur bornee
   snprintf(mmsg,56,"%s",i18n::tr(i18n::ED_RELOADED));
 }
 
@@ -91,7 +98,7 @@ static void map_update(SceneManager& mgr){
     if(p&gb::BTN_DOWN) g_ovSel=(g_ovSel+1)%4;
     if(p&gb::BTN_UP)   g_ovSel=(g_ovSel+3)%4;
     if(p&(gb::BTN_B|gb::BTN_RUN)) g_ov=false;
-    if(p&gb::BTN_A){ if(g_ovSel==0){ map_export(); snprintf(mmsg,56,"%s",i18n::tr(i18n::ED_EXPORTED)); }
+    if(p&gb::BTN_A){ if(g_ovSel==0){ if(map_export()) snprintf(mmsg,56,"%s",i18n::tr(i18n::ED_EXPORTED)); }
       else if(g_ovSel==1){ mp=(mp+1)%MAP_COUNT; map_load(); }
       else if(g_ovSel==2){ map_reload(); }
       else { g_screen=0; } g_ov=false; }
@@ -108,7 +115,7 @@ static void map_update(SceneManager& mgr){
     else if(mtool==3){ int s=po_at(mcx,mcy); if(s>=0){ for(int k=s;k<mpon-1;k++) mpo[k]=mpo[k+1]; mpon--; } else if(mpon<16){ mpo[mpon].x=mcx; mpo[mpon].y=mcy; mpo[mpon].target=mtarget; mpo[mpon].ax=-1; mpo[mpon].ay=-1; mpon++; } }
     else { int s=ch_at(mcx,mcy); if(s>=0){ for(int k=s;k<mchn-1;k++) mch[k]=mch[k+1]; mchn--; } else if(mchn<16){ mch[mchn].x=mcx; mch[mchn].y=mcy; mchn++; } }
   }
-  if(p&gb::BTN_B){ if(mtool==0) mtile=(mtile+1)%23; else if(mtool==2) mnpc=(mnpc+1)%18; else if(mtool==3) mtarget=(mtarget+1)%12; }
+  if(p&gb::BTN_B){ if(mtool==0) mtile=(mtile+1)%EDIT_TILE_N; else if(mtool==2) mnpc=(mnpc+1)%spr::NPC_COUNT; else if(mtool==3) mtarget=(mtarget+1)%EDIT_LOC_N; }   // BUG-08 : toutes les tuiles / tous les PNJ
   if(p&gb::BTN_MENU) mtool=(mtool+1)%5;
   if(p&gb::BTN_RUN){ g_ov=true; g_ovSel=0; }
 }
@@ -120,27 +127,13 @@ static void map_render(){
   int _mx=mw*TILE_SIZE-320,_my=mh*TILE_SIZE-240;
   if(_mx<0) ecamx=_mx/2; else { if(ecamx<0)ecamx=0; if(ecamx>_mx)ecamx=_mx; }
   if(_my<0) ecamy=_my/2; else { if(ecamy<0)ecamy=0; if(ecamy>_my)ecamy=_my; }
-  for(int y=0;y<mh;y++) for(int x=0;x<mw;x++){ uint8_t t=mtiles[y*mw+x];
-    if(t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return mtiles[yy*mw+xx]==3; };
-      draw_water_autotile(x*TILE_SIZE,y*TILE_SIZE, W(x,y-1),W(x,y+1),W(x+1,y),W(x-1,y), W(x+1,y-1),W(x-1,y-1),W(x+1,y+1),W(x-1,y+1)); }
-    else if(t==1){ auto P=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return mtiles[yy*mw+xx]==1; };
-      draw_natural_path(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, P(x,y-1),P(x,y+1),P(x+1,y),P(x-1,y), P(x+1,y-1),P(x-1,y-1),P(x+1,y+1),P(x-1,y+1)); }
-    else if(t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return mtiles[yy*mw+xx]==16; };
-      draw_natural_water(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, N(x,y-1),N(x,y+1),N(x+1,y),N(x-1,y), N(x+1,y-1),N(x-1,y-1),N(x+1,y+1),N(x-1,y+1)); }
-    else if(t==7||t==9||t==10||t==11){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; uint8_t q=mtiles[yy*mw+xx]; return q==7||q==9||q==10||q==11; };
-      draw_roof_tile(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, R(x,y-1),R(x,y+1),R(x-1,y),R(x+1,y), t); }
-    else if(t==2||t==13||t==14||t==15 || ((t==4||t==8||t==12) && ((x>0&&is_facade_tile(mtiles[y*mw+x-1]))||(x+1<mw&&is_facade_tile(mtiles[y*mw+x+1]))))){
-      auto F=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return is_facade_tile(mtiles[yy*mw+xx]); };
-      int mat=facade_material(mtiles,mw,mh,x,y);
-      draw_facade_tile(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, F(x,y-1),F(x,y+1),F(x-1,y),F(x+1,y), t, mat); }
-    else if(t==21){ auto Rm=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return mtiles[yy*mw+xx]==21; };
-      draw_rampart_tile(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, Rm(x,y-1),Rm(x,y+1),Rm(x-1,y),Rm(x+1,y)); }
-    else if(t==6) draw_tree(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy);
-    else if(t==22) draw_tower(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy);
-    else if(t==24){ auto Tb=[&](int xx,int yy){ if(xx<0||yy<0||xx>=mw||yy>=mh) return false; return mtiles[yy*mw+xx]==24; };
-      draw_table_tile(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy, Tb(x,y-1),Tb(x,y+1),Tb(x-1,y),Tb(x+1,y)); }
-    else if(t>=23&&t<=27) draw_inn_tile(x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy,t);
-    else if(t<23) gb::draw_image(spr::TILE[t].px,spr::TILE[t].w,spr::TILE[t].h,x*TILE_SIZE-ecamx,y*TILE_SIZE-ecamy); }
+  // BUG-08 : meme rendu que le jeu (toutes les tuiles 0..32), limite a la zone visible.
+  { data::Map V{"EDIT",0,(uint8_t)mw,(uint8_t)mh,(uint8_t)mpx,(uint8_t)mpy,mtiles,nullptr,0,nullptr,0};
+    int x0=ecamx/TILE_SIZE-1, y0=ecamy/TILE_SIZE-1, x1=x0+23, y1=y0+18;
+    if(x0<0)x0=0; if(y0<0)y0=0; if(x1>mw)x1=mw; if(y1>mh)y1=mh;
+    gb::set_origin(ecamx,ecamy);
+    for(int y=y0;y<y1;y++) for(int x=x0;x<x1;x++) draw_map_tile(V,x,y);
+    gb::reset_raster(); }
   gb::fill_rect(mpx*TILE_SIZE+5-ecamx,mpy*TILE_SIZE+5-ecamy,6,6,gb::rgb(80,160,255));
   for(int i=0;i<mspn;i++) gb::fill_rect(msp[i].x*TILE_SIZE+4-ecamx,msp[i].y*TILE_SIZE+3-ecamy,8,10,gb::rgb(230,210,70));
   for(int i=0;i<mpon;i++){ int x=mpo[i].x*TILE_SIZE-ecamx,y=mpo[i].y*TILE_SIZE-ecamy; gb::fill_rect(x+2,y+2,TILE_SIZE-4,TILE_SIZE-4,gb::rgb(60,200,220)); }
@@ -172,7 +165,9 @@ static void map_render(){
 }
 
 // ============ EDITEUR DE SPRITES ============
-static const int ASSET_N=77;      // 23 tuiles + 12 heros + 18 PNJ + 24 monstres
+// BUG-08 : tous les sprites de la banque (tailles reelles des tableaux generes).
+static const int N_TILE=23, N_HERO=12, N_NPC=spr::NPC_COUNT, N_MON=(int)(sizeof(spr::MONSTER)/sizeof(spr::MONSTER[0]));
+static const int ASSET_N=N_TILE+N_HERO+N_NPC+N_MON;
 static uint16_t sbuf[64*64]; static int sw=16,sh=16;
 static int sasset=0, scx=0, scy=0, scol=1;
 static char smsg[48];
@@ -185,10 +180,10 @@ static uint16_t PAL(int i){
   return gb::rgb(Cc[i][0],Cc[i][1],Cc[i][2]);
 }
 static const spr::Sprite& asset_of(int idx,int& cat,int& sub){
-  if(idx<23){cat=0;sub=idx;return spr::TILE[idx];}
-  idx-=23; if(idx<12){cat=1;sub=idx;return spr::HERO[idx/3][idx%3];}
-  idx-=12; if(idx<18){cat=2;sub=idx;return spr::NPC[idx];}
-  idx-=18; {cat=3;sub=idx;return spr::MONSTER[idx];}
+  if(idx<N_TILE){cat=0;sub=idx;return spr::TILE[idx];}
+  idx-=N_TILE; if(idx<N_HERO){cat=1;sub=idx;return spr::HERO[idx/3][idx%3];}
+  idx-=N_HERO; if(idx<N_NPC){cat=2;sub=idx;return spr::NPC[idx];}
+  idx-=N_NPC; if(idx>=N_MON) idx=N_MON-1; {cat=3;sub=idx;return spr::MONSTER[idx];}
 }
 static void spr_load(){
   int c,s; const spr::Sprite& S=asset_of(sasset,c,s); scx=scy=0;

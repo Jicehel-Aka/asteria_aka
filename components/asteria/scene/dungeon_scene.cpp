@@ -135,10 +135,6 @@ static void torch(int cx,int midY,int sz,float ph){
   flame(cx,midY-1,fh,ph);
 }
 
-static void blit_scaled(const spr::Sprite& s,int dx,int dy,int dw,int dh){
-  if(dw<1||dh<1)return; for(int y=0;y<dh;y++){ int sy=y*s.h/dh; for(int x=0;x<dw;x++){ int sx=x*s.w/dw;
-    uint16_t c=s.px[sy*s.w+sx]; if(c!=spr::KEY) gb::pixel(dx+x,dy+y,c); } }
-}
 static void draw_line(int x0,int y0,int x1,int y1,gb::Color c){
   int dx=x1-x0,dy=y1-y0,ax=dx<0?-dx:dx,ay=dy<0?-dy:dy,sx=dx<0?-1:1,sy=dy<0?-1:1,e=ax-ay;
   for(;;){ gb::pixel(x0,y0,c); if(x0==x1&&y0==y1)break; int e2=2*e; if(e2>-ay){e-=ay;x0+=sx;} if(e2<ax){e+=ax;y0+=sy;} }
@@ -274,7 +270,25 @@ void DungeonScene::update(SceneManager& m){
 }
 
 // --- raycaster : 1 rayon/colonne, distance continue -> eclairage + hauteur + texture lisses ---
+// OPT-AKA-1 : la vue 3D (210x240) est composee dans un tampon puis envoyee en UN
+// blit (gfx.drawImage sur AKA) au lieu de ~50 000 appels gb::pixel par image.
+// Retour au dessin direct : -DASTERIA_DUNGEON_FB=0 (ou si l'allocation echoue).
+#ifndef ASTERIA_DUNGEON_FB
+#define ASTERIA_DUNGEON_FB 1
+#endif
+static uint16_t* dungeon_fb(){
+#if ASTERIA_DUNGEON_FB
+  static uint16_t* fb=nullptr; static bool tried=false;
+  if(!tried){ tried=true; fb=(uint16_t*)gb::alloc_big(VW*VH*2u); }
+  return fb;
+#else
+  return nullptr;
+#endif
+}
+
 void DungeonScene::render(){
+  uint16_t* fb=dungeon_fb();
+  if(fb) gb::set_target(fb,VW,VH);             // tout ce qui suit (vue 3D) va dans le tampon
   uint32_t ms=gb::millis();
   float flick=1.f + 0.08f*sinf(ms*0.017f) + 0.05f*sinf(ms*0.041f) + 0.03f*sinf(ms*0.089f);
   if(flick<0.80f)flick=0.80f; if(flick>1.20f)flick=1.20f;
@@ -345,13 +359,25 @@ void DungeonScene::render(){
     }
   }
 
-  // boss / escalier en billboard si la ligne droit devant est degagee
-  int tgx=flag_get("boss_mine")?bx:ox, tgy=flag_get("boss_mine")?by:oy;   // apres boss : le puits ; avant : l'orc (ou qu'il soit)
-  int cxg=px,cyg=py,dist=0; bool clear=false;
-  for(int s=1;s<=10;s++){ cxg+=DX[face]; cyg+=DY[face]; if(!inbg(cxg,cyg))break; if(cxg==tgx&&cyg==tgy){clear=true;dist=s;break;} if(isWall(*this,cxg,cyg))break; }
-  if(clear){ float pd=dist-0.3f; if(pd<0.5f)pd=0.5f; int lh=(int)(VH/pd), feet=CY+lh/2;
-    if(!flag_get("boss_mine")){ const spr::Sprite& S=spr::MONSTER[9]; int dh=(int)(lh*0.85f); int dw=dh*S.w/S.h; blit_scaled(S,CX-dw/2,feet-dh,dw,dh); }
-    else { int w=lh/4; gb::fill_rect(CX-w/2,CY-lh/3,w,lh/3,gb::rgb(205,195,120)); ui::text(CX-4,CY-lh/3+4,"^",gb::rgb(60,50,20)); } }
+  // BUG-08 : orc (avant le boss) / puits (apres) projetes en espace camera comme le
+  // decor, avec occlusion colonne par colonne par zbuf : visibles meme hors de l'axe
+  // de vue, et caches derriere les murs.
+  { bool boss=flag_get("boss_mine");
+    int tgx=boss?bx:ox, tgy=boss?by:oy;                       // apres boss : le puits ; avant : l'orc (ou qu'il soit)
+    float invDet=1.f/(planeX*dirY - dirX*planeY);
+    float rx=(tgx+0.5f)-posX, ry=(tgy+0.5f)-posY;
+    float tx=invDet*(dirY*rx - dirX*ry), ty=invDet*(-planeY*rx + planeX*ry);
+    if(ty>0.2f && ty<10.f){
+      int lh=(int)(VH/ty), feet=CY+lh/2, screenX=(int)((VW/2)*(1.f+tx/ty));
+      float lf=1.25f-ty*0.12f; if(lf<0.2f)lf=0.2f; if(lf>1.3f)lf=1.3f; int l=(int)(lf*flick*256.f);
+      if(!boss){ const spr::Sprite& S=spr::MONSTER[9]; int dh=(int)(lh*0.85f), dw=dh*S.w/S.h; int x0=screenX-dw/2, top=feet-dh;
+        if(dw>1&&dh>1) for(int sx=0;sx<dw;sx++){ int X=x0+sx; if(X<0||X>=VW||!(ty<zbuf[X])) continue; int tX=sx*S.w/dw;
+          for(int sy=0;sy<dh;sy++){ int Y=top+sy; if(Y<0||Y>=VH) continue; uint16_t c=S.px[(sy*S.h/dh)*S.w+tX]; if(c!=spr::KEY) gb::pixel(X,Y,shade(c,l)); } } }
+      else { int w=lh/4, h=lh/3, x0=screenX-w/2, top=CY-h; bool mid=false;
+        for(int X=x0;X<x0+w;X++){ if(X<0||X>=VW||!(ty<zbuf[X])) continue; if(X==screenX) mid=true;
+          for(int Y=(top<0?0:top);Y<CY&&Y<VH;Y++) gb::pixel(X,Y,shade(gb::rgb(205,195,120),l)); }
+        if(mid) ui::text(screenX-4,top+4,"^",gb::rgb(60,50,20)); } } }
+  if(fb){ gb::reset_raster(); gb::draw_image(fb,VW,VH,0,0); }   // OPT-AKA-1 : un seul blit de la vue
   draw_panel(*this);
 }
 }

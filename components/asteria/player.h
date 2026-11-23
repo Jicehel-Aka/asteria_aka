@@ -20,11 +20,18 @@ struct Character {
   uint32_t spells;          // masque de bits sur data::SPELLS
   int xp, gold, level;       // progression
   int mana, manaMax;         // pouvoir (mana) pour les sorts
+  char name[16];             // DELTA-02 : nom affiche (Caithness, ou nom du voyageur cree)
+  bool female;               // DELTA-02 : accords des dialogues (voyageuse / voyageur)
   Inventory inv;
 };
 int  item_index(const char* id);      // résout un OBJ_xxxx -> index (ou -1)
 int  recipe_index(const char* id);
 Character new_caithness();
+// DELTA-02 : adapte un texte AFFICHE au heros courant (deja traduit par trc()) :
+// "Caithness" -> nom du joueur, et accords au masculin (voyageuse -> voyageur,
+// viajera -> viajero, Reisende -> Reisender, viaggiatrice -> viaggiatore...).
+// Renvoie s tel quel pour Caithness ; sinon un tampon interne (2 en rotation).
+const char* hero_text(const char* s);
 Character& player();             // crée la feuille de départ
 void add_attitude(Character& c, int a);// +1 attitude -> +1 Pouvoir
 bool try_craft(Character& c, int recipe_idx, bool at_forge);

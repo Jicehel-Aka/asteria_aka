@@ -30,7 +30,14 @@ namespace gb {
 void draw_image(const uint16_t* px, uint16_t w, uint16_t h, int x, int y);
 // Blit avec couleur-clé (transparent) — pour les sprites (peu nombreux).
 void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, uint16_t key);
+// Blit opaque d'une REGION (w x h, coin src (sx,sy)) d'une grande image src_w x src_h.
+// Sert a afficher la fenetre visible du cache de carte (OPT-AKA-3).
+void blit_region(const uint16_t* src, int src_w, int src_h, int sx, int sy, int w, int h, int dx, int dy);
+// Gros tampons (cache de carte, tampon donjon) : PSRAM sur AKA, tas normal sur PC.
+void* alloc_big(unsigned bytes);
+void  free_big(void* p);
 }
+#include "platform/gb_raster.h"   // set_target / set_origin / set_clip (etat commun aux ports)
 
 namespace gb {
 // --- Audio synthétisé (AUCUN fichier requis) ---------------------------------

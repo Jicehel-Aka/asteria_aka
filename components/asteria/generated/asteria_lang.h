@@ -14,7 +14,7 @@ static const char* const STR[STR_COUNT][LANG_COUNT] = {
   {"Francais", "English", "Espanol", "Deutsch", "Italiano"},
   {"NOUVEAU PERSONNAGE", "NEW CHARACTER", "NUEVO PERSONAJE", "NEUE FIGUR", "NUOVO PERSONAGGIO"},
   {"Personnage pretire (Caithness)", "Preset hero (Caithness)", "Personaje predefinido", "Vorgefertigt (Caithness)", "Personaggio predefinito"},
-  {"Creer un personnage", "Create a character", "Crear un personaje", "Figur erstellen", "Crea un personaggio"},
+  {"Creer un voyageur (nom, sexe)", "Create a traveler (name, sex)", "Crear un viajero (nombre, sexo)", "Reisenden erschaffen (Name)", "Crea un viaggiatore (nome, sesso)"},
   {"A: valider    B: retour", "A: confirm    B: back", "A: validar   B: volver", "A: OK   B: zurueck", "A: conferma  B: indietro"},
   {"REPARTIS TES POINTS", "SPEND YOUR POINTS", "REPARTE TUS PUNTOS", "PUNKTE VERTEILEN", "DISTRIBUISCI I PUNTI"},
   {"Points restants :", "Points left :", "Puntos restantes :", "Verbleibend :", "Punti rimasti :"},

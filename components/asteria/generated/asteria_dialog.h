@@ -83,7 +83,10 @@ static const Node D19_N[] = {
 // --- Dame Orwenn (Valbois) : quete de depart Q16, don de l'Anneau de l'Aube ---
 static const char* const D20_gift_L[] = {"Prends l'Anneau de l'Aube, enfant des fees : il etait aux tiens.","Il affermira ta main dans tes premiers combats.","Que l'Aube veille sur toi."};
 static const char* const D20_intro_L[] = {"Approche, enfant. Je reconnais en toi le sang des fees.","J'ai quelque chose qui t'appartient de droit."};
+// DELTA-02 : apres le don, Orwenn ne repete plus "Prends l'Anneau" (flag pose a la 2e visite).
+static const char* const D20_after_L[] = {"Garde l'Anneau pres de toi, enfant des fees.","Le maire de Valbois a besoin de bras. Va le voir."};
 static const Node D20_N[] = {
+  {"orwenn_apres",D20_after_L,2,nullptr,-1,-1},
   {"anneau_recu",D20_gift_L,3,nullptr,-1,-1},
   {"",D20_intro_L,2,nullptr,-1,-1}
 };
@@ -120,7 +123,7 @@ static const NpcDialog DIALOG[22] = {
   {"Iris",D17_N,2},
   {"Racha",D18_N,4},
   {"Meluve",D19_N,4},
-  {"Dame Orwenn",D20_N,2},
+  {"Dame Orwenn",D20_N,3},
   {"Voyageur Encapuchonne",D21_N,2}
 };
 }
