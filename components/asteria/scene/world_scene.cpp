@@ -249,16 +249,19 @@ void WorldScene::update(SceneManager& mgr){
           noticeTxt="Les quatre pierres resonnent a l'unisson. Le chemin du Temple t'est revele."; } }
     }
     else { int ci=chest_at(map,fx,fy);
-      if(ci>=0){ const ChestDef& c=CHESTS[ci]; if(c.item>=0) player().inv.add(c.item,1); player().gold+=c.gold; flag_set(c.flag); notice=true; asteria::audio::sfx_coin();
-        noticeTxt="Un coffre ! Tu recuperes du butin.";
-        // Objet d'étape : le butin EST l'indice de la quête. On la démarre au besoin,
-        // on la termine et on pose le flag de progression — quel que soit l'ordre dans
-        // lequel le joueur a parlé aux PNJ (sinon soft-lock : flag jamais posé).
-        if(c.complete_q>=0){ if(quest_status(c.complete_q)==0) quest_start(c.complete_q);
-          if(quest_status(c.complete_q)==1) complete_quest_reward(c.complete_q);
-          if(c.setflag) flag_set(c.setflag);
-          if(c.complete_q==5) noticeTxt="Un tissu dechire, arrache a un villageois... Les traces menent a la Vieille Mine.";
-          else if(c.complete_q==10) noticeTxt="Le carnet du chef de caravane ! Ses notes mènent à Grand-Castel."; } }
+      if(ci>=0){ const ChestDef& c=CHESTS[ci];
+        if(c.item>=0 && !player().inv.add(c.item,1)){   // BUG-07 : inventaire plein -> on laisse le coffre FERME, le joueur reviendra
+          notice=true; noticeTxt="Ton inventaire est plein ! Fais de la place et reviens ouvrir ce coffre."; }
+        else { player().gold+=c.gold; flag_set(c.flag); notice=true; asteria::audio::sfx_coin();
+          noticeTxt="Un coffre ! Tu recuperes du butin.";
+          // Objet d'étape : le butin EST l'indice de la quête. On la démarre au besoin,
+          // on la termine et on pose le flag de progression — quel que soit l'ordre dans
+          // lequel le joueur a parlé aux PNJ (sinon soft-lock : flag jamais posé).
+          if(c.complete_q>=0){ if(quest_status(c.complete_q)==0) quest_start(c.complete_q);
+            if(quest_status(c.complete_q)==1) complete_quest_reward(c.complete_q);
+            if(c.setflag) flag_set(c.setflag);
+            if(c.complete_q==5) noticeTxt="Un tissu dechire, arrache a un villageois... Les traces menent a la Vieille Mine.";
+            else if(c.complete_q==10) noticeTxt="Le carnet du chef de caravane ! Ses notes mènent à Grand-Castel."; } } }
       else if(fx>=0&&fy>=0&&fx<M.w&&fy<M.h && M.tiles[fy*M.w+fx]==4 && !door_leads_somewhere(M,fx,fy)){ notice=true; noticeTxt=i18n::tr(i18n::W_CLOSED); } } }
   if(p&(gb::BTN_MENU|gb::BTN_B)){ confirmQuit=true; }
 }
