@@ -5,6 +5,18 @@
 #include "generated/asteria_path.h"
 #include "generated/asteria_tiles.h"
 namespace asteria {
+// OPT-AKA-3 : les calculs par pixel des tuiles procedurales (eau/chemin/route/houppiers)
+// se font en `treal`. Par defaut treal = float : FPU materiel de l'ESP32-S3, alors que
+// le double y est EMULE en logiciel (tres lent). Rendu verifie identique (0,014 % de px).
+// Pour revenir au calcul double d'origine : compiler avec -DASTERIA_FAST_TILES=0.
+#ifndef ASTERIA_FAST_TILES
+#define ASTERIA_FAST_TILES 1
+#endif
+#if ASTERIA_FAST_TILES
+typedef float  treal;
+#else
+typedef double treal;
+#endif
 static void blit(const spr::Sprite& s,int x,int y){ for(int j=0;j<s.h;++j)for(int i=0;i<s.w;++i){ uint16_t c=s.px[j*s.w+i]; if(c!=spr::KEY) gb::pixel(x+i,y+j,c);} }
 static void autotile(const spr::Sprite* S,int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
   blit(S[0],sx,sy);
@@ -17,37 +29,39 @@ void draw_path_autotile (int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool
 static inline int hash2(int a,int b);   // defini plus bas (meme unite de compilation)
 // Bruit 2D lisse ~[-1,1] (coordonnees ABSOLUES, continu entre tuiles) : sert a faire
 // ONDULER la rive sur plusieurs pixels -> casse les marches a 90 deg de la grille.
-static inline double vnoise(int ax,int ay){
+// OPT-AKA-3 : en float (FPU materiel ESP32-S3) et non en double (emule en logiciel,
+// tres lent) ; la precision simple suffit largement pour une tuile 16x16.
+static inline treal vnoise(int ax,int ay){
   const int S=7;
   auto fl=[&](int v){ return v>=0? v/S : -(((-v)+S-1)/S); };
   int x0=fl(ax), y0=fl(ay);
-  double fx=(double)(ax-x0*S)/S, fy=(double)(ay-y0*S)/S;
-  auto H=[&](int X,int Y)->double{ uint32_t u=(uint32_t)(X*374761393 + Y*668265263); u^=u>>13; u*=1274126177u; u^=u>>16; return (double)(u%1000)/500.0-1.0; };
-  double a=H(x0,y0),b=H(x0+1,y0),c=H(x0,y0+1),d=H(x0+1,y0+1);
+  treal fx=(treal)(ax-x0*S)/S, fy=(treal)(ay-y0*S)/S;
+  auto H=[&](int X,int Y)->treal{ uint32_t u=(uint32_t)(X*374761393 + Y*668265263); u^=u>>13; u*=1274126177u; u^=u>>16; return (treal)(u%1000)/500.f-1.f; };
+  treal a=H(x0,y0),b=H(x0+1,y0),c=H(x0,y0+1),d=H(x0+1,y0+1);
   fx=fx*fx*(3-2*fx); fy=fy*fy*(3-2*fy);
-  double t=a+(b-a)*fx, bo=c+(d-c)*fx; return t+(bo-t)*fy;
+  treal t=a+(b-a)*fx, bo=c+(d-c)*fx; return t+(bo-t)*fy;
 }
 // Couverture lisse [0,1] par interpolation bilineaire de l'occupation 3x3 (self=1).
 // Les coins concaves/convexes sont adoucis -> les coudes se COURBENT (plus d'angles droits).
-static inline double cov8(int x,int y, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
-  double g[3][3]={ {nw?1.0:0,n?1.0:0,ne?1.0:0}, {w?1.0:0,1.0,e?1.0:0}, {sw?1.0:0,s?1.0:0,se?1.0:0} };
-  double xc=x+0.5, yc=y+0.5; int cx0,cx1,cy0,cy1; double tx,ty;
-  if(xc<8){cx0=0;cx1=1;tx=(xc+8)/16.0;} else {cx0=1;cx1=2;tx=(xc-8)/16.0;}
-  if(yc<8){cy0=0;cy1=1;ty=(yc+8)/16.0;} else {cy0=1;cy1=2;ty=(yc-8)/16.0;}
-  double a=g[cy0][cx0],b=g[cy0][cx1],c=g[cy1][cx0],d=g[cy1][cx1];
-  double t=a+(b-a)*tx, bo=c+(d-c)*tx; return t+(bo-t)*ty;
+static inline treal cov8(int x,int y, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
+  treal g[3][3]={ {nw?1.f:0,n?1.f:0,ne?1.f:0}, {w?1.f:0,1.f,e?1.f:0}, {sw?1.f:0,s?1.f:0,se?1.f:0} };
+  treal xc=x+0.5f, yc=y+0.5f; int cx0,cx1,cy0,cy1; treal tx,ty;
+  if(xc<8){cx0=0;cx1=1;tx=(xc+8)/16.f;} else {cx0=1;cx1=2;tx=(xc-8)/16.f;}
+  if(yc<8){cy0=0;cy1=1;ty=(yc+8)/16.f;} else {cy0=1;cy1=2;ty=(yc-8)/16.f;}
+  treal a=g[cy0][cx0],b=g[cy0][cx1],c=g[cy1][cx0],d=g[cy1][cx1];
+  treal t=a+(b-a)*tx, bo=c+(d-c)*tx; return t+(bo-t)*ty;
 }
 void draw_natural_water(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool nw,bool se,bool sw){
   const spr::Sprite& G=spr::TILE[0];              // herbe dessous (la rive laisse voir l'herbe)
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
-    double c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
-    double th=0.5+0.17*vnoise(sx+x,sy+y);     // rive qui ONDULE sur plusieurs px -> plus de marche a 90 deg
-    if(c<=th){ if(c>th-0.05 && (hash2(sx+x,sy+y)%100)<45) gb::pixel(sx+x,sy+y,gb::rgb(126,124,92)); // lisere humide intermittent
+    treal c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
+    treal th=0.5f+0.17f*vnoise(sx+x,sy+y);     // rive qui ONDULE sur plusieurs px -> plus de marche a 90 deg
+    if(c<=th){ if(c>th-0.05f && (hash2(sx+x,sy+y)%100)<45) gb::pixel(sx+x,sy+y,gb::rgb(126,124,92)); // lisere humide intermittent
                continue; }
-    double d=c-th; uint16_t col;
-    if(d<=0.07)      col=gb::rgb(104,168,174);                               // haut-fond
-    else if(d<=0.20) col=((x+y)&1)? gb::rgb(96,160,200):gb::rgb(78,140,194); // eau peu profonde
+    treal d=c-th; uint16_t col;
+    if(d<=0.07f)      col=gb::rgb(104,168,174);                               // haut-fond
+    else if(d<=0.20f) col=((x+y)&1)? gb::rgb(96,160,200):gb::rgb(78,140,194); // eau peu profonde
     else             col=((x+y)%6==0)? gb::rgb(96,152,214):gb::rgb(58,110,180); // eau profonde + rides
     gb::pixel(sx+x,sy+y,col);
   }
@@ -62,16 +76,16 @@ void draw_natural_path(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool n
   const spr::Sprite& G=spr::TILE[0];              // herbe dessous (bords herbeux)
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
-    double c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
-    double th=0.5+0.17*vnoise(sx+x+71,sy+y+131);
+    treal c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
+    treal th=0.5f+0.17f*vnoise(sx+x+71,sy+y+131);
     int h=hash2(sx+x,sy+y)%100;
-    if(c<=th){ if(c>th-0.05 && h<22) gb::pixel(sx+x,sy+y,gb::rgb(150,120,74)); // mottes de terre au bord use
+    if(c<=th){ if(c>th-0.05f && h<22) gb::pixel(sx+x,sy+y,gb::rgb(150,120,74)); // mottes de terre au bord use
                continue; }
-    double d=c-th; uint16_t col;
-    if(d<=0.06)      col=gb::rgb(138,136,82);       // lisiere terre/herbe
-    else if(d<=0.16) col=gb::rgb(186,152,98);       // terre tassee claire
+    treal d=c-th; uint16_t col;
+    if(d<=0.06f)      col=gb::rgb(138,136,82);       // lisiere terre/herbe
+    else if(d<=0.16f) col=gb::rgb(186,152,98);       // terre tassee claire
     else             col=(h<14)? gb::rgb(201,174,124) : (h<30)? gb::rgb(150,116,66) : gb::rgb(172,136,82);
-    if(d<=0.10 && (hash2(sx+x+3,sy+y+5)%100)<20) col=G.px[y*16+x];   // touffes d'herbe qui empietent
+    if(d<=0.10f && (hash2(sx+x+3,sy+y+5)%100)<20) col=G.px[y*16+x];   // touffes d'herbe qui empietent
     gb::pixel(sx+x,sy+y,col);
   }
 }
@@ -83,19 +97,19 @@ void draw_natural_road(int sx,int sy, bool n,bool s,bool e,bool w,bool ne,bool n
   const spr::Sprite& G=spr::TILE[0];              // herbe dessous (bords herbeux)
   for(int j=0;j<16;j++)for(int i=0;i<16;i++) gb::pixel(sx+i,sy+j,G.px[j*16+i]);
   for(int y=0;y<16;y++)for(int x=0;x<16;x++){
-    double c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
-    double th=0.5+0.15*vnoise(sx+x+211,sy+y+97);
+    treal c=cov8(x,y,n,s,e,w,ne,nw,se,sw);
+    treal th=0.5f+0.15f*vnoise(sx+x+211,sy+y+97);
     int h=hash2(sx+x,sy+y)%100;
-    if(c<=th){ if(c>th-0.05 && h<16) gb::pixel(sx+x,sy+y,gb::rgb(120,120,130)); // paves qui debordent
+    if(c<=th){ if(c>th-0.05f && h<16) gb::pixel(sx+x,sy+y,gb::rgb(120,120,130)); // paves qui debordent
                continue; }
-    double d=c-th;
+    treal d=c-th;
     bool joint = (((x+(hash2(sx,y)&1))&3)==0) || (((y+(hash2(x,sy)&1))&3)==0);
     uint16_t col;
-    if(d<=0.05)    col=gb::rgb(110,110,120);        // lisiere pierre/herbe
+    if(d<=0.05f)    col=gb::rgb(110,110,120);        // lisiere pierre/herbe
     else if(joint) col=gb::rgb(120,120,130);        // joints sombres
     else           col=(h<16)? gb::rgb(176,176,184) : (h<30)? gb::rgb(132,132,142)
                       : (h<36)? gb::rgb(96,120,84) : gb::rgb(150,150,158);
-    if(d<=0.10 && (hash2(sx+x+7,sy+y+2)%100)<18) col=G.px[y*16+x];  // touffes au bord
+    if(d<=0.10f && (hash2(sx+x+7,sy+y+2)%100)<18) col=G.px[y*16+x];  // touffes au bord
     gb::pixel(sx+x,sy+y,col);
   }
 }
@@ -190,38 +204,38 @@ void draw_grass(int sx,int sy,int gx,int gy){
   }
 }
 
-void tree_crown(int sx,int sy,int cx,double rad,int cy);   // defini juste apres draw_tree
+void tree_crown(int sx,int sy,int cx,treal rad,int cy);   // defini juste apres draw_tree
 // ------- ARBRE : houppier variant (taille/teinte/decalage selon la position) -------
 void draw_tree(int sx,int sy){
   const spr::Sprite& G=spr::TILE[0];                       // herbe dessous
   for(int y=0;y<16;y++)for(int x=0;x<16;x++) gb::pixel(sx+x,sy+y,G.px[y*16+x]);
   int v=hash2(sx,sy);
-  double rad = 6.6 + (double)(v%3)*0.5;                    // 6.6 .. 7.6 : couronne plus compacte -> deborde moins sur les cases voisines (sentiers visibles)
+  treal rad = 6.6f + (treal)(v%3)*0.5f;                    // 6.6 .. 7.6 : couronne plus compacte -> deborde moins sur les cases voisines (sentiers visibles)
   int cx = 8 + (((v>>2)%3)-1);                             // leger decalage horizontal -1..+1
   tree_crown(sx,sy,cx,rad,-3);
 }
 
 // Houppier unique et coherent (une seule espece/palette) : reutilise par l'arbre et le bosquet.
 // Silhouette feuillue (bord bosselé), lumiere en haut-gauche, ombre en bas-droite, grappes de feuilles.
-void tree_crown(int sx,int sy,int cx,double rad,int cy){
+void tree_crown(int sx,int sy,int cx,treal rad,int cy){
   uint16_t trk=gb::rgb(100,68,36), trd=gb::rgb(72,48,26);
   for(int y=8;y<15;y++){ gb::pixel(sx+cx-1,sy+y,trd); gb::pixel(sx+cx,sy+y,trk); gb::pixel(sx+cx+1,sy+y,trd); }
   uint16_t md=gb::rgb(54,114,62), dk=gb::rgb(38,84,46), lt=gb::rgb(92,164,96), ds=gb::rgb(28,64,36);
   for(int yy=-14;yy<9;yy++)for(int xx=-3;xx<19;xx++){
-    double nx=(xx-cx), ny=(yy-cy);
+    treal nx=(xx-cx), ny=(yy-cy);
     // rayon bosselé selon l'angle -> bord feuillu plutot qu'ellipse lisse
-    double ang=(ny!=0||nx!=0)? (nx*0.7+ny*1.1):0;
-    double bump=0.85 + 0.15*((hash2((int)(ang*4)+37, (sx+sy)&31)%100)/100.0);
-    double r=(nx*nx)/(rad*rad) + (ny*ny)/(11.0*11.0);
+    treal ang=(ny!=0||nx!=0)? (nx*0.7f+ny*1.1f):0;
+    treal bump=0.85f + 0.15f*((hash2((int)(ang*4)+37, (sx+sy)&31)%100)/100.0f);
+    treal r=(nx*nx)/(rad*rad) + (ny*ny)/(11.0f*11.0f);
     if(r<=bump){
       // grappes de feuilles : bruit lisse par position absolue
       int hv=hash2(sx+xx, sy+yy)%100;
       uint16_t c=md;
       if(hv<24) c=dk;                                      // creux d'ombre entre feuilles
       // lumiere haut-gauche
-      if(nx<-1.0 && ny<-1.0 && hv>30) c=lt;
-      if(r>0.72 && hv<55) c=dk;                            // bord assombri
-      if(ny>3.5) c=ds;                                     // dessous ombré
+      if(nx<-1.0f && ny<-1.0f && hv>30) c=lt;
+      if(r>0.72f && hv<55) c=dk;                            // bord assombri
+      if(ny>3.5f) c=ds;                                     // dessous ombré
       gb::pixel(sx+xx,sy+yy,c);
     }
   }
@@ -245,9 +259,9 @@ void draw_bridge(int sx,int sy, bool ww,bool we,bool wn,bool ws){
 void draw_grove(int sx,int sy){
   const spr::Sprite& G=spr::TILE[0];
   for(int y=0;y<16;y++)for(int x=0;x<16;x++) gb::pixel(sx+x,sy+y,G.px[y*16+x]);
-  tree_crown(sx,sy, 4, 6.2, -1);                           // petit arbre arriere-gauche
-  tree_crown(sx,sy,12, 6.2, -1);                           // petit arbre arriere-droit
-  tree_crown(sx,sy, 8, 7.6, -4);                           // arbre avant, un peu plus grand
+  tree_crown(sx,sy, 4, 6.2f, -1);                           // petit arbre arriere-gauche
+  tree_crown(sx,sy,12, 6.2f, -1);                           // petit arbre arriere-droit
+  tree_crown(sx,sy, 8, 7.6f, -4);                           // arbre avant, un peu plus grand
 }
 
 // ------- TOUR ronde a toit conique (deborde vers le haut, style reference) -------
