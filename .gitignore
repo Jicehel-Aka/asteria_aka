@@ -11,3 +11,7 @@ sdkconfig.old
 *.ppm
 frame_*.png
 /tools/maprender
+
+# Produits par le jeu / la CI : jamais dans le depot
+sdcard_files/ASTERIA/firmware.bin
+sdcard_files/ASTERIA/SAVE*.DAT

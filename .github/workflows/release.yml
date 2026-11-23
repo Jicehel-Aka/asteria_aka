@@ -31,15 +31,38 @@ jobs:
           target: esp32s3
           path: '.'
       - name: Préparer le paquet AKA
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          mkdir -p dist
-          cp build/asteria_aka.bin dist/firmware.bin
-          [ -f build/bootloader/bootloader.bin ]     && cp build/bootloader/bootloader.bin dist/ || true
-          [ -f build/partition_table/partition-table.bin ] && cp build/partition_table/partition-table.bin dist/ || true
-          [ -f build/flash_args ] && cp build/flash_args dist/ || true
-          # Assets carte SD s'ils existent dans le dépôt
-          for f in meta.json Picture.png screen.bmp; do [ -f "$f" ] && cp "$f" dist/; done
-          ls -la dist
+          # Paquet pret a l'emploi :
+          #   carte_SD/  -> a copier tel quel a la racine de la carte SD (dossier ASTERIA
+          #                 avec le firmware.bin FRAIS de ce build + tous les assets)
+          #   flash/     -> binaires pour un flash direct (idf.py / esptool), optionnel
+          mkdir -p dist/carte_SD dist/flash
+          cp -r sdcard_files/. dist/carte_SD/
+          rm -f dist/carte_SD/ASTERIA/SAVE*.DAT                 # jamais de sauvegarde de test dans un paquet
+          cp build/asteria_aka.bin dist/carte_SD/ASTERIA/firmware.bin
+          cp build/asteria_aka.bin dist/flash/firmware.bin
+          [ -f build/bootloader/bootloader.bin ]           && cp build/bootloader/bootloader.bin dist/flash/ || true
+          [ -f build/partition_table/partition-table.bin ] && cp build/partition_table/partition-table.bin dist/flash/ || true
+          [ -f build/flash_args ]                          && cp build/flash_args dist/flash/ || true
+          # Version/date du launcher AKA = tag de la release
+          if [ -n "$TAG" ] && [ "$TAG" != "main" ]; then
+            V="${TAG#v}"; D=$(date -u +%Y-%m-%d)
+            sed -i -E "s/(\"version\": *\")[^\"]*/\1$V/; s/(\"date\": *\")[^\"]*/\1$D/" dist/carte_SD/ASTERIA/meta.json
+          fi
+          cat > dist/LISEZMOI.txt <<'TXT'
+          ASTERIA - console Gamebuino AKA
+          1. Copier le CONTENU du dossier carte_SD a la racine de la carte SD
+             (remplacer le dossier ASTERIA existant ; les sauvegardes SAVE1..3.DAT
+             deja presentes sur la carte ne sont pas dans ce paquet et sont conservees
+             si on fusionne au lieu de supprimer le dossier).
+          2. Lancer ASTERIA depuis le menu de la console.
+          Le dossier flash/ ne sert que pour un flash direct par cable (esptool/idf.py).
+          TXT
+          sed -i 's/^          //' dist/LISEZMOI.txt
+          cat dist/carte_SD/ASTERIA/meta.json
+          find dist -maxdepth 3 | sort
       - uses: actions/upload-artifact@v4
         with:
           name: aka-firmware
@@ -79,6 +102,8 @@ jobs:
           cp /mingw64/bin/libwinpthread-1.dll dist/
           # Assets (ecran-titre + fonds de combat). Le jeu tourne sans, mais c'est plus joli avec.
           [ -d sdcard_files ] && cp -r sdcard_files dist/ || true
+          # La version PC n'a besoin que des assets : ni firmware console, ni sauvegarde de test
+          rm -f dist/sdcard_files/ASTERIA/firmware.bin dist/sdcard_files/ASTERIA/SAVE*.DAT
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
@@ -106,6 +131,8 @@ jobs:
           cp asteria_pc dist/
           # Assets a cote du binaire (le jeu les cherche dans ./sdcard_files).
           [ -d sdcard_files ] && cp -r sdcard_files dist/ || true
+          # La version PC n'a besoin que des assets : ni firmware console, ni sauvegarde de test
+          rm -f dist/sdcard_files/ASTERIA/firmware.bin dist/sdcard_files/ASTERIA/SAVE*.DAT
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
@@ -127,7 +154,7 @@ jobs:
       - name: Empaqueter
         run: |
           mkdir -p release
-          if [ -d artifacts/aka-firmware ];     then (cd artifacts/aka-firmware     && zip -qr ../../release/ASTERIA_AKA_firmware.zip .); fi
+          if [ -d artifacts/aka-firmware ];     then (cd artifacts/aka-firmware     && zip -qr ../../release/ASTERIA_AKA.zip .); fi
           if [ -d artifacts/asteria-windows ];  then (cd artifacts/asteria-windows  && zip -qr ../../release/ASTERIA_Windows.zip .); fi
           if [ -d artifacts/asteria-linux ];    then (cd artifacts/asteria-linux    && zip -qr ../../release/ASTERIA_Linux.zip .); fi
           ls -la release
