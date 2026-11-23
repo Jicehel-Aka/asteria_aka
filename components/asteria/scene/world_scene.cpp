@@ -1,5 +1,7 @@
-// ASTERIA (Gamebuino AKA) - Scene monde (vue du dessus) : deplacement, PNJ/dialogues, coffres, quetes, rencontres aleatoires, bandeau HUD, auto-sauvegarde au changement de carte.
+// ASTERIA (Gamebuino AKA) - Scene monde : exploration, PNJ, cueillette (herbes/champignons/miel/bois),
+// menu Pause complet (Sac & Equipement, Alchimie & Soins, Journal & Stats, 3 emplacements de sauvegarde).
 #include <cstdio>
+#include <cstring>
 #include "i18n.h"
 #include "scene/world_scene.h"
 #include "save.h"
@@ -20,11 +22,13 @@
 #include "gamestate.h"
 #include "generated/asteria_quest.h"
 #include "generated/asteria_event.h"
-#include "scene/combat_scene.h"
+#include "generated/asteria_recipes_gen.h"
 #include "player.h"
 #include "progress.h"
+
 namespace asteria {
 using namespace data;
+
 // Verrou de passage : renvoie l'indice de blocage (ou nullptr si autorisé).
 // Trame validée (GDD v4) : la Forêt exige la carte (vu_maire) ; la Mine exige
 // la piste (piste_mine, fin Q5) ; la Route Royale exige la Clef du Puits + niv.5.
@@ -32,7 +36,7 @@ static const char* gate_block(int target_loc){
   if(target_loc==8 && !flag_get("vu_maire"))
     return "Tu devrais d'abord voir le maire Aldren : il te remettra la carte.";
   if(target_loc==9 && !flag_get("piste_mine"))
-    return "Rien ne t'indique encore où chercher. Enquete d'abord dans la foret.";
+    return "Rien ne t'indique encore ou chercher. Enquete d'abord dans la foret.";
   if(target_loc==20 && (!player().inv.has(item_index("OBJ_0015"),1) || player().level<5))
     return "La voie est coupee : il te faut la Clef du Puits et plus d'experience (niv. 5).";
   if(target_loc==10 && !flag_get("boss_mine"))
@@ -41,18 +45,27 @@ static const char* gate_block(int target_loc){
     return "Une porte scellee des Tenebres. Fais d'abord parler la Pierre noire a Maitre Albin.";
   return nullptr;
 }
+
 // couleurs de tuiles provisoires (avant sprites) : herbe,chemin,mur,eau,porte,pont,arbre,toit
 static const gb::Color TCOL(uint8_t t){
   switch(t){ case 0:return gb::rgb(64,104,56); case 1:return gb::rgb(150,120,80);
     case 2:return gb::rgb(96,96,104); case 3:return gb::rgb(48,96,168); case 4:return gb::rgb(120,80,40);
-    case 5:return gb::rgb(130,96,60); case 6:return gb::rgb(34,64,40); default:return gb::rgb(150,60,50);} }
+    case 5:return gb::rgb(130,96,60); case 6:return gb::rgb(34,64,40); default:return gb::rgb(150,60,50);}
+}
+
 struct ChestDef { int loc,x,y,item,gold; const char* flag; int complete_q; const char* setflag; };
-// Le "coffre" de la forêt porte aussi le tissu déchiré : s'il est ouvert alors
-// que Q5 est en cours, il termine Q5 et pose piste_mine (la Mine s'ouvre).
-static const ChestDef CHESTS[]={ {8,22,7,4,8,"coffre_foret",5,"piste_mine"}, {0,3,21,2,5,"coffre_valbois",-1,nullptr},
-  {20,4,16,-1,0,"coffre_carnet",10,"caravane_ok"} };   // campement : carnet de la caravane (Q10)
+static const ChestDef CHESTS[]={
+  {8,22,7,4,8,"coffre_foret",5,"piste_mine"},
+  {0,3,21,2,5,"coffre_valbois",-1,nullptr},
+  {20,4,16,-1,0,"coffre_carnet",10,"caravane_ok"}
+};
 static const int NCHEST=3;
-static int chest_at(int map,int x,int y){ int loc=MAPS[map].location; for(int i=0;i<NCHEST;i++) if(CHESTS[i].loc==loc && CHESTS[i].x==x && CHESTS[i].y==y && !flag_get(CHESTS[i].flag)) return i; return -1; }
+static int chest_at(int map,int x,int y){
+  int loc=MAPS[map].location;
+  for(int i=0;i<NCHEST;i++) if(CHESTS[i].loc==loc && CHESTS[i].x==x && CHESTS[i].y==y && !flag_get(CHESTS[i].flag)) return i;
+  return -1;
+}
+
 // Coffre ferme facon pixel-art (ref. fournie) : couvercle bombe ambre, 2 ferrures
 // argent a rivets, contour sombre, plaque de serrure centrale. Dessine a (cx,cy).
 static void draw_chest_closed(int cx,int cy){
@@ -64,24 +77,41 @@ static void draw_chest_closed(int cx,int cy){
   auto span=[&](int y,int&a,int&b){ if(y==1){a=3;b=10;} else if(y==2){a=2;b=11;} else {a=1;b=12;} };
   for(int y=1;y<=13;y++){ int a,b; span(y,a,b);
     for(int x=a;x<=b;x++){ uint16_t c = (y<=6)? ((y==2||y==4)?LA:LM) : ((x&1)?BR:BD); P(x,y,c); } }
-  for(int y=1;y<=13;y++){ int a,b; span(y,a,b); P(a-1,y,OL); P(b+1,y,OL); }  // cotes
-  for(int x=3;x<=10;x++) P(x,0,OL);                                           // crown
-  for(int x=1;x<=12;x++){ P(x,6,OL); P(x,13,OL); }                            // jointure + bas
-  for(int bX=3; bX<=9; bX+=6){                                               // 2 ferrures argent
+  for(int y=1;y<=13;y++){ int a,b; span(y,a,b); P(a-1,y,OL); P(b+1,y,OL); }   // cotes
+  for(int x=3;x<=10;x++) P(x,0,OL);   // crown
+  for(int x=1;x<=12;x++){ P(x,6,OL); P(x,13,OL); }   // jointure + bas
+  for(int bX=3; bX<=9; bX+=6){   // 2 ferrures argent
     for(int y=1;y<=12;y++){ if(y==6){P(bX,y,SH);P(bX+1,y,SH);continue;} P(bX,y,SD); P(bX+1,y,SV); }
-    for(int y=2;y<=11;y+=3) P(bX,y,SH); }                                     // rivets
-  gb::fill_rect(bx+6,by+7,3,4,SV); P(6,7,SD);P(8,7,SD);P(6,10,SD);P(8,10,SD); // plaque serrure
-  P(7,8,OL); P(7,9,GD);                                                       // trou de serrure
-  P(5,3,LA); P(6,3,LA);                                                       // reflet couvercle
+    for(int y=2;y<=11;y+=3) P(bX,y,SH); }   // rivets
+  gb::fill_rect(bx+6,by+7,3,4,SV); P(6,7,SD);P(8,7,SD);P(6,10,SD);P(8,10,SD);   // plaque serrure
+  P(7,8,OL); P(7,9,GD);   // trou de serrure
+  P(5,3,LA); P(6,3,LA);   // reflet couvercle
 }
-static int map_for_loc(int loc);  // fwd map_for_loc
-static bool door_leads_somewhere(const Map& M,int x,int y){ for(int i=0;i<M.portal_n;++i) if(M.portals[i].x==x&&M.portals[i].y==y) return map_for_loc(M.portals[i].target_loc)>=0; return false; }
-static int npc_at(const Map& M,int x,int y){ for(int i=0;i<M.spawn_n;++i) if(M.spawns[i].x==x&&M.spawns[i].y==y) return M.spawns[i].npc; return -1; }
-static int pick_node(const dlg::NpcDialog& D){ for(int i=0;i<D.nnodes;i++){ const char* r=D.nodes[i].require; bool ok; if(!r||!r[0]) ok=true; else if(r[0]=='!') ok=!flag_get(r+1); else ok=flag_get(r); if(ok) return i; } return D.nnodes>0?D.nnodes-1:0; }
+
+static int map_for_loc(int loc);   // fwd map_for_loc
+static bool door_leads_somewhere(const Map& M,int x,int y){
+  for(int i=0;i<M.portal_n;++i) if(M.portals[i].x==x&&M.portals[i].y==y) return map_for_loc(M.portals[i].target_loc)>=0;
+  return false;
+}
+static int npc_at(const Map& M,int x,int y){
+  for(int i=0;i<M.spawn_n;++i) if(M.spawns[i].x==x&&M.spawns[i].y==y) return M.spawns[i].npc;
+  return -1;
+}
+static int pick_node(const dlg::NpcDialog& D){
+  for(int i=0;i<D.nnodes;i++){
+    const char* r=D.nodes[i].require; bool ok;
+    if(!r||!r[0]) ok=true; else if(r[0]=='!') ok=!flag_get(r+1); else ok=flag_get(r);
+    if(ok) return i;
+  }
+  return D.nnodes>0?D.nnodes-1:0;
+}
+
 // BUG-06 : PRNG xorshift32 independant de l'horloge CPU pour les rencontres aleatoires
 bool g_no_encounters=false;   // mis a true par les harnais de validation (questcheck) ; jeu reel = false
 static uint32_t ws_rng=0u;
 static inline uint32_t ws_rand(){ if(!ws_rng) ws_rng=(gb::millis()|1u); ws_rng^=ws_rng<<13; ws_rng^=ws_rng>>17; ws_rng^=ws_rng<<5; return ws_rng; }
+static int d6w(){ return (int)(ws_rand()%6)+1; }
+
 // Nom affichable d'un lieu (bandeau HUD) ; trc() le traduit si une entree existe, sinon FR.
 static const char* loc_name(int loc){
   switch(loc){
@@ -98,45 +128,143 @@ static const char* loc_name(int loc){
     default: return "";
   }
 }
+
 WorldScene& world_scene(){ static WorldScene s; return s; }
-void new_game_reset(){ WorldScene& w=world_scene(); w.started=false; w.confirmQuit=false; w.pauseSel=0; w.pauseMsg=nullptr; w.epiLine=0; w.notice=false; w.dlg=false; w.savedMap=-2; state_reset(); progress_reset(); player()=new_caithness(); dungeon_reset(); }
+void new_game_reset(){
+  WorldScene& w=world_scene(); w.started=false; w.confirmQuit=false;
+  w.pauseSel=0; w.pauseSub=0; w.pauseListSel=0; w.stepCount=0;
+  w.pauseMsg=nullptr; w.epiLine=0; w.notice=false; w.dlg=false; w.savedMap=-2;
+  state_reset(); progress_reset(); player()=new_caithness(); dungeon_reset();
+}
+
 static int map_for_loc(int loc){ for(int i=0;i<MAP_COUNT;++i) if(MAPS[i].location==loc) return i; return -1; }
 void WorldScene::load_map(int m){ map=m; px=MAPS[m].px; py=MAPS[m].py; gb::log(MAPS[m].id); }
+
 void WorldScene::enter(){
-  if(started) return;            // retour de combat : on garde la carte/position (et savedMap -> pas de re-sauvegarde)
+  if(started) return;   // retour de combat : on garde la carte/position (et savedMap -> pas de re-sauvegarde)
   started=true; int gp=map_for_loc(22); load_map(gp>=0?gp:0);   // Arc 0 : demarrage dans la Grande Plaine
-  if(MAPS[map].location==22){ quest_start(17); discover_zone(22); notice=true;
-    noticeTxt="La Breche se referme derriere toi. Te voici dans la Grande Plaine d'Asteria."; }
-}
-// ---------------------------------------------------------------------------
-// DELTA-03 : menu pause (MENU ou B en exploration). Entrees dynamiques : les sorts
-// de soin n'apparaissent que s'ils sont connus. Hors combat, on a le temps de se
-// concentrer : le sort reussit toujours (seul le cout en pouvoir s'applique).
-// ---------------------------------------------------------------------------
-enum PauseItem{ PI_RESUME, PI_SAVE, PI_HEAL, PI_HEAL_MAJOR, PI_QUIT };
-static int pause_items(int* out){ int n=0; out[n++]=PI_RESUME; out[n++]=PI_SAVE;
-  if(spell_known(4)) out[n++]=PI_HEAL; if(spell_known(7)) out[n++]=PI_HEAL_MAJOR; out[n++]=PI_QUIT; return n; }
-static const char* pause_label(int it){
-  switch(it){ case PI_RESUME: return "Reprendre"; case PI_SAVE: return "Sauvegarder"; case PI_HEAL: return "Soins";
-    case PI_HEAL_MAJOR: return "Guerison majeure"; default: return "Quitter vers le titre"; } }
-static int d6w(){ return (int)(ws_rand()%6)+1; }
-void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
-  int it[5]; int n=pause_items(it); if(pauseSel>=n) pauseSel=n-1;
-  if(p&gb::BTN_DOWN){ pauseSel=(pauseSel+1)%n; pauseMsg=nullptr; }
-  if(p&gb::BTN_UP)  { pauseSel=(pauseSel+n-1)%n; pauseMsg=nullptr; }
-  if(p&(gb::BTN_B|gb::BTN_MENU)){ confirmQuit=false; return; }
-  if(!(p&gb::BTN_A)) return;
-  switch(it[pauseSel]){
-    case PI_RESUME: confirmQuit=false; break;
-    case PI_SAVE:   pauseMsg=game_save()?"Partie sauvegardee.":"Echec de la sauvegarde (carte SD ?)"; break;
-    case PI_HEAL: case PI_HEAL_MAJOR: { int s=(it[pauseSel]==PI_HEAL)?4:7; int cost=spell_cost(s); Character& c=player();
-      if(c.BL<=0) pauseMsg="Tu n'as aucune blessure.";
-      else if(c.mana<cost) pauseMsg="Pas assez de pouvoir !";
-      else { c.mana-=cost; int h=0; for(int k=0;k<(s==4?2:4);k++) h+=d6w(); c.BL-=h; if(c.BL<0)c.BL=0;
-        pauseMsg=(s==4)?"Soins : tes blessures se referment.":"Guerison majeure : tes forces reviennent."; } } break;
-    default: mgr.set(SceneId::TITLE); break;
+  if(MAPS[map].location==22){
+    quest_start(17); discover_zone(22); notice=true;
+    noticeTxt="La Breche se referme derriere toi. Te voici dans la Grande Plaine d'Asteria.";
   }
 }
+
+// ---- Menu Pause enrichi (pSub: 0 Principal, 1 Sac & Equip., 2 Alchimie & Soins, 3 Journal & Stats, 4 Sauvegarde 3 slots) ----
+static char g_pmsg_buf[72]={0};
+// Resumes des 3 emplacements : lus sur la SD a l'OUVERTURE du sous-menu et apres
+// une sauvegarde, jamais a chaque image (3 lectures SD par frame figeaient la console).
+static SaveSummary g_slotSum[3];
+static void refresh_slot_summaries(){ for(int s=1;s<=3;s++) save_slot_summary(s,g_slotSum[s-1]); }
+
+static int alch_entries(int* kinds, int* ids){
+  // kinds: 0=Sort Soins(4), 1=Sort Guerison majeure(7), 2=Recette alchimie portable (station==-1)
+  int n=0;
+  if(spell_known(4)){ kinds[n]=0; ids[n]=4; n++; }
+  if(spell_known(7)){ kinds[n]=1; ids[n]=7; n++; }
+  for(int i=0;i<RECIPE_COUNT;i++){
+    if(RECIPES[i].station==-1){ kinds[n]=2; ids[n]=i; n++; }
+  }
+  return n;
+}
+
+static int quest_entries(int* qidx){
+  int n=0;
+  for(int i=0;i<quest::QUEST_COUNT;i++) if(quest_status(i)>0) qidx[n++]=i;
+  return n;
+}
+
+void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
+  if(p&gb::BTN_MENU){ confirmQuit=false; pauseSub=0; pauseMsg=nullptr; return; }
+
+  if(pauseSub==0){
+    const int N=6;
+    if(p&gb::BTN_DOWN){ pauseSel=(pauseSel+1)%N; pauseMsg=nullptr; audio::sfx_select(); }
+    if(p&gb::BTN_UP){   pauseSel=(pauseSel+N-1)%N; pauseMsg=nullptr; audio::sfx_select(); }
+    if(p&gb::BTN_B){ confirmQuit=false; return; }
+    if(!(p&gb::BTN_A)) return;
+    switch(pauseSel){
+      case 0: confirmQuit=false; break;
+      case 1: pauseSub=1; pauseListSel=0; pauseMsg=nullptr; break;
+      case 2: pauseSub=2; pauseListSel=0; pauseMsg=nullptr; break;
+      case 3: pauseSub=3; pauseListSel=0; pauseMsg=nullptr; break;
+      case 4: pauseSub=4; pauseListSel=active_save_slot()-1; pauseMsg=nullptr; refresh_slot_summaries(); break;
+      case 5: mgr.set(SceneId::TITLE); break;
+    }
+    return;
+  }
+
+  if(p&gb::BTN_B){ pauseSub=0; pauseMsg=nullptr; return; }
+
+  if(pauseSub==1){ // Sac & Equipement
+    int n = player().inv.n;
+    if(n>0 && pauseListSel>=n) pauseListSel=n-1;
+    if(n>0 && (p&gb::BTN_DOWN)){ pauseListSel=(pauseListSel+1)%n; pauseMsg=nullptr; }
+    if(n>0 && (p&gb::BTN_UP)){   pauseListSel=(pauseListSel+n-1)%n; pauseMsg=nullptr; }
+    if(n>0 && (p&gb::BTN_A)){
+      int it = player().inv.slots[pauseListSel].item;
+      if(is_weapon_item(it)){
+        player().weapon = it;
+        snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),trc("Équipé : %s"),trc(ITEMS[it].name));
+        pauseMsg = g_pmsg_buf;
+        audio::sfx_confirm();
+      } else if(is_consumable_field(it)){
+        if(use_item_field(player(), it, g_pmsg_buf, sizeof(g_pmsg_buf))) audio::sfx_coin();
+        pauseMsg = g_pmsg_buf;
+      } else {
+        pauseMsg = item_desc(it);
+      }
+    }
+  } else if(pauseSub==2){ // Alchimie & Soins
+    int kinds[8], ids[8]; int n=alch_entries(kinds,ids);
+    if(n>0 && pauseListSel>=n) pauseListSel=n-1;
+    if(n>0 && (p&gb::BTN_DOWN)){ pauseListSel=(pauseListSel+1)%n; pauseMsg=nullptr; }
+    if(n>0 && (p&gb::BTN_UP)){   pauseListSel=(pauseListSel+n-1)%n; pauseMsg=nullptr; }
+    if(n>0 && (p&gb::BTN_A)){
+      int k=kinds[pauseListSel], id=ids[pauseListSel];
+      Character& c=player();
+      if(k==0 || k==1){
+        int cost=spell_cost(id);
+        if(c.BL<=0) pauseMsg="Tu n'as aucune blessure.";
+        else if(c.mana<cost) pauseMsg="Pas assez de pouvoir !";
+        else {
+          c.mana-=cost; int h=0; for(int i=0;i<(id==4?2:4);i++) h+=d6w();
+          c.BL-=h; if(c.BL<0)c.BL=0;
+          snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),trc("%s : -%d blessures."),trc(id==4?"Soins":"Guérison"),h);
+          pauseMsg=g_pmsg_buf; audio::sfx_confirm();
+        }
+      } else {
+        if(try_craft(c, id, false)){
+          snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),trc("Préparé : %s !"),trc(ITEMS[RECIPES[id].out_item].name));
+          pauseMsg=g_pmsg_buf; audio::sfx_coin();
+        } else {
+          pauseMsg="Ingrédients insuffisants.";
+        }
+      }
+    }
+  } else if(pauseSub==3){ // Journal & Stats
+    int qi[quest::QUEST_COUNT]; int n=quest_entries(qi);
+    if(n>0){
+      if(p&gb::BTN_DOWN) pauseListSel=(pauseListSel+1)%n;
+      if(p&gb::BTN_UP)   pauseListSel=(pauseListSel+n-1)%n;
+    }
+  } else if(pauseSub==4){ // Choisir Slot Sauvegarde 1..3
+    if(p&gb::BTN_DOWN) pauseListSel=(pauseListSel+1)%3;
+    if(p&gb::BTN_UP)   pauseListSel=(pauseListSel+2)%3;
+    if(p&gb::BTN_A){
+      int sl=pauseListSel+1;
+      set_active_save_slot(sl);
+      if(game_save_slot(sl)){
+        refresh_slot_summaries();
+        snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),trc("Sauvegardé (Empl. %d) !"),sl);
+        audio::sfx_coin();
+      } else {
+        snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),"%s",trc("Échec sauvegarde SD."));
+      }
+      pauseMsg=g_pmsg_buf;
+    }
+  }
+}
+
 void WorldScene::update(SceneManager& mgr){
   const Map& M=MAPS[map]; uint32_t p=gb::buttons_pressed();
   if(MAPS[map].location==0 && !flag_get("valbois_intro")){ flag_set("valbois_intro"); quest_start(0); discover_zone(0);
@@ -147,12 +275,13 @@ void WorldScene::update(SceneManager& mgr){
   if(MAPS[map].location==23 && !flag_get("vallee_intro")){ flag_set("vallee_intro"); notice=true; noticeTxt="La Vallee des Pierres Murmurantes. Des monolithes graves veillent entre les rochers."; }
   if(quest_status(0)==2 && quest_status(2)==0) quest_start(2);
   if(quest_status(2)==2 && quest_status(3)==0) quest_start(3);   // Q3 Les empreintes (annexe)
-  if(confirmQuit){ pause_update(mgr,p); return; }   // DELTA-03 : menu pause (reprendre / sauvegarder / soins / quitter)
+  if(confirmQuit){ pause_update(mgr,p); return; }   // menu pause : Sac & Equipement, Alchimie & Soins, Journal, Sauvegarde (3 empl.), Quitter
   if(notice){ if(p&(gb::BTN_A|gb::BTN_B)) notice=false; return; }
   if(started && !dlg && map!=savedMap){ savedMap=map; if(g_autosave) game_save(); }   // auto-sauvegarde a chaque arrivee sur une carte
+
   // ---- Final de l'Arc I : l'Antre Malefique (loc 21) ----
   if(MAPS[map].location==21){
-    if(flag_get("boss_coeur")){                               // le tyran est vaincu -> denouement
+    if(flag_get("boss_coeur")){   // le tyran est vaincu -> denouement
       if(!flag_get("fin_arc1")){
         static const char* D[]={
           "Le Coeur de Haine s'effondre dans un dernier spasme.",
@@ -163,7 +292,7 @@ void WorldScene::update(SceneManager& mgr){
           "La piste des tiens mene vers l'Est, au-dela des Monts. (Fin de l'Arc I)" };
         if(epiLine<6){ notice=true; noticeTxt=D[epiLine++]; return; } else { if(quest_status(14)==1) complete_quest_reward(14); flag_set("fin_arc1"); }
       }
-    } else {                                                  // sinon : combats a l'autel (centre haut)
+    } else {
       bool atAltar=(py<=5 && px>=8 && px<=12);
       if(atAltar){
         if(!flag_get("boss_gardien")){
@@ -174,42 +303,71 @@ void WorldScene::update(SceneManager& mgr){
       }
     }
   }
+
   if(dlg){ const dlg::Node& N=dlg::DIALOG[dlgNpc].nodes[dlgNode];
     if(p&gb::BTN_A){ dlgLine++; if(dlgLine>=N.nlines){ if(N.set_flag) flag_set(N.set_flag); if(N.give_item>=0) player().inv.add(N.give_item,1); if(N.complete_quest>=0) complete_quest_reward(N.complete_quest); if(N.start_quest>=0) quest_start(N.start_quest); dlg=false; } }
     if(p&gb::BTN_B) dlg=false; return; }
+
   int nx=px,ny=py;
   if(p&gb::BTN_UP){ny=py-1;dir=1;} if(p&gb::BTN_DOWN){ny=py+1;dir=0;}
   if(p&gb::BTN_LEFT){nx=px-1;dir=2;} if(p&gb::BTN_RIGHT){nx=px+1;dir=3;} if(p&(gb::BTN_UP|gb::BTN_DOWN|gb::BTN_LEFT|gb::BTN_RIGHT)) lastMove=gb::millis();
+
   if(nx!=px||ny!=py){
     if(nx>=0&&ny>=0&&nx<M.w&&ny<M.h){
       uint8_t t=M.tiles[ny*M.w+nx];
-      if(!TILE_SOLID[t] && npc_at(M,nx,ny)<0 && chest_at(map,nx,ny)<0 && !(t==4 && !door_leads_somewhere(M,nx,ny))){ px=nx; py=ny; bool _tp=false;
-        if(MAPS[map].location==8){ // cueillette dans les clairieres : 9 herbes (OBJ_0034) + 4 champignons (OBJ_0035)
-          static const int PKX[]={31,34,7,25,30,16,12,8,23, 4,33,13,26};
-          static const int PKY[]={24,24,14,8,8,6,29,29,31, 14,8,6,31};
-          static const bool PKM[]={false,false,false,false,false,false,false,false,false, true,true,true,true};
-          static const char* PKF[]={"pk0","pk1","pk2","pk3","pk4","pk5","pk6","pk7","pk8","pk9","pk10","pk11","pk12"};
-          for(int i=0;i<13;i++) if(px==PKX[i]&&py==PKY[i]&&!flag_get(PKF[i])){ flag_set(PKF[i]);
-            int it=item_index(PKM[i]?"OBJ_0035":"OBJ_0034"); if(it>=0) player().inv.add(it,1);
-            notice=true; noticeTxt=PKM[i]?"Tu ramasses un champignon.":"Tu cueilles une herbe medicinale."; break; } }
+      if(!TILE_SOLID[t] && npc_at(M,nx,ny)<0 && chest_at(map,nx,ny)<0 && !(t==4 && !door_leads_somewhere(M,nx,ny))){
+        px=nx; py=ny; stepCount++; bool _tp=false;
+        if((stepCount % 25) == 0 && player().mana < player().manaMax){ player().mana++; }
+
+        if(MAPS[map].location==8){   // cueillette (19 points) : 9 herbes, 4 champignons, 3 miels, 3 x2 bois
+          static const int PKX[]={31,34,7,25,30,16,12,8,23, 4,33,13,26, 11,24,19, 12,26,20};
+          static const int PKY[]={24,24,14,8,8,6,29,29,31, 14,8,6,31, 10,18,26, 11,19,27};
+          // type: 0=herbe(33), 1=champignon(34), 2=miel(25), 3=bois(35, x2)
+          static const uint8_t PKT[]={0,0,0,0,0,0,0,0,0, 1,1,1,1, 2,2,2, 3,3,3};
+          static const char* PKF[]={"pk0","pk1","pk2","pk3","pk4","pk5","pk6","pk7","pk8","pk9","pk10","pk11","pk12","pk13","pk14","pk15","pk16","pk17","pk18"};
+          for(int i=0;i<19;i++) if(px==PKX[i]&&py==PKY[i]&&!flag_get(PKF[i])){ flag_set(PKF[i]);
+            int kind=PKT[i];
+            const char* id = (kind==0)?"OBJ_0034":(kind==1)?"OBJ_0035":(kind==2)?"OBJ_0026":"OBJ_0036";
+            int qty = (kind==3) ? 2 : 1;
+            int it=item_index(id); if(it>=0) player().inv.add(it,qty);
+            audio::sfx_coin();
+            notice=true;
+            noticeTxt = (kind==0)?"Tu cueilles une herbe medicinale.":
+                        (kind==1)?"Tu ramasses un champignon.":
+                        (kind==2)?"Tu recoltes du miel sauvage !":
+                                  "Tu ramasses 2 branches de bois sec.";
+            break;
+          }
+        }
+
         for(int i=0;i<M.portal_n;++i){ const Portal& pt=M.portals[i];
           if(pt.x==px&&pt.y==py){
             const char* blk=gate_block(pt.target_loc);
-            if(blk){ notice=true; noticeTxt=blk; break; }       // verrou : indice, pas de passage
-            if(pt.target_loc==9){ discover_zone(9); mgr.set(SceneId::DUNGEON); return; }  // la mine est un donjon 1re personne
+            if(blk){ notice=true; noticeTxt=blk; break; }   // verrou : indice, pas de passage
+            if(pt.target_loc==9){ discover_zone(9); mgr.set(SceneId::DUNGEON); return; }   // la mine est un donjon 1re personne
             int nm=map_for_loc(pt.target_loc);
             if(nm>=0){ load_map(nm); discover_zone(pt.target_loc); if(pt.sx>=0){px=pt.sx;py=pt.sy;} _tp=true; }
             else gb::log("WORLD: portail (zone sans carte encore)");
-          } }
+          }
+        }
+
         { int _loc=MAPS[map].location;
           if(!_tp && _loc==9 && py<=3 && !flag_get("boss_mine")){ set_combat_return(SceneId::WORLD); start_combat(9,"/sdcard/ASTERIA/battle/CHEF.BMP"); mgr.set(SceneId::COMBAT); return; }
           if(!_tp && _loc==20 && py<=20 && !flag_get("boss_corbeau")){ if(quest_status(11)==0) quest_start(11);
             notice=true; noticeTxt="Corbeau Noir, le chef des brigands, te barre la route !"; flag_set("vu_corbeau");
             set_combat_return(SceneId::WORLD); start_combat(25,"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; }
-          if(!_tp && !g_no_encounters && (_loc==8||_loc==9||_loc==20) && (ws_rand()%9==0)){ int _m=(_loc==8)?5+(int)(ws_rand()%4):(_loc==20)?(10+(int)(ws_rand()%2)):((ws_rand()&1u)?16:23); set_combat_return(SceneId::WORLD); start_combat(_m, _loc==9?"/sdcard/ASTERIA/battle/MINE_L.BMP":"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; } }
+          int cape = item_index("OBJ_0024");
+          int mod = (cape>=0 && player().inv.has(cape,1)) ? 12 : 9;
+          if(!_tp && !g_no_encounters && (_loc==8||_loc==9||_loc==20) && (ws_rand()%mod==0)){
+            int _m=(_loc==8)?5+(int)(ws_rand()%4):(_loc==20)?(10+(int)(ws_rand()%2)):((ws_rand()&1u)?16:23);
+            set_combat_return(SceneId::WORLD); start_combat(_m, _loc==9?"/sdcard/ASTERIA/battle/MINE_L.BMP":"/sdcard/ASTERIA/battle/FORE_J.BMP");
+            mgr.set(SceneId::COMBAT); return;
+          }
+        }
       }
     }
   }
+
   if(p&gb::BTN_A){ int fx=px,fy=py; if(dir==0)fy++; else if(dir==1)fy--; else if(dir==2)fx--; else fx++;
     int n=npc_at(M,fx,fy);
     int _loc=MAPS[map].location;
@@ -218,59 +376,54 @@ void WorldScene::update(SceneManager& mgr){
     else if(n==2){ mgr.set(SceneId::SHOP); }
     else if(n>=0 && n<22 && dlg::DIALOG[n].nnodes>0){
       // --- Annexes de l'Acte I (démarrage au 1er dialogue, remise au retour) ---
-      if(n==1){ // Doran : Q1 Les Outils perdus (remise = rapporter le casque de la mine), puis Forge & Alchimie
-        if(flag_get("doran_resolu")){ mgr.set(SceneId::FORGE); return; }                 // visites suivantes : ouvre la Forge & Alchimie
+      if(n==1){   // Doran : Q1 Les Outils perdus (remise = rapporter le casque de la mine), puis Forge & Alchimie
+        if(flag_get("doran_resolu")){ mgr.set(SceneId::FORGE); return; }   // visites suivantes : ouvre la Forge & Alchimie
         if(quest_status(1)==0) quest_start(1);
-        else if(quest_status(1)==1 && player().inv.has(item_index("OBJ_0010"),1)){ complete_quest_reward(1); flag_set("doran_resolu"); }  // remise : resout Q1 (forge dispo des la prochaine visite)
-      }
-      else if(n==8){ // Agnès : Q4 Les plantes (remise = 5 herbes medicinales + 3 champignons)
+        else if(quest_status(1)==1 && player().inv.has(item_index("OBJ_0010"),1)){ complete_quest_reward(1); flag_set("doran_resolu"); }   // remise : resout Q1 (forge dispo des la prochaine visite)
+      } else if(n==8){
         if(quest_status(4)==0){ quest_start(4); notice=true; noticeTxt="Agnes : rapporte-moi 5 herbes medicinales et 3 champignons de la Foret de Brume."; }
         else if(quest_status(4)==1){ int h=item_index("OBJ_0034"), c=item_index("OBJ_0035");
           if(player().inv.has(h,5) && player().inv.has(c,3)){ player().inv.remove(h,5); player().inv.remove(c,3); complete_quest_reward(4); }
           else { notice=true; noticeTxt="Agnes : il me faut 5 herbes medicinales et 3 champignons."; } }
-      }
-      else if(n==5){ // Lysa : Q3 Les empreintes se résout en lui reparlant
+      } else if(n==5){
         if(quest_status(3)==1) complete_quest_reward(3);
-      }
-      else if(n==13){ // Maître Albin : Q7 Le symbole oublié (présenter la Pierre noire gravée OBJ_0014)
+      } else if(n==13){
         int pn=item_index("OBJ_0014");
         if(pn>=0 && player().inv.has(pn,1)){
-          if(quest_status(7)==0) quest_start(7);           // 1re présentation : ouvre l'enquête
-          else if(quest_status(7)==1){ complete_quest_reward(7); // retour : consultation terminée
-            if(quest_status(13)==0) quest_start(13); }     // Albin oriente vers les Pierres Murmurantes (Q13)
+          if(quest_status(7)==0) quest_start(7);   // 1re présentation : ouvre l'enquête
+          else if(quest_status(7)==1){ complete_quest_reward(7);   // retour : consultation terminée
+            if(quest_status(13)==0) quest_start(13); }   // Albin oriente vers les Pierres Murmurantes (Q13)
         }
-      }
-      else if(n==15 && _loc==10){ // Garrick (Guilde de Grand-Castel) : hub de contrats Q8
+      } else if(n==15 && _loc==10){
         if(!flag_get("q8_pris")){ flag_set("q8_pris"); if(quest_status(8)==0) quest_start(8);
           int pli=item_index("OBJ_0039"); if(pli>=0 && !player().inv.has(pli,1)) player().inv.add(pli,1); }
         else if(!flag_get("q8_fait") && flag_get("c_pli") && flag_get("c_herbes") && flag_get("c_aumone")){
           flag_set("q8_fait"); complete_quest_reward(8); }
-      }
-      else if(n==16 && _loc==10 && flag_get("q8_pris") && !flag_get("c_pli")){ // pli scelle -> Tomas Venn
+      } else if(n==16 && _loc==10 && flag_get("q8_pris") && !flag_get("c_pli")){
         int pli=item_index("OBJ_0039"); if(pli>=0 && player().inv.has(pli,1)){ player().inv.remove(pli,1); flag_set("c_pli"); }
-      }
-      else if(n==16 && _loc==20){ // Tomas Venn echoue sur la Route Royale (Q12 Une roue cassee)
+      } else if(n==16 && _loc==20){
         if(quest_status(12)==0){ quest_start(12); flag_set("q12_pris"); }
         else if(quest_status(12)==1 && flag_get("boss_corbeau") && !flag_get("q12_fait")){ flag_set("q12_fait"); player().gold+=40; complete_quest_reward(12); }
-      }
-      else if(n==17 && _loc==10 && flag_get("q8_pris") && !flag_get("c_herbes")){ // 3 herbes -> Iris
+      } else if(n==17 && _loc==10 && flag_get("q8_pris") && !flag_get("c_herbes")){
         int h=item_index("OBJ_0034"); if(h>=0 && player().inv.has(h,3)){ player().inv.remove(h,3); flag_set("c_herbes"); }
-      }
-      else if(n==12 && _loc==10 && flag_get("q8_pris") && !flag_get("c_aumone")){ // potion -> Sœur Helena
+      } else if(n==12 && _loc==10 && flag_get("q8_pris") && !flag_get("c_aumone")){
         int pot=item_index("OBJ_0005"); if(pot>=0 && player().inv.has(pot,1)){ player().inv.remove(pot,1); flag_set("c_aumone"); }
-      }
-      else if(n==20 && !flag_get("anneau_recu")){ // Dame Orwenn : don de l'Anneau de l'Aube (Q16)
-        flag_set("anneau_recu"); if(quest_status(16)==0) quest_start(16);
-        int rg=item_index("OBJ_0040"); if(rg>=0 && !player().inv.has(rg,1)) player().inv.add(rg,1);
+      } else if(n==19 && _loc==10){
+        if(!flag_get("vu_meluve")){ flag_set("vu_meluve"); if(quest_status(15)==0) quest_start(15); }
+        else { int col=item_index("OBJ_0038");
+          if(col>=0 && player().inv.has(col,1) && !flag_get("q15_fait")){ player().inv.remove(col,1); flag_set("q15_fait"); player().gold+=30; complete_quest_reward(15); } }
+      } else if(n==18 && _loc==10 && flag_get("vu_meluve") && !flag_get("collier_pris")){
+        flag_set("collier_pris"); int col=item_index("OBJ_0038"); if(col>=0 && !player().inv.has(col,1)) player().inv.add(col,1);
+      } else if(n==20 && !flag_get("anneau_recu")){
+        flag_set("anneau_recu"); int rg=item_index("OBJ_0040"); if(rg>=0 && !player().inv.has(rg,1)) player().inv.add(rg,1);
         complete_quest_reward(16);
-      }
-      else if(n==20 && !flag_get("orwenn_apres")) flag_set("orwenn_apres");   // DELTA-02 : visites suivantes -> noeud "apres le don"
-      else if(n==21 && !flag_get("vu_voyageur")){ // Voyageur Encapuchonne : remet le Livre des Elements (Arc 0)
+      } else if(n==20 && !flag_get("orwenn_apres")) flag_set("orwenn_apres");
+      else if(n==21 && !flag_get("vu_voyageur")){   // Voyageur Encapuchonne : remet le Livre des Elements (Arc 0)
         flag_set("vu_voyageur");
         int lv=item_index("OBJ_0041"); if(lv>=0 && !player().inv.has(lv,1)) player().inv.add(lv,1);
       }
-      dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0; }
-    else if(MAPS[map].location==23 && ((fx==5&&fy==9)||(fx==12&&fy==4)||(fx==20&&fy==7)||(fx==21&&fy==16))){ // Pierres Murmurantes (Q13, Vallee des Pierres)
+      dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0;
+    } else if(MAPS[map].location==23 && ((fx==5&&fy==9)||(fx==12&&fy==4)||(fx==20&&fy==7)||(fx==21&&fy==16))){
       static const char* PM[]={"pm6","pm12","pm22","pm36"}; const char* mf=(fx==5)?PM[0]:(fx==12)?PM[1]:(fx==20)?PM[2]:PM[3];
       if(quest_status(13)<1){ notice=true; noticeTxt="Un monolithe grave, muet. Maitre Albin saurait peut-etre le lire."; }
       else if(!player().inv.has(item_index("OBJ_0014"),1)){ notice=true; noticeTxt="La pierre reste muette. Il te faudrait la Pierre noire gravee."; }
@@ -279,24 +432,31 @@ void WorldScene::update(SceneManager& mgr){
         if(flag_get("pm6")&&flag_get("pm12")&&flag_get("pm22")&&flag_get("pm36")){
           if(quest_status(13)==1) complete_quest_reward(13);
           noticeTxt="Les quatre pierres resonnent a l'unisson. Le chemin du Temple t'est revele."; } }
-    }
-    else { int ci=chest_at(map,fx,fy);
+    } else {
+      int ci=chest_at(map,fx,fy);
       if(ci>=0){ const ChestDef& c=CHESTS[ci];
         if(c.item>=0 && !player().inv.add(c.item,1)){   // BUG-07 : inventaire plein -> on laisse le coffre FERME, le joueur reviendra
-          notice=true; noticeTxt="Ton inventaire est plein ! Fais de la place et reviens ouvrir ce coffre."; }
-        else { player().gold+=c.gold; flag_set(c.flag); notice=true; asteria::audio::sfx_coin();
+          notice=true; noticeTxt="Ton inventaire est plein ! Fais de la place et reviens ouvrir ce coffre.";
+        } else {
+          player().gold+=c.gold; flag_set(c.flag); notice=true; asteria::audio::sfx_coin();
           noticeTxt="Un coffre ! Tu recuperes du butin.";
-          // Objet d'étape : le butin EST l'indice de la quête. On la démarre au besoin,
-          // on la termine et on pose le flag de progression — quel que soit l'ordre dans
-          // lequel le joueur a parlé aux PNJ (sinon soft-lock : flag jamais posé).
-          if(c.complete_q>=0){ if(quest_status(c.complete_q)==0) quest_start(c.complete_q);
+          if(c.complete_q>=0){
+            if(quest_status(c.complete_q)==0) quest_start(c.complete_q);
             if(quest_status(c.complete_q)==1) complete_quest_reward(c.complete_q);
             if(c.setflag) flag_set(c.setflag);
             if(c.complete_q==5) noticeTxt="Un tissu dechire, arrache a un villageois... Les traces menent a la Vieille Mine.";
-            else if(c.complete_q==10) noticeTxt="Le carnet du chef de caravane ! Ses notes mènent à Grand-Castel."; } } }
-      else if(fx>=0&&fy>=0&&fx<M.w&&fy<M.h && M.tiles[fy*M.w+fx]==4 && !door_leads_somewhere(M,fx,fy)){ notice=true; noticeTxt=i18n::tr(i18n::W_CLOSED); } } }
-  if(p&(gb::BTN_MENU|gb::BTN_B)){ confirmQuit=true; pauseSel=0; pauseMsg=nullptr; }
+            else if(c.complete_q==10) noticeTxt="Le carnet du chef de caravane ! Ses notes mènent à Grand-Castel.";
+          }
+        }
+      } else if(fx>=0&&fy>=0&&fx<M.w&&fy<M.h && M.tiles[fy*M.w+fx]==4 && !door_leads_somewhere(M,fx,fy)){
+        notice=true; noticeTxt=i18n::tr(i18n::W_CLOSED);
+      }
+    }
+  }
+
+  if(p&(gb::BTN_MENU|gb::BTN_B)){ confirmQuit=true; pauseSel=0; pauseSub=0; pauseListSel=0; pauseMsg=nullptr; }
 }
+
 // ---------------------------------------------------------------------------
 // Dessin d'UNE tuile de carte en coordonnees CARTE (pixels absolus x*16,y*16).
 // L'appelant fixe gb::set_origin(camx,camy) pour la placer a l'ecran, ou dessine
@@ -306,13 +466,13 @@ void WorldScene::update(SceneManager& mgr){
 // ---------------------------------------------------------------------------
 void draw_map_tile(const Map& M,int x,int y){
   uint8_t _t=M.tiles[y*M.w+x]; int dx=x*TILE_SIZE, dy=y*TILE_SIZE;
-      if(_t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; int t=M.tiles[yy*M.w+xx]; return t==3||t==5; }; // hors-carte = eau continue -> pas de rive au bord, l'eau s'ecoule
+      if(_t==3){ auto W=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; int t=M.tiles[yy*M.w+xx]; return t==3||t==5; };   // hors-carte = eau continue -> pas de rive au bord, l'eau s'ecoule
         draw_natural_water(dx,dy, W(x,y-1),W(x,y+1),W(x+1,y),W(x-1,y), W(x+1,y-1),W(x-1,y-1),W(x+1,y+1),W(x-1,y+1)); }
-      else if(_t==1){ auto P=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; return M.tiles[yy*M.w+xx]==1; }; // hors-carte = chemin continue -> il sort de la carte au lieu de s'arreter
+      else if(_t==1){ auto P=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; return M.tiles[yy*M.w+xx]==1; };   // hors-carte = chemin continue -> il sort de la carte au lieu de s'arreter
         draw_natural_path(dx,dy, P(x,y-1),P(x,y+1),P(x+1,y),P(x-1,y), P(x+1,y-1),P(x-1,y-1),P(x+1,y+1),P(x-1,y+1)); }
-      else if(_t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; int t=M.tiles[yy*M.w+xx]; return t==16||t==5; }; // hors-carte + pont = eau -> pas de rive au bord ni au pont
+      else if(_t==16){ auto N=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; int t=M.tiles[yy*M.w+xx]; return t==16||t==5; };   // hors-carte + pont = eau -> pas de rive au bord ni au pont
         draw_natural_water(dx,dy, N(x,y-1),N(x,y+1),N(x+1,y),N(x-1,y), N(x+1,y-1),N(x-1,y-1),N(x+1,y+1),N(x-1,y+1)); }
-      else if(_t==19){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; return M.tiles[yy*M.w+xx]==19; }; // hors-carte = route continue
+      else if(_t==19){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return true; return M.tiles[yy*M.w+xx]==19; };   // hors-carte = route continue
         draw_natural_road(dx,dy, R(x,y-1),R(x,y+1),R(x+1,y),R(x-1,y), R(x+1,y-1),R(x-1,y-1),R(x+1,y+1),R(x-1,y+1)); }
       else if(_t==7||_t==9||_t==10||_t==11){ auto R=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; uint8_t q=M.tiles[yy*M.w+xx]; return q==7||q==9||q==10||q==11; };
         draw_roof_tile(dx,dy, R(x,y-1),R(x,y+1),R(x-1,y),R(x+1,y), _t); }
@@ -332,10 +492,10 @@ void draw_map_tile(const Map& M,int x,int y){
       else if(_t==31){ auto G=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; return M.tiles[yy*M.w+xx]==31; };
         draw_rug(dx,dy, G(x,y-1),G(x,y+1),G(x-1,y),G(x+1,y)); }
       else if(_t==0) draw_grass(dx,dy,x,y);
-      else if(_t==5){ auto Wt=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; int t=M.tiles[yy*M.w+xx]; return t==16||t==3; }; // cotes eau -> garde-corps + planches
+      else if(_t==5){ auto Wt=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; int t=M.tiles[yy*M.w+xx]; return t==16||t==3; };   // cotes eau -> garde-corps + planches
         draw_bridge(dx,dy, Wt(x-1,y),Wt(x+1,y),Wt(x,y-1),Wt(x,y+1)); }
       else if(_t==28) gb::draw_image(spr::MONT_SPR.px,16,16,dx,dy);   // rocher/mont (importe Wargame)
-      else if(_t==29) draw_grove(dx,dy);                              // bosquet : style maison (uniforme)
+      else if(_t==29) draw_grove(dx,dy);   // bosquet : style maison (uniforme)
       else if(_t<23) gb::draw_image(spr::TILE[_t].px,spr::TILE[_t].w,spr::TILE[_t].h,dx,dy);
       else gb::fill_rect(dx,dy,TILE_SIZE,TILE_SIZE,TCOL(_t));
 }
@@ -369,6 +529,7 @@ static bool map_cache_ready(int map){
   (void)map; return false;
 #endif
 }
+
 // Redessine, limitees au rectangle ecran (bx,by,bw,bh), les tuiles des rangees > row
 // qui recouvrent ce rectangle (les arbres debordent de 14 px vers le haut, 3 px
 // sur les cotes) : reproduit l'ordre de dessin d'origine par-dessus un personnage.
@@ -388,8 +549,9 @@ void WorldScene::render(){
   if(maxy<0) camy=maxy/2; else { if(camy<0)camy=0; if(camy>maxy)camy=maxy; }
   int x0=camx/TILE_SIZE-1, y0=camy/TILE_SIZE-1, x1=x0+25, y1=y0+20;
   if(x0<0)x0=0; if(y0<0)y0=0; if(x1>M.w)x1=M.w; if(y1>M.h)y1=M.h;
+
   const bool cached=map_cache_ready(map);
-  if(cached){                                   // fenetre visible du cache (cartes plus petites que l'ecran : centrees)
+  if(cached){   // fenetre visible du cache (cartes plus petites que l'ecran : centrees)
     int sx=camx, sy=camy, dx=0, dy=0, w=320, h=240;
     if(sx<0){ dx=-sx; w+=sx; sx=0; } if(sy<0){ dy=-sy; h+=sy; sy=0; }
     if(sx+w>s_mcW) w=s_mcW-sx; if(sy+h>s_mcH) h=s_mcH-sy;
@@ -401,22 +563,41 @@ void WorldScene::render(){
     // Tri par profondeur : les entites de la rangee y sont dessinees APRES ses tuiles.
     // Un arbre/tour d'une rangee inferieure (en avant) sera dessine ensuite -> il masque le heros, qui "passe derriere".
     for(int i=0;i<M.spawn_n;++i){ const Spawn& s=M.spawns[i]; if(s.y!=y) continue;
-      if(s.npc>=0 && s.npc<spr::NPC_COUNT && spr::NPC[s.npc].px){ const spr::Sprite& ns=spr::NPC[s.npc]; int nx=s.x*TILE_SIZE+(TILE_SIZE-ns.w)/2-camx, ny=s.y*TILE_SIZE+TILE_SIZE-ns.h+2-camy;
-        gb::draw_image_key(ns.px,ns.w,ns.h,nx,ny,spr::KEY); if(cached) occlude(M,y,camx,camy,nx,ny,ns.w,ns.h); } else gb::fill_rect(s.x*TILE_SIZE+4-camx,s.y*TILE_SIZE+2-camy,8,12,gb::rgb(230,220,120)); }
-    if(py==y){ int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1; const spr::Sprite& hs=spr::HERO[dir][fr]; int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy; gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY);
+      if(s.npc>=0 && s.npc<spr::NPC_COUNT && spr::NPC[s.npc].px){
+        const spr::Sprite& ns=spr::NPC[s.npc];
+        int nx=s.x*TILE_SIZE+(TILE_SIZE-ns.w)/2-camx, ny=s.y*TILE_SIZE+TILE_SIZE-ns.h+2-camy;
+        gb::draw_image_key(ns.px,ns.w,ns.h,nx,ny,spr::KEY);
+        if(cached) occlude(M,y,camx,camy,nx,ny,ns.w,ns.h);
+      } else gb::fill_rect(s.x*TILE_SIZE+4-camx,s.y*TILE_SIZE+2-camy,8,12,gb::rgb(230,220,120)); }
+    if(py==y){
+      int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1;
+      const spr::Sprite& hs=spr::HERO[dir][fr];
+      int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy;
+      gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY);
       if(cached) occlude(M,y,camx,camy,sx,sy,hs.w,hs.h);   // arbres/toits de la rangee suivante par-dessus le heros
       // marqueur : petite fleche doree au-dessus du heros quand il est entoure d'arbres/objets hauts
       auto tall=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; uint8_t q=M.tiles[yy*M.w+xx]; return q==6||q==22||q==28||q==29||q==2||q==13||q==14||q==15; };
-      if(tall(px,py-1)||tall(px,py+1)||tall(px-1,py)||tall(px+1,py)){ int cxm=px*TILE_SIZE+TILE_SIZE/2-camx, ym=sy-7;
+      if(tall(px,py-1)||tall(px,py+1)||tall(px-1,py)||tall(px+1,py)){
+        int cxm=px*TILE_SIZE+TILE_SIZE/2-camx, ym=sy-7;
         gb::fill_rect(cxm-4,ym-1,9,1,gb::rgb(20,16,10));
-        for(int r=0;r<4;r++) gb::fill_rect(cxm-(3-r),ym+r,(3-r)*2+1,1,gb::rgb(245,215,95)); } }
+        for(int r=0;r<4;r++) gb::fill_rect(cxm-(3-r),ym+r,(3-r)*2+1,1,gb::rgb(245,215,95)); }
+    }
   }
-  // Securite : heros hors de la plage balayee (ne devrait pas arriver, camera centree).
-  if(py<y0||py>=y1){ int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1; const spr::Sprite& hs=spr::HERO[dir][fr]; int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy; gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY); }
-  // Coffres : dessines AVANT l'UI (sinon ils passent par-dessus la fenetre de dialogue), avec la camera.
-  for(int ci=0;ci<NCHEST;ci++){ if(chest_at(map,CHESTS[ci].x,CHESTS[ci].y)==ci){ int cx=CHESTS[ci].x*TILE_SIZE-camx, cy=CHESTS[ci].y*TILE_SIZE-camy;
-      if(cx<-16||cy<-16||cx>320||cy>240) continue;    // hors ecran -> on saute
-      draw_chest_closed(cx,cy); } }
+  if(py<y0||py>=y1){
+    int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1;
+    const spr::Sprite& hs=spr::HERO[dir][fr];
+    int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy;
+    gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY);
+  }
+
+  for(int ci=0;ci<NCHEST;ci++){
+    if(chest_at(map,CHESTS[ci].x,CHESTS[ci].y)==ci){
+      int cx=CHESTS[ci].x*TILE_SIZE-camx, cy=CHESTS[ci].y*TILE_SIZE-camy;
+      if(cx<-16||cy<-16||cx>320||cy>240) continue;   // hors ecran -> on saute
+      draw_chest_closed(cx,cy);
+    }
+  }
+
   if(dlg){ const dlg::NpcDialog& D=dlg::DIALOG[dlgNpc];
     gb::fill_rect(8,158,304,74,gb::rgb(20,16,10));
     gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
@@ -426,10 +607,11 @@ void WorldScene::render(){
     char l1[64]={0},l2[64]={0}; int n=0; while(t[n])n++;
     if(n<=38){ for(int i=0;i<n;i++)l1[i]=t[i]; }
     else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(cut==0)cut=38;
-      for(int i=0;i<cut;i++)l1[i]=t[i]; int k=0; for(int i=cut+1;t[i]&&k<63;i++)l2[k++]=t[i]; }  // SEC-03 : borne k<63
+      for(int i=0;i<cut;i++)l1[i]=t[i]; int k=0; for(int i=cut+1;t[i]&&k<63;i++)l2[k++]=t[i]; }   // SEC-03 : borne k<63
     ui::text(16,182,l1,gb::rgb(236,226,192)); if(l2[0]) ui::text(16,198,l2,gb::rgb(236,226,192));
     ui::text(192,214,i18n::tr(i18n::W_DLG_H),gb::rgb(170,160,132));
   }
+
   // --- Bandeau HUD (2 lignes reservees en haut) : lieu + quete, sans aucun chevauchement ---
   { gb::fill_rect(0,0,320,30,gb::rgb(20,16,10));
     gb::fill_rect(0,30,320,2,gb::rgb(200,170,90));
@@ -447,25 +629,102 @@ void WorldScene::render(){
         ui::gold(6,16,">",true); ui::text(16,16,trc(quest::QUEST[qi].obj[o]),gb::rgb(220,210,180)); }
       else if(qs==2){ ui::gold(6,16,i18n::tr(i18n::W_QDONE),true); } }
   }
+
   if(notice){ gb::fill_rect(8,158,304,74,gb::rgb(20,16,10)); gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
     ui::gold(16,162,i18n::tr(i18n::W_EVENT),true);
     // wrap ~38
     const char* t=noticeTxt?hero_text(trc(noticeTxt)):""; char a[64]={0},b[64]={0}; int n=0; while(t[n])n++;
-    if(n<=38){ for(int i=0;i<n;i++)a[i]=t[i]; } else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(!cut)cut=38; for(int i=0;i<cut;i++)a[i]=t[i]; int k=0; for(int i=cut+1;t[i]&&k<63;i++)b[k++]=t[i]; }  // SEC-03 : borne k<63
+    if(n<=38){ for(int i=0;i<n;i++)a[i]=t[i]; } else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(!cut)cut=38; for(int i=0;i<cut;i++)a[i]=t[i]; int k=0; for(int i=cut+1;t[i]&&k<63;i++)b[k++]=t[i]; }   // SEC-03 : borne k<63
     ui::text(16,182,a,gb::rgb(236,226,192)); if(b[0])ui::text(16,198,b,gb::rgb(236,226,192));
     ui::text(206,214,i18n::tr(i18n::W_CONT),gb::rgb(170,160,132));
   }
+
   if(confirmQuit){   // DELTA-03 : menu pause
-    int it[5]; int n=pause_items(it); int h=30+n*16+30, y0=(240-h)/2+8;
-    gb::fill_rect(48,y0,224,h,gb::rgb(20,16,10)); gb::fill_rect(48,y0,224,2,gb::rgb(200,170,90)); gb::fill_rect(48,y0+h-2,224,2,gb::rgb(200,170,90));
-    ui::gold(60,y0+6,trc("Pause"),true);
+    gb::fill_rect(14,34,292,196,gb::rgb(20,16,10));
+    gb::fill_rect(14,34,292,2,gb::rgb(200,170,90));
+    gb::fill_rect(14,228,292,2,gb::rgb(200,170,90));
+
     char st[40]; int pv=player().VIT-player().BL; if(pv<0)pv=0;
-    snprintf(st,sizeof(st),"PV %d/%d   PO %d/%d",pv,player().VIT,player().mana,player().manaMax); ui::text(150,y0+7,st,gb::rgb(200,190,160));
-    for(int i=0;i<n;i++){ int y=y0+26+i*16;
-      if(i==pauseSel){ gb::fill_rect(56,y-2,208,14,gb::rgb(60,45,20)); ui::gold(60,y-1,">",true); }
-      char l[48]; if(it[i]==PI_HEAL||it[i]==PI_HEAL_MAJOR) snprintf(l,sizeof(l),"%s (%d PO)",trc(pause_label(it[i])),spell_cost(it[i]==PI_HEAL?4:7));
-      else snprintf(l,sizeof(l),"%s",trc(pause_label(it[i])));
-      ui::text(74,y-1,l,gb::rgb(235,225,190)); }
-    if(pauseMsg) ui::text(60,y0+h-18,hero_text(trc(pauseMsg)),gb::rgb(245,215,95)); }
+    snprintf(st,sizeof(st),"PV %d/%d  PM %d/%d",pv,player().VIT,player().mana,player().manaMax);
+    if(pauseSub==0 || pauseSub==3) ui::text(154,40,st,gb::rgb(200,190,160));   // sous-menus : titre long, pas de chevauchement
+
+    if(pauseSub==0){
+      ui::gold(24,40,trc("Pause"),true);
+      char saveLbl[32]; snprintf(saveLbl,sizeof(saveLbl),trc("Sauvegarder (Empl.%d)"),active_save_slot());
+      const char* MENU[6]={trc("Reprendre"),trc("Sac & Équipement"),trc("Alchimie & Soins"),trc("Journal & Stats"),saveLbl,trc("Quitter vers le titre")};
+      for(int i=0;i<6;i++){ int y=64+i*22;
+        if(i==pauseSel){ gb::fill_rect(22,y-2,276,17,gb::rgb(60,45,20)); ui::gold(26,y,">",true); }
+        ui::text(40,y,MENU[i],gb::rgb(235,225,190)); }
+      ui::text(24,208,trc("A: ouvrir   B: reprendre"),gb::rgb(170,160,132));
+    } else if(pauseSub==1){
+      ui::gold(24,40,trc("Sac & Équipement"),true);
+      int n=player().inv.n;
+      const int VIS=6;
+      int top=(pauseListSel>=VIS)?(pauseListSel-VIS+1):0;
+      if(n==0) ui::text(26,68,trc("Le sac est vide."),gb::rgb(170,160,132));
+      else {
+        for(int r=0;r<VIS && (top+r)<n;r++){
+          int idx=top+r, y=62+r*19;
+          const ItemStack& s=player().inv.slots[idx];
+          bool eq = (s.item == player().weapon);
+          if(idx==pauseListSel){ gb::fill_rect(22,y-2,276,16,gb::rgb(60,45,20)); ui::gold(24,y,">",true); }
+          char ln[48]; snprintf(ln,sizeof(ln),"%s%s x%d",eq?"* ":"",trc(ITEMS[s.item].name),(int)s.qty);
+          ui::text(36,y,ln, eq?gb::rgb(245,215,95):gb::rgb(235,225,190));
+        }
+        int curItem = player().inv.slots[pauseListSel].item;
+        ui::text(24,184,pauseMsg ? trc(pauseMsg) : trc(item_desc(curItem)), gb::rgb(185,225,175));
+      }
+      ui::text(24,208,trc("A: équiper/utiliser   B: retour"),gb::rgb(170,160,132));
+    } else if(pauseSub==2){
+      ui::gold(24,40,trc("Alchimie & Soins"),true);
+      int kinds[8], ids[8]; int n=alch_entries(kinds,ids);
+      for(int i=0;i<n && i<6;i++){ int y=62+i*19;
+        if(i==pauseListSel){ gb::fill_rect(22,y-2,276,16,gb::rgb(60,45,20)); ui::gold(24,y,">",true); }
+        char ln[56];
+        if(kinds[i]==0||kinds[i]==1) snprintf(ln,sizeof(ln),trc("Sort : %s (%d PM)"),trc(ids[i]==4?"Soins":"Guérison maj."),spell_cost(ids[i]));
+        else { const Recipe& r=RECIPES[ids[i]]; snprintf(ln,sizeof(ln),trc("Alchimie : %s"),trc(ITEMS[r.out_item].name)); }
+        ui::text(36,y,ln,gb::rgb(235,225,190));
+      }
+      if(pauseMsg) ui::text(24,184,trc(pauseMsg),gb::rgb(245,215,95));
+      else if(n>0 && kinds[pauseListSel]==2){
+        const Recipe& r=RECIPES[ids[pauseListSel]];
+        char ing[64]={0}; int o=0;
+        for(int k=0;k<r.input_n && o<50;k++) o+=snprintf(ing+o,sizeof(ing)-o,"%s%dx %s",k?" + ":"",r.inputs[k].qty,trc(ITEMS[r.inputs[k].item].name));
+        ui::text(24,184,ing,gb::rgb(185,175,145));
+      }
+      ui::text(24,208,trc("A: lancer / préparer   B: retour"),gb::rgb(170,160,132));
+    } else if(pauseSub==3){
+      ui::gold(24,40,trc("Journal & Stats"),true);
+      const Character& c=player();
+      char l1[56]; snprintf(l1,sizeof(l1),"Niv.%d  IN:%d CO:%d MA:%d AU:%d  Arm:%d",c.level,c.IN,c.CO,c.MA,c.AU,armor_defense(c));
+      ui::text(24,60,l1,gb::rgb(225,215,175));
+      int qi[quest::QUEST_COUNT]; int n=quest_entries(qi);
+      const int VIS=5;
+      int top=(pauseListSel>=VIS)?(pauseListSel-VIS+1):0;
+      if(n==0) ui::text(24,84,trc("Aucune quete active."),gb::rgb(170,160,132));
+      else {
+        for(int r=0;r<VIS && (top+r)<n;r++){
+          int q=qi[top+r], y=82+r*19; bool done=(quest_status(q)==2);
+          if(top+r==pauseListSel){ gb::fill_rect(22,y-2,276,16,gb::rgb(60,45,20)); ui::gold(24,y,">",true); }
+          char ln[48]; snprintf(ln,sizeof(ln),"[%s] %s",done?"OK":"..",trc(quest::QUEST[q].name));
+          ui::text(36,y,ln,done?gb::rgb(145,215,150):gb::rgb(235,225,190));
+        }
+      }
+      ui::text(24,208,trc("Haut/Bas: quêtes   B: retour"),gb::rgb(170,160,132));
+    } else if(pauseSub==4){
+      ui::gold(24,40,trc("Sauvegarde (3 empl.)"),true);
+      for(int s=1;s<=3;s++){
+        const SaveSummary& sm=g_slotSum[s-1];
+        int y=68+(s-1)*28;
+        if((s-1)==pauseListSel){ gb::fill_rect(22,y-3,276,22,gb::rgb(60,45,20)); ui::gold(26,y,">",true); }
+        char ln[52];
+        if(sm.exists) snprintf(ln,sizeof(ln),trc("Empl.%d : %s (Niv.%d, %d or)"),s,sm.name,sm.level,sm.gold);
+        else snprintf(ln,sizeof(ln),trc("Empl.%d : [Emplacement vide]"),s);
+        ui::text(40,y,ln,gb::rgb(235,225,190));
+      }
+      if(pauseMsg) ui::text(24,180,trc(pauseMsg),gb::rgb(185,235,175));
+      ui::text(24,208,trc("A: sauvegarder ici   B: retour"),gb::rgb(170,160,132));
+    }
+  }
 }
 }

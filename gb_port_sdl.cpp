@@ -77,6 +77,7 @@ bool blit_bmp(const char* path){
     return true;
   }
   SDL_Surface* s=SDL_LoadBMP(mp(path).c_str()); if(!s) return false;
+  if(s->w<=0 || s->h<=0 || s->w>2048 || s->h>2048){ SDL_FreeSurface(s); return false; }
   SDL_Surface* c=SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_RGB24,0); SDL_FreeSurface(s); if(!c) return false;
   unsigned char* px=(unsigned char*)c->pixels;
   int W=c->w<SCREEN_W?c->w:SCREEN_W, H=c->h<SCREEN_H?c->h:SCREEN_H;

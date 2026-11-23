@@ -1,16 +1,15 @@
-// Implémentation AKA de la façade gb:: — reliée à gb_graphics/gb_core/
-// aka_runtime (mêmes composants partagés que tous les autres jeux AKA).
-// Ce fichier est le SEUL à dépendre de gb_graphics / gb_core.
-#if defined(ESP_PLATFORM)
+// Implementation AKA de la facade gb:: — reliee a gb_graphics/gb_core/
+// aka_runtime (memes composants partages que tous les autres jeux AKA).
+// Ce fichier est le SEUL a dependre de gb_graphics / gb_core.
+
+
 #include "platform/gb_port.h"
 #include <cstdint>  // INT32_MIN
-
 #include "gb_core.h"
 #include "gb_graphics.h"
 #include "gb_common.h"          // SCREEN_WIDTH/HEIGHT
 #include "core/input.h"
 #include "aka_runtime/aka_runtime.h"
-
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -45,6 +44,11 @@ static uint32_t remap_keys(uint32_t raw) {
     return out;
 }
 
+// Suivi "image modifiee" : frame_end() ne pousse l'ecran (SPI) que si quelque chose
+// a ete dessine depuis, avec une resynchro au moins toutes les 500 ms. Les scenes
+// redessinent tout a chaque image : en pratique le gain n'existe que sur un ecran fige.
+static bool s_dirty = true;
+
 bool running() { return true; }
 
 // BUG EVITE (deja rencontre sur un autre jeu AKA en MicroPython, meme
@@ -59,6 +63,7 @@ void frame_begin() {
     while (!akaRuntime.update(g_keys)) {
         vTaskDelay(pdMS_TO_TICKS(16));
         input_poll(g_keys);
+        s_dirty = true;
     }
 }
 
@@ -68,17 +73,24 @@ void frame_end() {
     // (~28ms/image) -- impose un intervalle minimum entre deux
     // rafraichissements reels, quel que soit le rythme d'appel du moteur.
     static uint32_t s_last_ms = 0;
+    static uint32_t s_last_flush_ms = 0;
     const uint32_t MIN_INTERVAL_MS = 30;
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
     uint32_t elapsed = now - s_last_ms;
     if (s_last_ms != 0 && elapsed < MIN_INTERVAL_MS) {
         vTaskDelay(pdMS_TO_TICKS(MIN_INTERVAL_MS - elapsed));
     }
-    gfx.update();
-    s_last_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    now = (uint32_t)(esp_timer_get_time() / 1000);
+    // Evite les transferts SPI redondants sur ecran fixe (garde une synchro >=500ms)
+    if (s_dirty || (uint32_t)(now - s_last_flush_ms) >= 500u) {
+        gfx.update();
+        s_dirty = false;
+        s_last_flush_ms = now;
+    }
+    s_last_ms = now;
 }
 
-void clear(Color c) { gfx.clear(c); }
+void clear(Color c) { gfx.clear(c); s_dirty = true; }
 
 // Primitives : si le raster est neutre (cas courant) on garde les appels gfx
 // d'origine ; sinon origine/clip/cible hors ecran passent par raster_map()
@@ -87,19 +99,20 @@ static inline void put(int x, int y, Color c) {
     RasterState& r = raster_state();
     if (!raster_map(x, y, SCREEN_W, SCREEN_H)) return;
     if (r.buf) r.buf[y * r.bw + x] = c;
-    else gfx.drawPixel((int16_t)x, (int16_t)y, c);
+    else { gfx.drawPixel((int16_t)x, (int16_t)y, c); s_dirty = true; }
 }
 
 void pixel(int x, int y, Color c) {
-    if (raster_state().neutral()) { gfx.drawPixel((int16_t)x, (int16_t)y, c); return; }   // lcd_putpixel clippe deja
+    if (raster_state().neutral()) { gfx.drawPixel((int16_t)x, (int16_t)y, c); s_dirty = true; return; }
     put(x, y, c);
 }
 
 void fill_rect(int x, int y, int w, int h, Color c) {
-    if (raster_state().neutral()) { gfx.setColor(c); gfx.fillRect((int16_t)x, (int16_t)y, (int16_t)w, (int16_t)h); return; }
+    if (raster_state().neutral()) { gfx.setColor(c); gfx.fillRect((int16_t)x, (int16_t)y, (int16_t)w, (int16_t)h); s_dirty = true; return; }
     for (int j = 0; j < h; ++j) for (int i = 0; i < w; ++i) put(x + i, y + j, c);
 }
 
+// Cache BMP en PSRAM (alloc_big) : libere 150 Ko de DRAM interne sur ESP32-S3.
 // Charge un BMP non compresse (24 bits RGB ou 16 bits BGR565) depuis la SD
 // et le dessine plein ecran. Format d'export standard (GIMP/Photoshop/PIL
 // "BMP 24 bits" -- pas de compression RLE, pas de palette indexee).
@@ -115,44 +128,51 @@ static uint16_t  s_bmp_w = 0, s_bmp_h = 0;
 bool blit_bmp(const char* path) {
     if (path && s_bmp_buf && s_bmp_w > 0 && strcmp(s_bmp_path, path) == 0) {   // cache hit : aucun acces SD
         gfx.drawImage(0, 0, s_bmp_buf, s_bmp_w, s_bmp_h);
+        s_dirty = true;
         return true;
     }
+
     FILE* f = fopen(path, "rb");
     if (!f) return false;
-
     uint8_t header[54];
     if (fread(header, 1, 54, f) != 54 || header[0] != 'B' || header[1] != 'M') {
         fclose(f);
         return false;
     }
+
     uint32_t data_offset = header[10] | (header[11] << 8) | (header[12] << 16) | (header[13] << 24);
     int32_t  width       = header[18] | (header[19] << 8) | (header[20] << 16) | (header[21] << 24);
     int32_t  height_raw  = header[22] | (header[23] << 8) | (header[24] << 16) | (header[25] << 24);
-    uint16_t bpp          = header[28] | (header[29] << 8);
-    uint32_t compression  = header[30] | (header[31] << 8) | (header[32] << 16) | (header[33] << 24);
-
-    bool flip_y = height_raw > 0;              // BMP standard : lignes stockees bas -> haut
+    uint16_t bpp         = header[28] | (header[29] << 8);
+    uint32_t compression = header[30] | (header[31] << 8) | (header[32] << 16) | (header[33] << 24);
+    bool flip_y = height_raw > 0;   // BMP standard : lignes stockees bas -> haut
     int32_t height = flip_y ? height_raw : -height_raw;
 
     // SEC-01 : bornes (ecran 320x240 fixe), garde contre INT32_MIN et data_offset invalide
     if (compression != 0 || (bpp != 24 && bpp != 16) || height_raw == INT32_MIN ||
         width <= 0 || width > 320 || height <= 0 || height > 240 || data_offset < 54) {
         fclose(f);
-        return false;   // format non supporte (compresse, palette indexee, etc.)
+        return false;
     }
 
-    // Tampon de destination : le cache persistant (alloue une fois) si possible,
-    // sinon un tampon temporaire par appel (comportement d'origine, sans cache).
-    if (!s_bmp_buf) s_bmp_buf = (uint16_t*)malloc(320u * 240u * sizeof(uint16_t));
-    uint16_t* buf = s_bmp_buf; bool temp = false;
-    if (!buf) { buf = (uint16_t*)malloc((size_t)width * height * sizeof(uint16_t)); temp = true; if (!buf) { fclose(f); return false; } }
+    if (!s_bmp_buf) s_bmp_buf = (uint16_t*)alloc_big(320u * 240u * sizeof(uint16_t));
+    uint16_t* buf = s_bmp_buf;
+    bool temp = false;
+    if (!buf) {
+        buf = (uint16_t*)alloc_big((unsigned)((size_t)width * height * sizeof(uint16_t)));
+        temp = true;
+        if (!buf) { fclose(f); return false; }
+    }
 
-    static uint8_t row[320 * 3 + 4];                        // ligne source : tampon statique (max 320px * 24 bits, aligne 4)
+    static uint8_t row[320 * 3 + 4];   // ligne source : tampon statique (max 320px * 24 bits, aligne 4)
     int row_bytes_src = ((width * (bpp / 8) + 3) / 4) * 4;   // BMP : lignes alignees sur 4 octets
-
-    if (fseek(f, data_offset, SEEK_SET) != 0) { if (temp) free(buf); fclose(f); return false; }   // SEC-07
+    if (fseek(f, data_offset, SEEK_SET) != 0) { if (temp) free_big(buf); fclose(f); return false; }
     for (int32_t y = 0; y < height; ++y) {
-        if (fread(row, 1, row_bytes_src, f) != (size_t)row_bytes_src) { if (temp) free(buf); fclose(f); return false; }
+        if (fread(row, 1, row_bytes_src, f) != (size_t)row_bytes_src) {
+            if (temp) free_big(buf);
+            fclose(f);
+            return false;
+        }
         int dst_y = flip_y ? (height - 1 - y) : y;
         uint16_t* dst_row = buf + (size_t)dst_y * width;
         for (int32_t x = 0; x < width; ++x) {
@@ -173,13 +193,13 @@ bool blit_bmp(const char* path) {
         strncpy(s_bmp_path, path, sizeof(s_bmp_path) - 1); s_bmp_path[sizeof(s_bmp_path) - 1] = 0;
     }
     gfx.drawImage(0, 0, buf, (uint16_t)width, (uint16_t)height);
-    if (temp) free(buf);
+    s_dirty = true;
+    if (temp) free_big(buf);
     return true;
 }
 
 uint32_t buttons()          { return remap_keys(g_keys.raw); }
 uint32_t buttons_pressed()  { return remap_keys(g_keys.pressed); }
-
 uint32_t millis() { return (uint32_t)(esp_timer_get_time() / 1000); }
 
 bool file_exists(const char* path) {
@@ -190,16 +210,15 @@ bool file_exists(const char* path) {
 }
 
 void return_to_loader() { akaRuntime.returnToLoader(); }
-
 void log(const char* msg) { printf("[ASTERIA] %s\n", msg); }
 
 }  // namespace gb
 
 namespace gb {
 void draw_image(const uint16_t* px, uint16_t w, uint16_t h, int x, int y){
-    if (raster_state().neutral()) { gfx.drawImage((int16_t)x, (int16_t)y, px, w, h); return; }   // blit opaque (clippe)
+    if (raster_state().neutral()) { gfx.drawImage((int16_t)x, (int16_t)y, px, w, h); s_dirty = true; return; }
     RasterState& r = raster_state();
-    if (r.buf && !r.clip) {                                   // cible tampon : copie ligne a ligne
+    if (r.buf && !r.clip) {   // cible tampon : copie ligne a ligne
         for (int j = 0; j < h; ++j) { int dy = y + j - r.oy; if ((unsigned)dy >= (unsigned)r.bh) continue;
             int dx0 = x - r.ox, i0 = dx0 < 0 ? -dx0 : 0, i1 = (dx0 + w > r.bw) ? r.bw - dx0 : w;
             if (i1 > i0) memcpy(r.buf + dy * r.bw + dx0 + i0, px + j * w + i0, (size_t)(i1 - i0) * 2); }
@@ -210,14 +229,15 @@ void draw_image_key(const uint16_t* px, uint16_t w, uint16_t h, int x, int y, ui
     if (!raster_state().neutral()) {
         for (int j = 0; j < h; ++j) for (int i = 0; i < w; ++i) { uint16_t c = px[j * w + i]; if (c != key) put(x + i, y + j, c); }
         return; }
-    for(int j=0;j<h;++j){ int dy=y+j; if((unsigned)dy>=(unsigned)SCREEN_H) continue;      // SEC-07 : clipping
+    for(int j=0;j<h;++j){ int dy=y+j; if((unsigned)dy>=(unsigned)SCREEN_H) continue;   // SEC-07 : clipping
       for(int i=0;i<w;++i){ int dx=x+i; if((unsigned)dx>=(unsigned)SCREEN_W) continue;
-        uint16_t c=px[j*w+i]; if(c!=key){ gfx.setColor(c); gfx.drawPixel((int16_t)dx,(int16_t)dy); } } }
+        uint16_t c=px[j*w+i]; if(c!=key){ gfx.setColor(c); gfx.drawPixel((int16_t)dx,(int16_t)dy); s_dirty = true; } } }
 }
 void blit_region(const uint16_t* src, int src_w, int src_h, int sx, int sy, int w, int h, int dx, int dy){
     if (raster_state().neutral() && sx >= 0 && sy >= 0 && sx + w <= src_w && sy + h <= src_h) {
         gfx.drawImage((int16_t)dx, (int16_t)dy, src, (uint16_t)src_w, (uint16_t)src_h,
                       (uint16_t)sx, (uint16_t)sy, (uint16_t)w, (uint16_t)h);   // blit d'atlas materiel
+        s_dirty = true;
         return; }
     for (int j = 0; j < h; ++j) { int yy = sy + j; if ((unsigned)yy >= (unsigned)src_h) continue;
         for (int i = 0; i < w; ++i) { int xx = sx + i; if ((unsigned)xx < (unsigned)src_w) put(dx + i, dy + j, src[yy * src_w + xx]); } }
@@ -242,10 +262,9 @@ bool write_text(const char* path, const char* content){
     FILE* f=fopen(path,"w"); if(!f) return false; fputs(content,f); fclose(f); return true;
 }
 }
-
 namespace gb {
 int read_text(const char* path, char* out, int maxlen){
-    if(!path||!out||maxlen<=0) return -1;                    // SEC-07
+    if(!path||!out||maxlen<=0) return -1;   // SEC-07
     FILE* f=fopen(path,"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
 }
 }
@@ -254,11 +273,16 @@ int read_text(const char* path, char* out, int maxlen){
 // g_audio_player est défini dans main.cpp et déjà "pooled" par AudioMixTask ;
 // on n'ajoute que 2 pistes ton (mélodie + effets). play_tone() ne fait qu'écrire
 // quelques champs lus par pool() : note courte, course bénigne tolérée.
+// La section critique ci-dessous empeche seulement d'etre interrompu sur CE coeur
+// pendant l'ecriture ; AudioMixTask ne prend pas ce verrou, ce n'est donc pas une
+// exclusion mutuelle complete (inutile en pratique, inoffensif : quelques us).
 #include "gb_audio_track_tone.h"
 extern gb_audio_player g_audio_player;
 namespace gb {
 static gb_audio_track_tone s_music_tr, s_sfx_tr;
 static bool s_audio_ready=false;
+static portMUX_TYPE s_audio_mux = portMUX_INITIALIZER_UNLOCKED;
+
 void audio_init(){
     if(s_audio_ready) return;
     g_audio_player.add_track(&s_music_tr, 0.9f);
@@ -267,15 +291,21 @@ void audio_init(){
 }
 void tone_music(float f,float vol,uint16_t ms,uint8_t type){
     if(!s_audio_ready) return;
+    portENTER_CRITICAL(&s_audio_mux);
     s_music_tr.play_tone(f, vol, ms, (gb_audio_track_tone::tone_type)type);
+    portEXIT_CRITICAL(&s_audio_mux);
 }
 void tone_sfx(float f,float vol,uint16_t ms,uint8_t type){
     if(!s_audio_ready) return;
+    portENTER_CRITICAL(&s_audio_mux);
     s_sfx_tr.play_tone(f, vol, ms, (gb_audio_track_tone::tone_type)type);
+    portEXIT_CRITICAL(&s_audio_mux);
 }
 void audio_stop(){
     if(!s_audio_ready) return;
+    portENTER_CRITICAL(&s_audio_mux);
     s_music_tr.stop_playing(); s_sfx_tr.stop_playing();
+    portEXIT_CRITICAL(&s_audio_mux);
 }
 }
 #endif  // ESP_PLATFORM

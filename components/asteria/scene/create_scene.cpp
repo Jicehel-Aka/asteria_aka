@@ -6,12 +6,16 @@
 #include "player.h"
 #include "scene/world_scene.h"
 #include <cstdio>
+#include "save.h"
 #include <cstring>
 #include "content_i18n.h"
 namespace asteria {
 static const int BASE=8, MINV=8, MAXV=30, POOL0=18;
 CreateScene& create_scene(){ static CreateScene s; return s; }
-void CreateScene::enter(){ new_game_reset(); step=0; selChoice=0; cur=0; st[0]=st[1]=st[2]=st[3]=BASE; pool=POOL0;
+void CreateScene::enter(){ new_game_reset();
+  // 3 emplacements : la nouvelle partie prend le premier emplacement LIBRE (sinon
+  // l'auto-sauvegarde ecraserait la partie de l'emplacement actif sans prevenir).
+  for(int s=1;s<=3;s++){ SaveSummary sm; if(!save_slot_summary(s,sm)){ set_active_save_slot(s); break; } } step=0; selChoice=0; cur=0; st[0]=st[1]=st[2]=st[3]=BASE; pool=POOL0;
   strcpy(nm,"Aren        "); ncur=0; editing=false; female=false; idSel=0; }
 // Jeu de caracteres du nom (haut/bas fait defiler) ; ' ' = case vide.
 static const char NAMESET[]=" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-'";

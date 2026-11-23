@@ -13,18 +13,19 @@ struct Inventory {
 struct Character {
   // caractéristiques de départ (3..30)
   int IN, CO, MA, AU;
-  int VIT, BL;              // vitalité, blessures (mort si BL>VIT)
+  int VIT, BL;   // vitalité, blessures (mort si BL>VIT)
   int PO;                   // pouvoir = somme des attitudes
-  int attitude[4];          // 0 Agressive, 1 Amicale, 2 Rusée, 3 Prudente
-  int weapon;               // index objet arme équipée
+  int attitude[4];          // 0 Agressive, 1 Amicale, 2 Rusee, 3 Prudente
+  int weapon;               // index objet arme equipee
   uint32_t spells;          // masque de bits sur data::SPELLS
-  int xp, gold, level;       // progression
-  int mana, manaMax;         // pouvoir (mana) pour les sorts
-  char name[16];             // DELTA-02 : nom affiche (Caithness, ou nom du voyageur cree)
-  bool female;               // DELTA-02 : accords des dialogues (voyageuse / voyageur)
+  int xp, gold, level;   // progression
+  int mana, manaMax;   // pouvoir (mana) pour les sorts
+  int torchFuel;            // lumiere dans la Vieille Mine (0..100)
+  char name[16];   // DELTA-02 : nom affiche (Caithness, ou nom du voyageur cree)
+  bool female;   // DELTA-02 : accords des dialogues (voyageuse / voyageur)
   Inventory inv;
 };
-int  item_index(const char* id);      // résout un OBJ_xxxx -> index (ou -1)
+int  item_index(const char* id);   // résout un OBJ_xxxx -> index (ou -1)
 int  recipe_index(const char* id);
 Character new_caithness();
 // DELTA-02 : adapte un texte AFFICHE au heros courant (deja traduit par trc()) :
@@ -32,7 +33,19 @@ Character new_caithness();
 // viajera -> viajero, Reisende -> Reisender, viaggiatrice -> viaggiatore...).
 // Renvoie s tel quel pour Caithness ; sinon un tampon interne (2 en rotation).
 const char* hero_text(const char* s);
-Character& player();             // crée la feuille de départ
-void add_attitude(Character& c, int a);// +1 attitude -> +1 Pouvoir
+Character& player();   // crée la feuille de départ
+void add_attitude(Character& c, int a);   // +1 attitude -> +1 Pouvoir
 bool try_craft(Character& c, int recipe_idx, bool at_forge);
+
+// Utilitaires RPG (artisanat, armures, boutique, consommables, lumiere)
+int  armor_defense(const Character& c);
+int  weapon_bonus_of(int item, int& hitBonus, bool& isBow);
+bool is_weapon_item(int item);
+bool is_consumable_field(int item);
+bool use_item_field(Character& c, int item, char* out, int cap);
+const char* item_desc(int item);
+int  item_base_price(int item);
+int  apply_au_discount(int price, int au);
+int  item_sell_price(int item);
+bool is_item_sellable(int item);
 }

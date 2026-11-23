@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <climits>
 #include <string>
 #ifdef _WIN32
 #include <direct.h>
@@ -49,12 +50,14 @@ bool blit_bmp(const char* path){
     return true;
   }
   FILE* fp=fopen(mp(path).c_str(),"rb"); if(!fp) return false; unsigned char h[54]; if(fread(h,1,54,fp)!=54||h[0]!='B'||h[1]!='M'){fclose(fp);return false;}  // SEC-07 : signature
-  int W=h[18]|h[19]<<8|h[20]<<16|h[21]<<24,H=h[22]|h[23]<<8|h[24]<<16|h[25]<<24,bpp=h[28]|h[29]<<8,off=h[10]|h[11]<<8|h[12]<<16|h[13]<<24;
-  if(bpp!=24 || W<=0 || H<=0 || W>(int)SCREEN_W || H>(int)SCREEN_H || off<54){fclose(fp);return false;}  // SEC-02 : bornes
-  if(fseek(fp,off,SEEK_SET)!=0){fclose(fp);return false;}                 // SEC-07
+  int32_t W=(int32_t)(h[18]|(h[19]<<8)|(h[20]<<16)|(h[21]<<24)), H_raw=(int32_t)(h[22]|(h[23]<<8)|(h[24]<<16)|(h[25]<<24));
+  int bpp=h[28]|(h[29]<<8); uint32_t off=(uint32_t)(h[10]|(h[11]<<8)|(h[12]<<16)|(h[13]<<24));
+  bool flip_y=H_raw>0; int H=flip_y?H_raw:(H_raw==INT32_MIN?0:-H_raw);
+  if(bpp!=24 || W<=0 || H<=0 || W>(int)SCREEN_W || H>(int)SCREEN_H || off<54){fclose(fp);return false;}   // SEC-02 : bornes
+  if(fseek(fp,(long)off,SEEK_SET)!=0){fclose(fp);return false;}
   int row=((W*3+3)/4)*4; std::vector<unsigned char> b(row);
-  for(int yy=0;yy<H;yy++){ if(fread(b.data(),1,row,fp)!=(size_t)row)break; int dy=H-1-yy;
-    for(int xx=0;xx<W;xx++) s_bmp_buf[dy*SCREEN_W+xx]=rgb(b[xx*3+2],b[xx*3+1],b[xx*3]); }  // decode -> cache
+  for(int yy=0;yy<H;yy++){ if(fread(b.data(),1,row,fp)!=(size_t)row){ fclose(fp); return false; } int dy=flip_y?(H-1-yy):yy;
+    for(int xx=0;xx<W;xx++) s_bmp_buf[dy*SCREEN_W+xx]=rgb(b[xx*3+2],b[xx*3+1],b[xx*3]); }   // decode -> cache
   fclose(fp);
   s_bmp_w=W; s_bmp_h=H; strncpy(s_bmp_path,path,sizeof(s_bmp_path)-1); s_bmp_path[sizeof(s_bmp_path)-1]=0;
   for(int y=0;y<H;y++) for(int x=0;x<W;x++) FB[y*SCREEN_W+x]=s_bmp_buf[y*SCREEN_W+x];          // cache -> ecran
