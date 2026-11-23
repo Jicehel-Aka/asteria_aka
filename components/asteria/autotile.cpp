@@ -195,7 +195,7 @@ void draw_tree(int sx,int sy){
   const spr::Sprite& G=spr::TILE[0];                       // herbe dessous
   for(int y=0;y<16;y++)for(int x=0;x<16;x++) gb::pixel(sx+x,sy+y,G.px[y*16+x]);
   int v=hash2(sx,sy);
-  double rad = 8.8 + (double)(v%3)*0.5;                    // 8.8 .. 9.8 : meme espece, taille un peu variable
+  double rad = 6.6 + (double)(v%3)*0.5;                    // 6.6 .. 7.6 : couronne plus compacte -> deborde moins sur les cases voisines (sentiers visibles)
   int cx = 8 + (((v>>2)%3)-1);                             // leger decalage horizontal -1..+1
   tree_crown(sx,sy,cx,rad,-3);
 }

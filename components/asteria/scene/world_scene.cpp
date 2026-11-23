@@ -288,7 +288,12 @@ void WorldScene::render(){
     // Un arbre/tour d'une rangee inferieure (en avant) sera dessine ensuite -> il masque le heros, qui "passe derriere".
     for(int i=0;i<M.spawn_n;++i){ const Spawn& s=M.spawns[i]; if(s.y!=y) continue;
       if(s.npc>=0 && s.npc<spr::NPC_COUNT && spr::NPC[s.npc].px){ const spr::Sprite& ns=spr::NPC[s.npc]; gb::draw_image_key(ns.px,ns.w,ns.h,s.x*TILE_SIZE+(TILE_SIZE-ns.w)/2-camx,s.y*TILE_SIZE+TILE_SIZE-ns.h+2-camy,spr::KEY); } else gb::fill_rect(s.x*TILE_SIZE+4-camx,s.y*TILE_SIZE+2-camy,8,12,gb::rgb(230,220,120)); }
-    if(py==y){ int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1; const spr::Sprite& hs=spr::HERO[dir][fr]; int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy; gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY); }
+    if(py==y){ int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1; const spr::Sprite& hs=spr::HERO[dir][fr]; int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy; gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY);
+      // marqueur : petite fleche doree au-dessus du heros quand il est entoure d'arbres/objets hauts
+      auto tall=[&](int xx,int yy){ if(xx<0||yy<0||xx>=M.w||yy>=M.h) return false; uint8_t q=M.tiles[yy*M.w+xx]; return q==6||q==22||q==28||q==29||q==2||q==13||q==14||q==15; };
+      if(tall(px,py-1)||tall(px,py+1)||tall(px-1,py)||tall(px+1,py)){ int cxm=px*TILE_SIZE+TILE_SIZE/2-camx, ym=sy-7;
+        gb::fill_rect(cxm-4,ym-1,9,1,gb::rgb(20,16,10));
+        for(int r=0;r<4;r++) gb::fill_rect(cxm-(3-r),ym+r,(3-r)*2+1,1,gb::rgb(245,215,95)); } }
   }
   // Securite : heros hors de la plage balayee (ne devrait pas arriver, camera centree).
   if(py<y0||py>=y1){ int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1; const spr::Sprite& hs=spr::HERO[dir][fr]; int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy; gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY); }
