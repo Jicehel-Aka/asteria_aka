@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Internationalisation de l'UI : table STR[StrId][langue] + tr(id) pour les 5 langues (FR/EN/ES/DE/IT).
 #include "i18n.h"
 namespace asteria { namespace i18n {
 static int g_lang = FR;

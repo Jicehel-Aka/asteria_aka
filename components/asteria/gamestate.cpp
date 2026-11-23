@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Etat de partie global : drapeaux nommes (progression) et statut/objectif des quetes. Sert de base a la sauvegarde.
 #include "gamestate.h"
 #include <cstring>
 namespace asteria {

@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Scene monde (vue du dessus) : deplacement, PNJ/dialogues, coffres, quetes, rencontres aleatoires, bandeau HUD, auto-sauvegarde au changement de carte.
 #include <cstdio>
 #include "i18n.h"
 #include "scene/world_scene.h"

@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Suivi/affichage de la progression (barre de chargement).
 #include "progress.h"
 #include "gamestate.h"
 #include "player.h"

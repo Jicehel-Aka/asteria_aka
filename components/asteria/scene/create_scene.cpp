@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Ecran de creation de personnage (pre-tire Caithness ou repartition manuelle des points), fond illustration HD.
 #include "scene/create_scene.h"
 #include "i18n.h"
 #include "ui/text.h"

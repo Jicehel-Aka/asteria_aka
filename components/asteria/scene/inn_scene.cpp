@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Auberge : repos (restaure les PV) et rumeurs localisees.
 #include "scene/inn_scene.h"
 #include "i18n.h"
 #include "platform/gb_port.h"

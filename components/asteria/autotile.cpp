@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Rendu procedural des tuiles (herbe/eau/chemin/route/toits/murs/arbres) et auto-raccord des bordures selon les 8 voisins.
 #include "autotile.h"
 #include "platform/gb_port.h"
 #include "generated/asteria_water.h"

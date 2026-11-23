@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Melodies et effets sonores (jingles) joues via le port audio.
 #include "audio/jingle.h"
 #include "platform/gb_port.h"
 

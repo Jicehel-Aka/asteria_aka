@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Echoppe : achat d'objets contre de l'or.
 #include "scene/shop_scene.h"
 #include "i18n.h"
 #include "platform/gb_port.h"

@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Pile de scenes et routage SceneManager::set(SceneId) vers la scene active.
 #include "scene/scene.h"
 #include "scene/title_scene.h"
 #include "scene/create_scene.h"

@@ -27,11 +27,27 @@ void fill_rect(int x,int y,int w,int h,Color c){ for(int j=0;j<h;j++)for(int i=0
 static std::string mp(const char* p){ if(!p) return ""; std::string s=p,k="/sdcard/";
   if(s.rfind(k,0)!=0 || s.find("..")!=std::string::npos || s.find('\\')!=std::string::npos) return "";  // SEC-05 : anti traversee
   return "./sdcard_files/"+s.substr(k.size()); }
-bool blit_bmp(const char* path){ FILE* fp=fopen(mp(path).c_str(),"rb"); if(!fp) return false; unsigned char h[54]; if(fread(h,1,54,fp)!=54){fclose(fp);return false;}
+// OPT-AKA-2 : cache du dernier BMP decode. Un combat/ecran reaffiche le meme fond
+// a chaque frame ; sans cache on relirait le fichier 60x/s (catastrophique sur SD).
+// On garde le dernier chemin + ses pixels RGB565 en RAM et on re-blitte sans relire.
+static char     s_bmp_path[160] = {0};
+static uint16_t s_bmp_buf[SCREEN_W*SCREEN_H];
+static int      s_bmp_w = 0, s_bmp_h = 0;
+bool blit_bmp(const char* path){
+  if(path && s_bmp_w>0 && strcmp(s_bmp_path,path)==0){                 // cache hit : re-blit depuis la RAM
+    for(int y=0;y<s_bmp_h;y++) for(int x=0;x<s_bmp_w;x++) FB[y*SCREEN_W+x]=s_bmp_buf[y*SCREEN_W+x];
+    return true;
+  }
+  FILE* fp=fopen(mp(path).c_str(),"rb"); if(!fp) return false; unsigned char h[54]; if(fread(h,1,54,fp)!=54){fclose(fp);return false;}
   int W=h[18]|h[19]<<8|h[20]<<16|h[21]<<24,H=h[22]|h[23]<<8|h[24]<<16|h[25]<<24,bpp=h[28]|h[29]<<8,off=h[10]|h[11]<<8|h[12]<<16|h[13]<<24;
   if(bpp!=24 || W<=0 || H<=0 || W>(int)SCREEN_W || H>(int)SCREEN_H || off<54){fclose(fp);return false;}  // SEC-02 : bornes
   fseek(fp,off,SEEK_SET); int row=((W*3+3)/4)*4; std::vector<unsigned char> b(row);
-  for(int yy=0;yy<H;yy++){ if(fread(b.data(),1,row,fp)!=(size_t)row)break; int dy=H-1-yy; for(int xx=0;xx<W;xx++){ if(dy<SCREEN_H&&xx<SCREEN_W) FB[dy*SCREEN_W+xx]=rgb(b[xx*3+2],b[xx*3+1],b[xx*3]);} } fclose(fp); return true; }
+  for(int yy=0;yy<H;yy++){ if(fread(b.data(),1,row,fp)!=(size_t)row)break; int dy=H-1-yy;
+    for(int xx=0;xx<W;xx++) s_bmp_buf[dy*SCREEN_W+xx]=rgb(b[xx*3+2],b[xx*3+1],b[xx*3]); }  // decode -> cache
+  fclose(fp);
+  s_bmp_w=W; s_bmp_h=H; strncpy(s_bmp_path,path,sizeof(s_bmp_path)-1); s_bmp_path[sizeof(s_bmp_path)-1]=0;
+  for(int y=0;y<H;y++) for(int x=0;x<W;x++) FB[y*SCREEN_W+x]=s_bmp_buf[y*SCREEN_W+x];          // cache -> ecran
+  return true; }
 uint32_t buttons(){ return 0; }
 static int g_inject=-1;   // autopilote : injection d'entree frame par frame
 uint32_t buttons_pressed(){ if(g_inject>=0) return code2btn(g_inject); if(g_scriptN<0) loadScript(); return (g_frame<g_scriptN)?code2btn(g_script[g_frame]):0; }

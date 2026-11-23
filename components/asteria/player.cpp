@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Personnage joueur : caracteristiques (IN/CO/MA/AU/VIT...), inventaire (saturation 255), et fabrication try_craft().
 #include "player.h"
 #include <cstring>
 #include "generated/asteria_gen.h"

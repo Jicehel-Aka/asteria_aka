@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Boucle de jeu principale : chaque frame -> mgr.update() -> audio::update() -> mgr.render() -> frame_end().
 #include "asteria_app.h"
 #include "scene/scene.h"
 #include "platform/gb_port.h"

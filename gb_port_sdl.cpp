@@ -56,13 +56,25 @@ void fill_rect(int x,int y,int w,int h,Color c){ for(int j=0;j<h;j++)for(int i=0
 static std::string mp(const char* p){ if(!p) return ""; std::string s=p,k="/sdcard/";
   if(s.rfind(k,0)!=0 || s.find("..")!=std::string::npos || s.find('\\')!=std::string::npos) return "";  // SEC-05 : anti traversee
   return "./sdcard_files/"+s.substr(k.size()); }
+// OPT-AKA-2 : cache du dernier BMP decode (voir gb_port_host.cpp) — evite de relire/decoder
+// le meme fond a chaque frame pendant un combat ou sur l'ecran de creation.
+static char     s_bmp_path[160] = {0};
+static uint16_t s_bmp_buf[SCREEN_W*SCREEN_H];
+static int      s_bmp_w = 0, s_bmp_h = 0;
 bool blit_bmp(const char* path){
+  if(path && s_bmp_w>0 && strcmp(s_bmp_path,path)==0){                 // cache hit : re-blit depuis la RAM
+    for(int y=0;y<s_bmp_h;y++) for(int x=0;x<s_bmp_w;x++) FB[y*SCREEN_W+x]=s_bmp_buf[y*SCREEN_W+x];
+    return true;
+  }
   SDL_Surface* s=SDL_LoadBMP(mp(path).c_str()); if(!s) return false;
   SDL_Surface* c=SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_RGB24,0); SDL_FreeSurface(s); if(!c) return false;
   unsigned char* px=(unsigned char*)c->pixels;
-  for(int y=0;y<c->h&&y<SCREEN_H;y++)for(int x=0;x<c->w&&x<SCREEN_W;x++){ unsigned char* p=px+y*c->pitch+x*3;
-    FB[y*SCREEN_W+x]=rgb(p[0],p[1],p[2]); }
-  SDL_FreeSurface(c); return true;
+  int W=c->w<SCREEN_W?c->w:SCREEN_W, H=c->h<SCREEN_H?c->h:SCREEN_H;
+  for(int y=0;y<H;y++)for(int x=0;x<W;x++){ unsigned char* p=px+y*c->pitch+x*3; s_bmp_buf[y*SCREEN_W+x]=rgb(p[0],p[1],p[2]); }
+  SDL_FreeSurface(c);
+  s_bmp_w=W; s_bmp_h=H; strncpy(s_bmp_path,path,sizeof(s_bmp_path)-1); s_bmp_path[sizeof(s_bmp_path)-1]=0;
+  for(int y=0;y<H;y++)for(int x=0;x<W;x++) FB[y*SCREEN_W+x]=s_bmp_buf[y*SCREEN_W+x];
+  return true;
 }
 uint32_t buttons(){ return g_held; }
 uint32_t buttons_pressed(){ return g_pressed; }

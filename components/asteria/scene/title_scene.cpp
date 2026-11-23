@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Ecran-titre : Nouvelle partie (creation), Continuer (charge SAVE.DAT), options de langue.
 #include "scene/title_scene.h"
 #include "save.h"
 #include "i18n.h"
