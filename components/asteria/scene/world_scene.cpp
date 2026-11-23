@@ -100,8 +100,7 @@ void new_game_reset(){ WorldScene& w=world_scene(); w.started=false; w.confirmQu
 static int map_for_loc(int loc){ for(int i=0;i<MAP_COUNT;++i) if(MAPS[i].location==loc) return i; return -1; }
 void WorldScene::load_map(int m){ map=m; px=MAPS[m].px; py=MAPS[m].py; gb::log(MAPS[m].id); }
 void WorldScene::enter(){
-  savedMap=-2;                   // force une sauvegarde au prochain update stable (incl. retour de combat)
-  if(started) return;            // retour de combat : on garde la carte/position
+  if(started) return;            // retour de combat : on garde la carte/position (et savedMap -> pas de re-sauvegarde)
   started=true; int gp=map_for_loc(22); load_map(gp>=0?gp:0);   // Arc 0 : demarrage dans la Grande Plaine
   if(MAPS[map].location==22){ quest_start(17); discover_zone(22); notice=true;
     noticeTxt="La Breche se referme derriere toi. Te voici dans la Grande Plaine d'Asteria."; }
