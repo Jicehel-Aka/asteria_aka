@@ -53,10 +53,46 @@ static int hsh(int v){ uint32_t x=(uint32_t)v*2654435761u; x^=x>>13; x*=22468225
 static int rough(int seed,int i,int amp){ if(amp<1)amp=1; int a=hsh(seed+(i>>2)), b=hsh(seed+(i>>2)+1); int f=i&3; int va=a%amp, vb=b%amp; return va+((vb-va)*f)/4; }
 static int vari(int wx,int wy){ return (wx*7+wy*13)&(dtex::NWALL-1); }
 
+// OPT-AKA-1 : floor-casting du sol/plafond.
+// La version optimisee (ASTERIA_FAST_RAYCAST) remplace la math flottante par pixel
+// par de la virgule fixe Q16.16 (la boucle interne ~50 000 px/frame devient entiere,
+// nettement plus rapide sur ESP32). Pour revenir a la version flottante d'origine :
+// compiler avec -DASTERIA_FAST_RAYCAST=0.
+#ifndef ASTERIA_FAST_RAYCAST
+#define ASTERIA_FAST_RAYCAST 1
+#endif
+
 // ----- sol + plafond en floor-casting perspectif (dalles qui fuient correctement) -----
 static void floorCeil(DungeonScene& d,float posX,float posY,float dirX,float dirY,float planeX,float planeY,float flick){
   const int TWt=dtex::TW, TWm=dtex::TW-1, THm=dtex::TH-1;
   const uint16_t* FL=dtex::FLOOR[0]; const uint16_t* CE=dtex::WALL[2];
+#if ASTERIA_FAST_RAYCAST
+  // ---- version virgule fixe Q16.16 (boucle interne entiere) ----
+  for(int y=CY+1;y<240;y++){
+    int p=y-CY; float rowDist=(float)CY/p;
+    float sX=rowDist*(2*planeX)/VW, sY=rowDist*(2*planeY)/VW;
+    float fX=posX+rowDist*dirX-rowDist*planeX, fY=posY+rowDist*dirY-rowDist*planeY;
+    float lf=1.18f-rowDist*0.17f; if(lf<0.14f)lf=0.14f; int l=(int)(lf*flick*256.f);
+    int32_t fXq=(int32_t)(fX*65536.f), fYq=(int32_t)(fY*65536.f), sXq=(int32_t)(sX*65536.f), sYq=(int32_t)(sY*65536.f);
+    for(int x=0;x<VW;x++){ int cx=fXq>>16, cy=fYq>>16;
+      int tx=(int)(((uint32_t)(fXq&0xFFFF)*dtex::TW)>>16)&TWm, ty=(int)(((uint32_t)(fYq&0xFFFF)*dtex::TH)>>16)&THm;
+      gb::Color c=shade(FL[ty*TWt+tx],l);
+      if(cellAt(d,cx,cy)==5){ int wl=l>270?270:l; int sh=((tx*5+ty*9)&7);   // flaque : eau sombre feutree
+        c=shade(gb::rgb(16+sh*2, 40+sh*2, 62+sh*3), wl); }
+      gb::pixel(x,y,c); fXq+=sXq; fYq+=sYq; }
+  }
+  for(int y=0;y<CY;y++){
+    int p=CY-y; if(p<1)p=1; float rowDist=(float)CY/p;
+    float sX=rowDist*(2*planeX)/VW, sY=rowDist*(2*planeY)/VW;
+    float fX=posX+rowDist*dirX-rowDist*planeX, fY=posY+rowDist*dirY-rowDist*planeY;
+    float lf=0.78f-rowDist*0.16f; if(lf<0.10f)lf=0.10f; int l=(int)(lf*flick*256.f);
+    int32_t fXq=(int32_t)(fX*65536.f), fYq=(int32_t)(fY*65536.f), sXq=(int32_t)(sX*65536.f), sYq=(int32_t)(sY*65536.f);
+    for(int x=0;x<VW;x++){
+      int tx=(int)(((uint32_t)(fXq&0xFFFF)*dtex::TW)>>16)&TWm, ty=(int)(((uint32_t)(fYq&0xFFFF)*dtex::TH)>>16)&THm;
+      gb::pixel(x,y,shade(CE[ty*TWt+tx],l)); fXq+=sXq; fYq+=sYq; }
+  }
+#else
+  // ---- version flottante d'origine (repli) ----
   for(int y=CY+1;y<240;y++){
     int p=y-CY; float rowDist=(float)CY/p;
     float sX=rowDist*(2*planeX)/VW, sY=rowDist*(2*planeY)/VW;
@@ -65,7 +101,7 @@ static void floorCeil(DungeonScene& d,float posX,float posY,float dirX,float dir
     for(int x=0;x<VW;x++){ int cx=(int)fX, cy=(int)fY; if(fX<0)cx--; if(fY<0)cy--;
       int tx=((int)(dtex::TW*(fX-cx)))&TWm, ty=((int)(dtex::TH*(fY-cy)))&THm;
       gb::Color c=shade(FL[ty*TWt+tx],l);
-      if(cellAt(d,cx,cy)==5){ int wl=l>270?270:l; int sh=((tx*5+ty*9)&7);   // flaque : eau sombre feutree, luminosite plafonnee (pas de bleu criard)
+      if(cellAt(d,cx,cy)==5){ int wl=l>270?270:l; int sh=((tx*5+ty*9)&7);
         c=shade(gb::rgb(16+sh*2, 40+sh*2, 62+sh*3), wl); }
       gb::pixel(x,y,c); fX+=sX; fY+=sY; }
   }
@@ -78,6 +114,7 @@ static void floorCeil(DungeonScene& d,float posX,float posY,float dirX,float dir
       int tx=((int)(dtex::TW*(fX-cx)))&TWm, ty=((int)(dtex::TH*(fY-cy)))&THm;
       gb::pixel(x,y,shade(CE[ty*TWt+tx],l)); fX+=sX; fY+=sY; }
   }
+#endif
 }
 
 // ----- flamme de torche vacillante -----
