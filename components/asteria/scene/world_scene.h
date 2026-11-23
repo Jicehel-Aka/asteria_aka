@@ -4,6 +4,7 @@
 namespace asteria {
 struct WorldScene : Scene {
   int map=0; int px=0, py=0; int dir=0; int hf=1; uint32_t lastMove=0;
+  int camX=0, camY=0, camMap=-1;   // camera persistante (zone morte) ; camMap != map -> recadrage
   bool notice=false; const char* noticeTxt=nullptr; bool started=false;
   bool confirmQuit=false; bool dlg=false; int dlgNpc=-1; int dlgNode=0; int dlgLine=0;
   int savedMap=-2; int epiLine=0;

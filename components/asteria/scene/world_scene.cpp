@@ -138,7 +138,8 @@ void new_game_reset(){
 }
 
 static int map_for_loc(int loc){ for(int i=0;i<MAP_COUNT;++i) if(MAPS[i].location==loc) return i; return -1; }
-void WorldScene::load_map(int m){ map=m; px=MAPS[m].px; py=MAPS[m].py; gb::log(MAPS[m].id); }
+void WorldScene::load_map(int m){ camMap=-1;   // recadrage camera sur la nouvelle carte
+  map=m; px=MAPS[m].px; py=MAPS[m].py; gb::log(MAPS[m].id); }
 
 void WorldScene::enter(){
   if(started) return;   // retour de combat : on garde la carte/position (et savedMap -> pas de re-sauvegarde)
@@ -543,10 +544,25 @@ static void occlude(const Map& M,int row,int camx,int camy,int bx,int by,int bw,
 
 void WorldScene::render(){
   const Map& M=MAPS[map];
-  int camx=px*TILE_SIZE+TILE_SIZE/2-160, camy=py*TILE_SIZE+TILE_SIZE/2-120;
-  int maxx=M.w*TILE_SIZE-320, maxy=M.h*TILE_SIZE-240;
-  if(maxx<0) camx=maxx/2; else { if(camx<0)camx=0; if(camx>maxx)camx=maxx; }
-  if(maxy<0) camy=maxy/2; else { if(camy<0)camy=0; if(camy>maxy)camy=maxy; }
+  // Camera a zone morte, sur les 2 axes. La zone de jeu visible va de x=0 a 320 et
+  // de y=HUD_H (sous le bandeau) a 240. La camera ne bouge que lorsque le heros sort
+  // du tiers central de cette zone (haut/bas/gauche/droite), puis s'arrete sur les
+  // bords de la carte. En haut elle descend jusqu'a camy=-HUD_H : la rangee 0
+  // s'affiche juste sous le bandeau au lieu d'etre masquee (rangees 0-1 accessibles).
+  const int HUD_H=32, VIEW_W=320, VIEW_H=240-HUD_H, ZX=VIEW_W/3, ZY=VIEW_H/3;
+  if(camMap!=map){ camMap=map;                                   // arrivee sur la carte : heros au centre de la zone
+    camX=px*TILE_SIZE+TILE_SIZE/2-VIEW_W/2; camY=py*TILE_SIZE+TILE_SIZE/2-(HUD_H+VIEW_H/2); }
+  { int sx=px*TILE_SIZE-camX, sy=py*TILE_SIZE-camY;              // coin haut-gauche de la tuile du heros, a l'ecran
+    if(sx<ZX)                           camX=px*TILE_SIZE-ZX;                          // gauche du 1er tiers
+    else if(sx+TILE_SIZE>VIEW_W-ZX)     camX=px*TILE_SIZE+TILE_SIZE-(VIEW_W-ZX);       // droite du 3e tiers
+    if(sy<HUD_H+ZY)                     camY=py*TILE_SIZE-(HUD_H+ZY);                  // au-dessus du 1er tiers
+    else if(sy+TILE_SIZE>240-ZY)        camY=py*TILE_SIZE+TILE_SIZE-(240-ZY); }        // sous le 3e tiers
+  int maxx=M.w*TILE_SIZE-VIEW_W, miny=-HUD_H, maxy=M.h*TILE_SIZE-240;
+  if(maxx<0) camX=maxx/2;                                         // carte moins large que l'ecran : centree
+  else { if(camX<0)camX=0; if(camX>maxx)camX=maxx; }
+  if(maxy<miny) camY=miny-(VIEW_H-M.h*TILE_SIZE)/2;             // carte moins haute que la zone : centree sous le bandeau
+  else { if(camY<miny)camY=miny; if(camY>maxy)camY=maxy; }
+  int camx=camX, camy=camY;
   int x0=camx/TILE_SIZE-1, y0=camy/TILE_SIZE-1, x1=x0+25, y1=y0+20;
   if(x0<0)x0=0; if(y0<0)y0=0; if(x1>M.w)x1=M.w; if(y1>M.h)y1=M.h;
 
