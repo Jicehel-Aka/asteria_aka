@@ -61,27 +61,32 @@ static void map_load(){
   mchn=0;
 }
 
-// SEC-04 : 64x64 tuiles * jusqu'a 4 octets ("32, ") = ~16 Ko + PNJ/portails -> 24 Ko.
+// Tampons d'export/relecture : alloues sur le tas (PSRAM sur AKA) le temps de
+// l'operation. En statique (.bss) ils debordaient la DRAM interne de l'ESP32.
+struct EdBuf{ char* p; int cap; explicit EdBuf(int n):p((char*)gb::alloc_big((unsigned)n)),cap(p?n:0){ if(p) p[0]=0; } ~EdBuf(){ if(p) gb::free_big(p); } };
+static const int MAP_BUF=24576, SPR_BUF=32000;   // SEC-04 : 64x64 tuiles "32, " + PNJ/portails
+
+// (voir EdBuf) SEC-04 : 64x64 tuiles * jusqu'a 4 octets ("32, ") = ~16 Ko + PNJ/portails -> 24 Ko.
 static bool map_export(){
-  static char buf[24576]; int o=0;
-  o=app(buf,sizeof(buf),o,"// MAP_%04d (editeur) start px=%d py=%d  w=%d h=%d\n",mp+1,mpx,mpy,mw,mh);
-  o=app(buf,sizeof(buf),o,"static const uint8_t MAP%d_T[]={",mp);
-  for(int i=0;i<mw*mh;i++) o=app(buf,sizeof(buf),o,"%s%d",i?", ":"",mtiles[i]);
-  o=app(buf,sizeof(buf),o,"};\nstatic const Spawn MAP%d_S[]={",mp);
-  if(mspn==0) o=app(buf,sizeof(buf),o,"{-1,0,0}");
-  for(int i=0;i<mspn;i++) o=app(buf,sizeof(buf),o,"%s{%d,%d,%d}",i?", ":"",msp[i].npc,msp[i].x,msp[i].y);
-  o=app(buf,sizeof(buf),o,"};\nstatic const Portal MAP%d_P[]={",mp);
-  if(mpon==0) o=app(buf,sizeof(buf),o,"{0,0,-1,-1,-1}");
-  for(int i=0;i<mpon;i++) o=app(buf,sizeof(buf),o,"%s{%d,%d,%d,%d,%d}",i?", ":"",mpo[i].x,mpo[i].y,mpo[i].target,mpo[i].ax,mpo[i].ay);
-  o=app(buf,sizeof(buf),o,"};\n// Coffres (a cabler dans world CHESTS) : ");
-  for(int i=0;i<mchn;i++) o=app(buf,sizeof(buf),o,"%s{loc,%d,%d}",i?", ":"",mch[i].x,mch[i].y);
-  o=app(buf,sizeof(buf),o,"\n");
-  if(o>=(int)sizeof(buf)-1){ snprintf(mmsg,56,"Export tronque !"); return false; }   // SEC-04 : jamais de fichier coupe
+  EdBuf B(MAP_BUF); if(!B.p){ snprintf(mmsg,56,"Memoire insuffisante"); return false; } char* buf=B.p; const int BUFN=B.cap; int o=0;
+  o=app(buf,BUFN,o,"// MAP_%04d (editeur) start px=%d py=%d  w=%d h=%d\n",mp+1,mpx,mpy,mw,mh);
+  o=app(buf,BUFN,o,"static const uint8_t MAP%d_T[]={",mp);
+  for(int i=0;i<mw*mh;i++) o=app(buf,BUFN,o,"%s%d",i?", ":"",mtiles[i]);
+  o=app(buf,BUFN,o,"};\nstatic const Spawn MAP%d_S[]={",mp);
+  if(mspn==0) o=app(buf,BUFN,o,"{-1,0,0}");
+  for(int i=0;i<mspn;i++) o=app(buf,BUFN,o,"%s{%d,%d,%d}",i?", ":"",msp[i].npc,msp[i].x,msp[i].y);
+  o=app(buf,BUFN,o,"};\nstatic const Portal MAP%d_P[]={",mp);
+  if(mpon==0) o=app(buf,BUFN,o,"{0,0,-1,-1,-1}");
+  for(int i=0;i<mpon;i++) o=app(buf,BUFN,o,"%s{%d,%d,%d,%d,%d}",i?", ":"",mpo[i].x,mpo[i].y,mpo[i].target,mpo[i].ax,mpo[i].ay);
+  o=app(buf,BUFN,o,"};\n// Coffres (a cabler dans world CHESTS) : ");
+  for(int i=0;i<mchn;i++) o=app(buf,BUFN,o,"%s{loc,%d,%d}",i?", ":"",mch[i].x,mch[i].y);
+  o=app(buf,BUFN,o,"\n");
+  if(o>=(int)BUFN-1){ snprintf(mmsg,56,"Export tronque !"); return false; }   // SEC-04 : jamais de fichier coupe
   return gb::write_text("/sdcard/ASTERIA/export_map.txt", buf);
 }
 
 static void map_reload(){
-  static char buf[24576]; int n=gb::read_text("/sdcard/ASTERIA/export_map.txt",buf,sizeof(buf));
+  EdBuf B(MAP_BUF); if(!B.p){ snprintf(mmsg,56,"Memoire insuffisante"); return; } char* buf=B.p; int n=gb::read_text("/sdcard/ASTERIA/export_map.txt",buf,B.cap);
   if(n<=0){ snprintf(mmsg,56,"export_map.txt introuvable"); return; }
   char key[16]; snprintf(key,16,"MAP%d_T[]={",mp);
   char* p=strstr(buf,key); if(!p){ snprintf(mmsg,56,"MAP%d_T absent",mp); return; }
@@ -192,11 +197,11 @@ static void spr_load(){
   for(int y=0;y<sh;y++)for(int x=0;x<sw;x++) sbuf[y*sw+x]=S.px[y*S.w+x];
 }
 static void spr_export(){
-  static char buf[32000]; int o=0; int c,s; asset_of(sasset,c,s);
+  EdBuf B(SPR_BUF); if(!B.p) return; char* buf=B.p; const int BUFN=B.cap; int o=0; int c,s; asset_of(sasset,c,s);
   const char* cat[4]={"tile","hero","npc","mon"};
-  o=app(buf,sizeof(buf),o,"// sprite edite : %s #%d  (%dx%d, 0xF81F=transparent)\nstatic const uint16_t EDIT_%s_%d[] = {\n  ",cat[c],s,sw,sh,cat[c],s);
-  for(int i=0;i<sw*sh;i++){ o=app(buf,sizeof(buf),o,"0x%04X%s",sbuf[i],(i<sw*sh-1)?",":""); if((i%16)==15) o=app(buf,sizeof(buf),o,"\n  "); }
-  o=app(buf,sizeof(buf),o,"\n};\n");
+  o=app(buf,BUFN,o,"// sprite edite : %s #%d  (%dx%d, 0xF81F=transparent)\nstatic const uint16_t EDIT_%s_%d[] = {\n  ",cat[c],s,sw,sh,cat[c],s);
+  for(int i=0;i<sw*sh;i++){ o=app(buf,BUFN,o,"0x%04X%s",sbuf[i],(i<sw*sh-1)?",":""); if((i%16)==15) o=app(buf,BUFN,o,"\n  "); }
+  o=app(buf,BUFN,o,"\n};\n");
   gb::write_text("/sdcard/ASTERIA/export_sprite.txt", buf);
 }
 static void spr_update(SceneManager& mgr){
