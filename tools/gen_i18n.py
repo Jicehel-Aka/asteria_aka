@@ -291,6 +291,15 @@ add("Pas assez de pouvoir !","Not enough power!","Poder insuficiente!","Nicht ge
 add("Soins ! Blessures -8","Healing! Wounds -8","Curacion! Heridas -8","Heilung! Wunden -8","Cura! Ferite -8")
 add("Engourdissement reussi !","Numbness succeeds!","Entumecimiento logrado!","Erstarrung gelingt!","Intorpidimento riuscito!")
 
+# --- Noms de zones (bandeau HUD) ---
+add("Foret de Brume","Mist Forest","Bosque de Bruma","Nebelwald","Foresta della Bruma")
+add("Vieille Mine","Old Mine","Vieja Mina","Alte Mine","Vecchia Miniera")
+add("Route Royale","Royal Road","Camino Real","Koenigsstrasse","Strada Reale")
+add("Antre Malefique","Evil Lair","Guarida Maligna","Boeses Verlies","Antro Malefico")
+add("Grande Plaine","Great Plain","Gran Llanura","Grosse Ebene","Grande Pianura")
+add("Vallee des Pierres","Valley of Stones","Valle de las Piedras","Tal der Steine","Valle delle Pietre")
+add("Taverne de Valbois","Valbois Tavern","Taberna de Valbois","Taverne von Valbois","Taverna di Valbois")
+
 # ===== Generation =====
 def esc(s): return s.replace('\\','\\\\').replace('"','\\"')
 lines=[]

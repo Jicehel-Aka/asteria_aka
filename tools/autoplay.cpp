@@ -15,6 +15,7 @@
 #include <cstring>
 #include <vector>
 void host_set_budget(int n); void host_inject(int code); void host_tick();
+namespace asteria { extern bool g_autosave; }
 using namespace asteria;
 using data::MAPS; using data::TILE_SOLID; using data::Map;
 
@@ -92,7 +93,7 @@ static int dBfsStep(DungeonScene& d,int sx,int sy,int tx,int ty,bool adjacent,in
 }
 
 int main(){
-  audio::init(); host_set_budget(1000000000);
+  audio::init(); host_set_budget(1000000000); asteria::g_autosave=false;
   new_game_reset();
   // MODE VALIDATION : on neutralise l'equilibrage du combat (stats gonflees) pour
   // isoler la VALIDATION DE LA PROGRESSION (verrous, declencheurs, quetes, bosses,

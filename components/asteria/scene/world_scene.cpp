@@ -1,6 +1,7 @@
 #include <cstdio>
 #include "i18n.h"
 #include "scene/world_scene.h"
+#include "save.h"
 #include "scene/dungeon_scene.h"
 #include "ui/text.h"
 #include "platform/gb_port.h"
@@ -79,11 +80,27 @@ static int pick_node(const dlg::NpcDialog& D){ for(int i=0;i<D.nnodes;i++){ cons
 bool g_no_encounters=false;   // mis a true par les harnais de validation (questcheck) ; jeu reel = false
 static uint32_t ws_rng=0u;
 static inline uint32_t ws_rand(){ if(!ws_rng) ws_rng=(gb::millis()|1u); ws_rng^=ws_rng<<13; ws_rng^=ws_rng>>17; ws_rng^=ws_rng<<5; return ws_rng; }
+// Nom affichable d'un lieu (bandeau HUD) ; trc() le traduit si une entree existe, sinon FR.
+static const char* loc_name(int loc){
+  switch(loc){
+    case 0:  return "Valbois";
+    case 1:  return "Taverne de Valbois";
+    case 8:  return "Foret de Brume";
+    case 9:  return "Vieille Mine";
+    case 10: return "Grand-Castel";
+    case 20: return "Route Royale";
+    case 21: return "Antre Malefique";
+    case 22: return "Grande Plaine";
+    case 23: return "Vallee des Pierres";
+    default: return "";
+  }
+}
 WorldScene& world_scene(){ static WorldScene s; return s; }
 void new_game_reset(){ WorldScene& w=world_scene(); w.started=false; w.confirmQuit=false; state_reset(); progress_reset(); player()=new_caithness(); dungeon_reset(); }
 static int map_for_loc(int loc){ for(int i=0;i<MAP_COUNT;++i) if(MAPS[i].location==loc) return i; return -1; }
 void WorldScene::load_map(int m){ map=m; px=MAPS[m].px; py=MAPS[m].py; gb::log(MAPS[m].id); }
 void WorldScene::enter(){
+  savedMap=-2;                   // force une sauvegarde au prochain update stable (incl. retour de combat)
   if(started) return;            // retour de combat : on garde la carte/position
   started=true; int gp=map_for_loc(22); load_map(gp>=0?gp:0);   // Arc 0 : demarrage dans la Grande Plaine
   if(MAPS[map].location==22){ quest_start(17); discover_zone(22); notice=true;
@@ -101,6 +118,7 @@ void WorldScene::update(SceneManager& mgr){
   if(quest_status(2)==2 && quest_status(3)==0) quest_start(3);   // Q3 Les empreintes (annexe)
   if(confirmQuit){ if(p&gb::BTN_A){ mgr.set(SceneId::TITLE); } else if(p&gb::BTN_B){ confirmQuit=false; } return; }
   if(notice){ if(p&(gb::BTN_A|gb::BTN_B)) notice=false; return; }
+  if(started && !dlg && map!=savedMap){ savedMap=map; if(g_autosave) game_save(); }   // auto-sauvegarde a chaque arrivee sur une carte
   // ---- Final de l'Arc I : l'Antre Malefique (loc 21) ----
   if(MAPS[map].location==21){
     if(flag_get("boss_coeur")){                               // le tyran est vaincu -> denouement
@@ -169,9 +187,10 @@ void WorldScene::update(SceneManager& mgr){
     else if(n==2){ mgr.set(SceneId::SHOP); }
     else if(n>=0 && n<22 && dlg::DIALOG[n].nnodes>0){
       // --- Annexes de l'Acte I (démarrage au 1er dialogue, remise au retour) ---
-      if(n==1){ // Doran : Q1 Les Outils perdus (remise = rapporter le casque de la mine)
+      if(n==1){ // Doran : Q1 Les Outils perdus (remise = rapporter le casque de la mine), puis Forge & Alchimie
+        if(flag_get("doran_resolu")){ mgr.set(SceneId::FORGE); return; }                 // visites suivantes : ouvre la Forge & Alchimie
         if(quest_status(1)==0) quest_start(1);
-        else if(quest_status(1)==1 && player().inv.has(item_index("OBJ_0010"),1)){ complete_quest_reward(1); flag_set("doran_resolu"); }
+        else if(quest_status(1)==1 && player().inv.has(item_index("OBJ_0010"),1)){ complete_quest_reward(1); flag_set("doran_resolu"); }  // remise : resout Q1 (forge dispo des la prochaine visite)
       }
       else if(n==8){ // Agnès : Q4 Les plantes (remise = 5 herbes medicinales + 3 champignons)
         if(quest_status(4)==0){ quest_start(4); notice=true; noticeTxt="Agnes : rapporte-moi 5 herbes medicinales et 3 champignons de la Foret de Brume."; }
@@ -301,7 +320,6 @@ void WorldScene::render(){
   for(int ci=0;ci<NCHEST;ci++){ if(chest_at(map,CHESTS[ci].x,CHESTS[ci].y)==ci){ int cx=CHESTS[ci].x*TILE_SIZE-camx, cy=CHESTS[ci].y*TILE_SIZE-camy;
       if(cx<-16||cy<-16||cx>320||cy>240) continue;    // hors ecran -> on saute
       draw_chest_closed(cx,cy); } }
-  ui::gold(6,2,M.id,true);
   if(dlg){ const dlg::NpcDialog& D=dlg::DIALOG[dlgNpc];
     gb::fill_rect(8,158,304,74,gb::rgb(20,16,10));
     gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
@@ -315,17 +333,22 @@ void WorldScene::render(){
     ui::text(16,182,l1,gb::rgb(236,226,192)); if(l2[0]) ui::text(16,198,l2,gb::rgb(236,226,192));
     ui::text(192,214,i18n::tr(i18n::W_DLG_H),gb::rgb(170,160,132));
   }
-  { int qi=-1;
+  // --- Bandeau HUD (2 lignes reservees en haut) : lieu + quete, sans aucun chevauchement ---
+  { gb::fill_rect(0,0,320,30,gb::rgb(20,16,10));
+    gb::fill_rect(0,30,320,2,gb::rgb(200,170,90));
+    int qi=-1;
     for(int i=0;i<quest::QUEST_COUNT;i++){ if(quest_status(i)==1){qi=i;break;} }
     if(qi<0) for(int i=0;i<quest::QUEST_COUNT;i++){ if(quest_status(i)==2){qi=i;break;} }
+    // Ligne 1 : nom clair de la zone (gauche, traduit) + nom de la quete (droite si la place le permet)
+    const char* lraw=loc_name(MAPS[map].location); const char* ln=lraw[0]?trc(lraw):"";
+    if(ln[0]) ui::gold(6,3,ln,false);
+    if(qi>=0){ const char* qn=trc(quest::QUEST[qi].name); int qx=314-ui::text_w(qn);
+      if(qx > 6+ui::text_w(ln)+14) ui::text(qx,4,qn,gb::rgb(230,220,180)); }
+    // Ligne 2 : objectif courant (gauche)
     if(qi>=0){ int qs=quest_status(qi);
-      gb::fill_rect(150,2,166,30,gb::rgb(20,16,10));
-      ui::text(156,5,i18n::tr(i18n::W_QUEST),gb::rgb(200,180,110));
-      ui::text(156,18,trc(quest::QUEST[qi].name),gb::rgb(230,220,180));
-      if(qs==1){ int o=quest_obj(qi); if(o>=quest::QUEST[qi].nobj)o=quest::QUEST[qi].nobj-1;
-        gb::fill_rect(8,2,120,14,gb::rgb(20,16,10)); ui::gold(10,4,">",true); ui::text(20,4,trc(quest::QUEST[qi].obj[o]),gb::rgb(220,210,180)); }
-      else if(qs==2){ gb::fill_rect(8,2,120,14,gb::rgb(20,16,10)); ui::gold(10,4,i18n::tr(i18n::W_QDONE),true); }
-    }
+      if(qs==1){ int o=quest_obj(qi); if(o>=quest::QUEST[qi].nobj)o=quest::QUEST[qi].nobj-1; if(o<0)o=0;
+        ui::gold(6,16,">",true); ui::text(16,16,trc(quest::QUEST[qi].obj[o]),gb::rgb(220,210,180)); }
+      else if(qs==2){ ui::gold(6,16,i18n::tr(i18n::W_QDONE),true); } }
   }
   if(notice){ gb::fill_rect(8,158,304,74,gb::rgb(20,16,10)); gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
     ui::gold(16,162,i18n::tr(i18n::W_EVENT),true);

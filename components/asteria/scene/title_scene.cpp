@@ -1,4 +1,5 @@
 #include "scene/title_scene.h"
+#include "save.h"
 #include "i18n.h"
 #include "scene/editor_scene.h"
 #include <cstdio>
@@ -16,7 +17,7 @@ void TitleScene::update(SceneManager& m){
   if(p&gb::BTN_A){
     switch(sel){
       case 0: m.set(SceneId::CREATE); break;
-      case 1: gb::log("TITLE: Continuer -> WORLD"); m.set(SceneId::WORLD); break;
+      case 1: if(game_load()){ gb::log("TITLE: sauvegarde chargee -> WORLD"); m.set(SceneId::WORLD); } else gb::log("TITLE: echec chargement"); break;
       case 2: gb::log("TITLE: Lire les regles -> RULES"); m.set(SceneId::RULES); break;
       case 3: i18n::next_lang(); break;
       case 4: editor_set_map(0); m.set(SceneId::EDITOR); break;

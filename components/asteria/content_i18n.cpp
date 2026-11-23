@@ -270,6 +270,13 @@ static const CTr CTBL[] = {
   {"Pas assez de pouvoir !",{"Not enough power!","Poder insuficiente!","Nicht genug Kraft!","Potere insufficiente!"}},
   {"Soins ! Blessures -8",{"Healing! Wounds -8","Curacion! Heridas -8","Heilung! Wunden -8","Cura! Ferite -8"}},
   {"Engourdissement reussi !",{"Numbness succeeds!","Entumecimiento logrado!","Erstarrung gelingt!","Intorpidimento riuscito!"}},
+  {"Foret de Brume",{"Mist Forest","Bosque de Bruma","Nebelwald","Foresta della Bruma"}},
+  {"Vieille Mine",{"Old Mine","Vieja Mina","Alte Mine","Vecchia Miniera"}},
+  {"Route Royale",{"Royal Road","Camino Real","Koenigsstrasse","Strada Reale"}},
+  {"Antre Malefique",{"Evil Lair","Guarida Maligna","Boeses Verlies","Antro Malefico"}},
+  {"Grande Plaine",{"Great Plain","Gran Llanura","Grosse Ebene","Grande Pianura"}},
+  {"Vallee des Pierres",{"Valley of Stones","Valle de las Piedras","Tal der Steine","Valle delle Pietre"}},
+  {"Taverne de Valbois",{"Valbois Tavern","Taberna de Valbois","Taverne von Valbois","Taverna di Valbois"}},
 };
 static const int NCTBL = sizeof(CTBL)/sizeof(CTBL[0]);
 const char* trc(const char* fr){
