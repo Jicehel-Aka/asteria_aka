@@ -31,13 +31,13 @@ void ForgeScene::update(SceneManager& m){
   if(p&gb::BTN_DOWN){ sel=(sel+1)%RECIPE_COUNT; msg[0]=0; audio::sfx_select(); }
   if(p&gb::BTN_UP){   sel=(sel+RECIPE_COUNT-1)%RECIPE_COUNT; msg[0]=0; audio::sfx_select(); }
   if(p&gb::BTN_A){
-    if(try_craft(player(), sel, true)){
+    if(try_craft(player(), sel, true)){ audio::sfx_craft();
       audio::sfx_coin();
       const Recipe& r=RECIPES[sel];
       if(r.out_qty>1) snprintf(msg,64,trc("Fabriqué : %dx %s !"), r.out_qty, trc(ITEMS[r.out_item].name));
       else snprintf(msg,64,trc("Fabriqué : %s !"), trc(ITEMS[r.out_item].name));
     } else {
-      snprintf(msg,64,"%s",trc("Ingrédients manquants."));
+      snprintf(msg,64,"%s",trc("Ingrédients manquants.")); audio::sfx_error();
     }
   }
   if(p&gb::BTN_B) m.set(SceneId::WORLD);

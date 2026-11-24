@@ -106,6 +106,10 @@ void blit_region(const uint16_t* src, int src_w, int src_h, int sx, int sy, int 
     for(int j=0;j<h;++j){ int yy=sy+j; if((unsigned)yy>=(unsigned)src_h) continue;
       for(int i=0;i<w;++i){ int xx=sx+i; if((unsigned)xx<(unsigned)src_w) put(dx+i,dy+j,src[yy*src_w+xx]); } }
 }
+void light_screen(int y0, int y1, int ambient, const Light* lights, int n){
+    if(y0<0)y0=0; if(y1>SCREEN_H)y1=SCREEN_H;
+    for(int y=y0;y<y1;++y) light_row(&FB[y*SCREEN_W],SCREEN_W,y,ambient,lights,n);
+}
 void* alloc_big(unsigned bytes){ return malloc(bytes); }
 void  free_big(void* p){ free(p); }
 }
@@ -123,6 +127,11 @@ bool write_text(const char* path, const char* content){
 }
 
 namespace gb {
+int read_bin(const char* path, void* out, int maxlen){
+    std::string s=mp(path); if(s.empty()||!out||maxlen<=0) return -1;
+    FILE* fp=fopen(s.c_str(),"rb"); if(!fp) return -1;               // "rb" : pas de conversion de fins de ligne (Windows)
+    int n=(int)fread(out,1,(size_t)maxlen,fp); fclose(fp); return n;
+}
 int read_text(const char* path, char* out, int maxlen){
     std::string s=mp(path); if(s.empty()||maxlen<=0) return -1;   // SEC-05
     FILE* f=fopen(s.c_str(),"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
@@ -170,10 +179,17 @@ static float voice_sample(Voice& v){
   return s*v.amp*env;
 }
 
+// Musique PMF : meme lecteur que l'AKA (pmf_pc.cpp enveloppe pmf_player de la
+// bibliotheque), mixe ici dans le thread audio SDL.
+bool pcmusic_start(const void* pmf,int sr); void pcmusic_stop(); int pcmusic_mix(int16_t* buf,int n);
+static volatile float s_mus_vol=0.55f;
+static int16_t s_mus_buf[4096];
 static void audio_cb(void*, Uint8* stream, int len){
   int16_t* out=(int16_t*)stream; int n=len/2;   // mono S16
+  int got=0; if(n<=4096) got=pcmusic_mix(s_mus_buf,n);
   for(int i=0;i<n;i++){
     float m=voice_sample(s_music)*0.9f + voice_sample(s_sfx)*0.9f;
+    if(i<got) m+=s_mus_buf[i]*(s_mus_vol/32768.f);
     if(m>1.f)m=1.f; if(m<-1.f)m=-1.f;
     out[i]=(int16_t)(m*30000.f);
   }
@@ -197,4 +213,11 @@ static void set_voice(Voice& v,float f,float vol,uint16_t ms,uint8_t type){
 void tone_music(float f,float vol,uint16_t ms,uint8_t type){ set_voice(s_music,f,vol,ms,type); }
 void tone_sfx  (float f,float vol,uint16_t ms,uint8_t type){ set_voice(s_sfx,  f,vol,ms,type); }
 void audio_stop(){ if(!s_dev)return; SDL_LockAudioDevice(s_dev); s_music.on=false; s_sfx.on=false; SDL_UnlockAudioDevice(s_dev); }
+bool music_play(const void* pmf){
+  if(!s_dev||!pmf) return false;
+  SDL_LockAudioDevice(s_dev); bool ok=pcmusic_start(pmf,SR); SDL_UnlockAudioDevice(s_dev);   // jamais pendant un mixage
+  return ok;
+}
+void music_stop(){ if(!s_dev) return; SDL_LockAudioDevice(s_dev); pcmusic_stop(); SDL_UnlockAudioDevice(s_dev); }
+void music_volume(float v){ s_mus_vol=v<0?0:(v>1?1:v)*0.9f; }
 }

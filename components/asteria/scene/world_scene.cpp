@@ -4,6 +4,7 @@
 #include <cstring>
 #include "i18n.h"
 #include "scene/world_scene.h"
+#include "daytime.h"
 #include "save.h"
 #include "scene/dungeon_scene.h"
 #include "scene/combat_scene.h"   // spell_known / spell_cost (soins hors combat)
@@ -57,9 +58,14 @@ struct ChestDef { int loc,x,y,item,gold; const char* flag; int complete_q; const
 static const ChestDef CHESTS[]={
   {8,22,7,4,8,"coffre_foret",5,"piste_mine"},
   {0,3,21,2,5,"coffre_valbois",-1,nullptr},
-  {20,4,16,-1,0,"coffre_carnet",10,"caravane_ok"}
+  {20,4,16,-1,0,"coffre_carnet",10,"caravane_ok"},
+  // maisons de Valbois (interieurs)
+  {4,12,8,4,10,"coffre_maire",-1,nullptr},      // potion + 10 or
+  {5,1,7,25,3,"coffre_milo",-1,nullptr},        // miel sauvage
+  {6,10,7,12,5,"coffre_edric",-1,nullptr},      // lingot rouille (forge)
+  {7,8,5,33,6,"coffre_chaumiere",-1,nullptr}    // herbe medicinale
 };
-static const int NCHEST=3;
+static const int NCHEST=(int)(sizeof(CHESTS)/sizeof(CHESTS[0]));
 static int chest_at(int map,int x,int y){
   int loc=MAPS[map].location;
   for(int i=0;i<NCHEST;i++) if(CHESTS[i].loc==loc && CHESTS[i].x==x && CHESTS[i].y==y && !flag_get(CHESTS[i].flag)) return i;
@@ -113,11 +119,32 @@ static inline uint32_t ws_rand(){ if(!ws_rng) ws_rng=(gb::millis()|1u); ws_rng^=
 static int d6w(){ return (int)(ws_rand()%6)+1; }
 
 // Nom affichable d'un lieu (bandeau HUD) ; trc() le traduit si une entree existe, sinon FR.
+// Fond de combat selon le biome et l'heure (12 decors jour/nuit fournis dans battle/).
+static const char* backdrop(int loc){
+  bool n=daytime::is_night();
+  switch(loc){
+    case 8:           return n?"/sdcard/ASTERIA/battle/FORE_N.BMP":"/sdcard/ASTERIA/battle/FORE_J.BMP";
+    case 20: case 22: return n?"/sdcard/ASTERIA/battle/ROUT_N.BMP":"/sdcard/ASTERIA/battle/ROUT_J.BMP";
+    case 23:          return n?"/sdcard/ASTERIA/battle/VALL_N.BMP":"/sdcard/ASTERIA/battle/VALL_J.BMP";
+    case 9:           return "/sdcard/ASTERIA/battle/MINE_L.BMP";
+    case 21:          return "/sdcard/ASTERIA/battle/TEMP.BMP";
+    default:          return n?"/sdcard/ASTERIA/battle/VALB_N.BMP":"/sdcard/ASTERIA/battle/VALB_J.BMP";
+  }
+}
+// Zones a ciel ouvert : soumises au cycle jour / nuit (les interieurs restent eclaires).
+static bool is_outdoor(int loc){
+  switch(loc){ case 0: case 8: case 9: case 10: case 20: case 22: case 23: return true; default: return false; }
+}
 static const char* loc_name(int loc){
   switch(loc){
     case 0:  return "Valbois";
     case 1:  return "Taverne de Valbois";
     case 2:  return "Forge de Doran";
+    case 3:  return "Echoppe de Mira";
+    case 4:  return "Maison du maire";
+    case 5:  return "Maison de Milo";
+    case 6:  return "Atelier d'Edric";
+    case 7:  return "Chaumiere abandonnee";
     case 8:  return "Foret de Brume";
     case 9:  return "Vieille Mine";
     case 10: return "Grand-Castel";
@@ -131,6 +158,7 @@ static const char* loc_name(int loc){
 
 WorldScene& world_scene(){ static WorldScene s; return s; }
 void new_game_reset(){
+  daytime::reset();                                   // nouvelle partie : 8h du matin
   WorldScene& w=world_scene(); w.started=false; w.confirmQuit=false;
   w.pauseSel=0; w.pauseSub=0; w.pauseListSel=0; w.stepCount=0;
   w.pauseMsg=nullptr; w.epiLine=0; w.notice=false; w.dlg=false; w.savedMap=-2;
@@ -225,20 +253,20 @@ void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
       Character& c=player();
       if(k==0 || k==1){
         int cost=spell_cost(id);
-        if(c.BL<=0) pauseMsg="Tu n'as aucune blessure.";
-        else if(c.mana<cost) pauseMsg="Pas assez de pouvoir !";
+        if(c.BL<=0){ pauseMsg="Tu n'as aucune blessure."; audio::sfx_error(); }
+        else if(c.mana<cost){ pauseMsg="Pas assez de pouvoir !"; audio::sfx_error(); }
         else {
           c.mana-=cost; int h=0; for(int i=0;i<(id==4?2:4);i++) h+=d6w();
           c.BL-=h; if(c.BL<0)c.BL=0;
           snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),trc("%s : -%d blessures."),trc(id==4?"Soins":"Guérison"),h);
-          pauseMsg=g_pmsg_buf; audio::sfx_confirm();
+          pauseMsg=g_pmsg_buf; audio::sfx_spell();
         }
       } else {
         if(try_craft(c, id, false)){
           snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),trc("Préparé : %s !"),trc(ITEMS[RECIPES[id].out_item].name));
-          pauseMsg=g_pmsg_buf; audio::sfx_coin();
+          pauseMsg=g_pmsg_buf; audio::sfx_craft();
         } else {
-          pauseMsg="Ingrédients insuffisants.";
+          pauseMsg="Ingrédients insuffisants."; audio::sfx_error();
         }
       }
     }
@@ -257,7 +285,7 @@ void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
       if(game_save_slot(sl)){
         refresh_slot_summaries();
         snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),trc("Sauvegardé (Empl. %d) !"),sl);
-        audio::sfx_coin();
+        audio::sfx_save();
       } else {
         snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),"%s",trc("Échec sauvegarde SD."));
       }
@@ -298,9 +326,9 @@ void WorldScene::update(SceneManager& mgr){
       if(atAltar){
         if(!flag_get("boss_gardien")){
           if(!flag_get("vu_gardien")){ flag_set("vu_gardien"); notice=true; noticeTxt="Le Gardien du Seuil, lieutenant du Coeur de Haine, surgit !"; return; }
-          set_combat_return(SceneId::WORLD); start_combat(19,"/sdcard/ASTERIA/battle/MINE_L.BMP"); mgr.set(SceneId::COMBAT); return; }
+          set_combat_return(SceneId::WORLD); start_combat(19,"/sdcard/ASTERIA/battle/TEMP.BMP"); mgr.set(SceneId::COMBAT); return; }
         if(!flag_get("vu_coeur")){ flag_set("vu_coeur"); notice=true; noticeTxt="Au centre, une chose sombre bat comme un coeur. Les veinules rouges palpitent."; return; }
-        set_combat_return(SceneId::WORLD); start_combat(24,"/sdcard/ASTERIA/battle/MINE_L.BMP"); mgr.set(SceneId::COMBAT); return;
+        set_combat_return(SceneId::WORLD); start_combat(24,"/sdcard/ASTERIA/battle/TEMP_A.BMP"); mgr.set(SceneId::COMBAT); return;   // coeur du temple
       }
     }
   }
@@ -331,7 +359,7 @@ void WorldScene::update(SceneManager& mgr){
             const char* id = (kind==0)?"OBJ_0034":(kind==1)?"OBJ_0035":(kind==2)?"OBJ_0026":"OBJ_0036";
             int qty = (kind==3) ? 2 : 1;
             int it=item_index(id); if(it>=0) player().inv.add(it,qty);
-            audio::sfx_coin();
+            audio::sfx_pickup();
             notice=true;
             noticeTxt = (kind==0)?"Tu cueilles une herbe medicinale.":
                         (kind==1)?"Tu ramasses un champignon.":
@@ -345,9 +373,9 @@ void WorldScene::update(SceneManager& mgr){
           if(pt.x==px&&pt.y==py){
             const char* blk=gate_block(pt.target_loc);
             if(blk){ notice=true; noticeTxt=blk; break; }   // verrou : indice, pas de passage
-            if(pt.target_loc==9){ discover_zone(9); mgr.set(SceneId::DUNGEON); return; }   // la mine est un donjon 1re personne
+            if(pt.target_loc==9){ discover_zone(9); audio::sfx_door(); mgr.set(SceneId::DUNGEON); return; }   // la mine est un donjon 1re personne
             int nm=map_for_loc(pt.target_loc);
-            if(nm>=0){ load_map(nm); discover_zone(pt.target_loc); if(pt.sx>=0){px=pt.sx;py=pt.sy;} _tp=true; }
+            if(nm>=0){ load_map(nm); discover_zone(pt.target_loc); if(pt.sx>=0){px=pt.sx;py=pt.sy;} _tp=true; audio::sfx_door(); }
             else gb::log("WORLD: portail (zone sans carte encore)");
           }
         }
@@ -356,12 +384,13 @@ void WorldScene::update(SceneManager& mgr){
           if(!_tp && _loc==9 && py<=3 && !flag_get("boss_mine")){ set_combat_return(SceneId::WORLD); start_combat(9,"/sdcard/ASTERIA/battle/CHEF.BMP"); mgr.set(SceneId::COMBAT); return; }
           if(!_tp && _loc==20 && py<=20 && !flag_get("boss_corbeau")){ if(quest_status(11)==0) quest_start(11);
             notice=true; noticeTxt="Corbeau Noir, le chef des brigands, te barre la route !"; flag_set("vu_corbeau");
-            set_combat_return(SceneId::WORLD); start_combat(25,"/sdcard/ASTERIA/battle/FORE_J.BMP"); mgr.set(SceneId::COMBAT); return; }
+            set_combat_return(SceneId::WORLD); start_combat(25,backdrop(20)); mgr.set(SceneId::COMBAT); return; }
           int cape = item_index("OBJ_0024");
           int mod = (cape>=0 && player().inv.has(cape,1)) ? 12 : 9;
+          if(daytime::is_night()) mod = mod*2/3;                       // la nuit, les rencontres sont plus frequentes
           if(!_tp && !g_no_encounters && (_loc==8||_loc==9||_loc==20) && (ws_rand()%mod==0)){
             int _m=(_loc==8)?5+(int)(ws_rand()%4):(_loc==20)?(10+(int)(ws_rand()%2)):((ws_rand()&1u)?16:23);
-            set_combat_return(SceneId::WORLD); start_combat(_m, _loc==9?"/sdcard/ASTERIA/battle/MINE_L.BMP":"/sdcard/ASTERIA/battle/FORE_J.BMP");
+            set_combat_return(SceneId::WORLD); start_combat(_m, backdrop(_loc));
             mgr.set(SceneId::COMBAT); return;
           }
         }
@@ -437,9 +466,9 @@ void WorldScene::update(SceneManager& mgr){
       int ci=chest_at(map,fx,fy);
       if(ci>=0){ const ChestDef& c=CHESTS[ci];
         if(c.item>=0 && !player().inv.add(c.item,1)){   // BUG-07 : inventaire plein -> on laisse le coffre FERME, le joueur reviendra
-          notice=true; noticeTxt="Ton inventaire est plein ! Fais de la place et reviens ouvrir ce coffre.";
+          notice=true; noticeTxt="Ton inventaire est plein ! Fais de la place et reviens ouvrir ce coffre."; audio::sfx_error();
         } else {
-          player().gold+=c.gold; flag_set(c.flag); notice=true; asteria::audio::sfx_coin();
+          player().gold+=c.gold; flag_set(c.flag); notice=true; asteria::audio::sfx_chest();
           noticeTxt="Un coffre ! Tu recuperes du butin.";
           if(c.complete_q>=0){
             if(quest_status(c.complete_q)==0) quest_start(c.complete_q);
@@ -614,6 +643,20 @@ void WorldScene::render(){
     }
   }
 
+  // --- Jour / nuit : eclairage de la zone de jeu (sous le bandeau), seulement dehors ---
+  if(is_outdoor(M.location)){
+    int amb=daytime::ambient();
+    if(amb<256){
+      gb::Light L[gb::LIGHT_MAX]; int n=0;
+      int dark=256-amb;                                              // 0 (jour) .. ~164 (nuit noire)
+      L[n++]={ (int16_t)(px*TILE_SIZE+8-camx), (int16_t)(py*TILE_SIZE+6-camy), (int16_t)(34+dark/5), 70 };   // halo du heros
+      if(dark>60){                                                   // fenetres / portes allumees a la tombee du jour
+        for(int y=y0;y<y1 && n<gb::LIGHT_MAX;++y) for(int x=x0;x<x1 && n<gb::LIGHT_MAX;++x)
+          if(M.tiles[y*M.w+x]==4) L[n++]={ (int16_t)(x*TILE_SIZE+8-camx), (int16_t)(y*TILE_SIZE+10-camy), (int16_t)(22+dark/10), 200 };
+      }
+      gb::light_screen(32,240,amb,L,n);
+    }
+  }
   if(dlg){ const dlg::NpcDialog& D=dlg::DIALOG[dlgNpc];
     gb::fill_rect(8,158,304,74,gb::rgb(20,16,10));
     gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
@@ -637,7 +680,17 @@ void WorldScene::render(){
     // Ligne 1 : nom clair de la zone (gauche, traduit) + nom de la quete (droite si la place le permet)
     const char* lraw=loc_name(MAPS[map].location); const char* ln=lraw[0]?trc(lraw):"";
     if(ln[0]) ui::gold(6,3,ln,false);
-    if(qi>=0){ const char* qn=trc(quest::QUEST[qi].name); int qx=314-ui::text_w(qn);
+    // Horloge (droite) : soleil ou lune + heure ; le nom de la quete se place a sa gauche.
+    int clockX=314;
+    {
+      char hh[8]; int m=daytime::minutes(); snprintf(hh,sizeof(hh),"%dh%02d",m/60,m%60);
+      int tw=ui::text_w(hh); clockX=314-tw-14;
+      if(daytime::is_night()){ for(int dy=-4;dy<=4;dy++) for(int dx=-4;dx<=4;dx++){ int d=dx*dx+dy*dy, e=(dx-2)*(dx-2)+(dy+1)*(dy+1);
+          if(d<=16 && e>9) gb::pixel(clockX+6+dx,9+dy,gb::rgb(220,225,255)); } }          // croissant de lune
+      else { gb::fill_rect(clockX+3,6,7,7,gb::rgb(250,205,70)); gb::fill_rect(clockX+5,4,3,11,gb::rgb(250,205,70)); gb::fill_rect(clockX+1,8,11,3,gb::rgb(250,205,70)); }   // soleil
+      ui::text(clockX+14,4,hh,gb::rgb(230,220,180));
+    }
+    if(qi>=0){ const char* qn=trc(quest::QUEST[qi].name); int qx=clockX-6-ui::text_w(qn);
       if(qx > 6+ui::text_w(ln)+14) ui::text(qx,4,qn,gb::rgb(230,220,180)); }
     // Ligne 2 : objectif courant (gauche)
     if(qi>=0){ int qs=quest_status(qi);

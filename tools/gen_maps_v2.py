@@ -161,13 +161,87 @@ def patch_valbois(txt):
     W=34
     for x in range(18,28): v[23*W+x]=PATH                # allee vers la maison du sud-est (ligne 23)
     txt=txt.replace(m.group(0), arr("MAP0_T",",".join(str(t) for t in v)))
-    sp=[(0,6,8),(2,17,8),(3,16,14),(6,12,17),(7,27,14),(9,22,20),(8,18,12),(20,14,20)]   # Doran (1) part dans sa forge
+    sp=[(0,6,8),(2,17,8),(3,16,14),(6,12,17),(7,27,14),(9,24,20),(8,18,12),(20,14,20)]   # Doran (1) part dans sa forge ; Edric (9) a cote de sa porte (22,19), pas devant
     po=[(16,0,8,18,32),(5,6,1,10,13),(12,16,2,7,10),(16,25,22,12,3),(17,25,22,13,3)]   # + forge, + sortie sud -> Plaine
+    solid=[int(x) for x in re.search(r'TILE_SOLID\[\]=\{([^}]*)\}',txt).group(1).split(',')]
+    npc_cells={(x,y) for _,x,y in sp}
+    for loc,(dx,dy),_mid,plan in HOUSES:
+        w,h,start,_g,_dx=build_house(plan)
+        po.append((dx,dy,loc,start[0],start[1]))                    # porte de Valbois -> interieur
+    return txt, sp, po, v, solid, npc_cells
+
+def finish_valbois(txt, sp, po):
     txt=re.sub(r'static const Spawn MAP0_S\[\]=\{.*?\};', spawns_c("MAP0_S",sp), txt, flags=re.S)
     txt=re.sub(r'static const Portal MAP0_P\[\]=\{.*?\};', portals_c("MAP0_P",po), txt, flags=re.S)
     txt=re.sub(r'\{"MAP_0001",0,([0-9]+),([0-9]+),([0-9]+),([0-9]+),MAP0_T,MAP0_S,[0-9]+,MAP0_P,[0-9]+\}',
                lambda mm:'{"MAP_0001",0,%s,%s,%s,%s,MAP0_T,MAP0_S,%d,MAP0_P,%d}'%(mm.group(1),mm.group(2),mm.group(3),mm.group(4),len(sp),len(po)), txt)
     return txt
+
+# ---------------- MAISONS DE VALBOIS (loc 3..7) : interieurs meubles ----------------
+# Chaque maison : (loc, porte dans Valbois, nom de carte, plan). Plan : lignes de
+# caracteres ; '#' mur, '.' plancher, 'D' porte (sortie), 'H' foyer, 'T' table,
+# 'O' table ronde, 's' tabouret, 'B' tonneau, 'E' etagere a bouteilles, 'C' comptoir,
+# 'R' tapis. Les coffres sont declares dans world_scene.cpp (CHESTS, par lieu).
+HOUSES=[
+  (3,(17,7),"MAP_0011",[            # Echoppe de Mira : reserve et comptoir
+    "##############",
+    "#EEEEE..EEEEB#",
+    "#............#",
+    "#..CCCCCCCC..#",
+    "#............#",
+    "#B....RR....B#",
+    "#.....RR.....#",
+    "#B..........B#",
+    "#............#",
+    "#######D######"]),
+  (4,(26,5),"MAP_0012",[            # Maison du maire Aldren
+    "##############",
+    "#B....HH...EE#",
+    "#............#",
+    "#.T..........#",
+    "#.T...sOs....#",
+    "#............#",
+    "#.....RR.....#",
+    "#.....RR.....#",
+    "#............#",
+    "#............#",
+    "#######D######"]),
+  (5,(28,13),"MAP_0013",[           # Maison de Milo
+    "##########",
+    "#.H....BB#",
+    "#.......B#",
+    "#........#",
+    "#..sTs...#",
+    "#........#",
+    "#........#",
+    "#........#",
+    "#####D####"]),
+  (6,(22,19),"MAP_0014",[           # Maison d'Edric : atelier
+    "############",
+    "#...H....BB#",
+    "#.........B#",
+    "#.TT.......#",
+    "#.........E#",
+    "#......sO..#",
+    "#..........#",
+    "#..........#",
+    "######D#####"]),
+  (7,(5,14),"MAP_0015",[            # Chaumiere abandonnee
+    "##########",
+    "#B.......#",
+    "#......s.#",
+    "#........#",
+    "#...R....#",
+    "#........#",
+    "#........#",
+    "#####D####"]),
+]
+HOUSE_TILES={'#':2,'.':5,'D':4,'H':30,'T':24,'O':32,'s':27,'B':25,'E':26,'C':23,'R':31}
+
+def build_house(plan):
+    g=[[HOUSE_TILES[c] for c in row] for row in plan]
+    h=len(plan); w=len(plan[0]); dx=plan[-1].index('D')
+    return w,h,(dx,h-2),g,dx
 
 def arr(name,csv): return f"static const uint8_t {name}[]={{{csv}}};"
 def spawns_c(name,sp): return f"static const Spawn {name}[]={{"+(", ".join("{%d,%d,%d}"%(n,x,y) for n,x,y in sp) if sp else "{-1,0,0}")+"};"
@@ -219,7 +293,32 @@ def main():
         txt=re.sub(r'(\{"MAP_0009",23,[^}]*\})', lambda mm: mm.group(1)+',\n  '+entry, txt)
     else:
         txt=re.sub(r'\{"MAP_0010",2,[^}]*\}', entry, txt)
-    txt=patch_valbois(txt)
+    txt,sp,po,vgrid,solid,npc=patch_valbois(txt)
+    W0=34
+    def free_near(x,y):                               # case praticable devant la porte (jamais un PNJ)
+        for cx,cy in ((x,y+1),(x-1,y+1),(x+1,y+1),(x-1,y),(x+1,y)):
+            t=vgrid[cy*W0+cx]
+            if not solid[t] and t!=4 and (cx,cy) not in npc: return cx,cy
+        raise SystemExit("pas de sortie libre devant la porte %d,%d"%(x,y))
+    for k,(loc,(dx,dy),mid,plan) in enumerate(HOUSES):
+        idx=10+k; w,h,start,g,doorx=build_house(plan); _,_,gc=emit_grid(g)
+        ex,ey=free_near(dx,dy)
+        hpo=[(doorx,h-1,0,ex,ey)]
+        block="\n".join([arr("MAP%d_T"%idx,gc), spawns_c("MAP%d_S"%idx,[]), portals_c("MAP%d_P"%idx,hpo)])+"\n"
+        if "MAP%d_T[]"%idx not in txt:
+            txt=txt.replace("static const Map MAPS[MAP_COUNT]={", block+"static const Map MAPS[MAP_COUNT]={")
+        else:
+            txt=re.sub(r'static const uint8_t MAP%d_T\[\]=\{.*?\};'%idx, arr("MAP%d_T"%idx,gc), txt, flags=re.S)
+            txt=re.sub(r'static const Portal MAP%d_P\[\]=\{.*?\};'%idx, portals_c("MAP%d_P"%idx,hpo), txt, flags=re.S)
+        entry='{"%s",%d,%d,%d,%d,%d,MAP%d_T,MAP%d_S,0,MAP%d_P,1}'%(mid,loc,w,h,start[0],start[1],idx,idx,idx)
+        if '"%s"'%mid not in txt:
+            prev='"MAP_%04d"'%(idx)                                   # entree precedente (MAP_0010 pour la 1re maison)
+            txt=re.sub(r'(\{%s,[^}]*\})'%re.escape(prev), lambda mm: mm.group(1)+',\n  '+entry, txt)
+        else:
+            txt=re.sub(r'\{"%s",[^}]*\}'%mid, entry, txt)
+        print("MAISON %s (lieu %d) %dx%d, porte Valbois %s -> sortie %s"%(mid,loc,w,h,(dx,dy),(ex,ey)))
+    txt=re.sub(r'MAP_COUNT=1[0-9]\b','MAP_COUNT=%d'%(10+len(HOUSES)),txt)
+    txt=finish_valbois(txt,sp,po)
     open(HDR,"w").write(txt)
     print("PLAINE:", pi)
     print("FORGE :", gi)

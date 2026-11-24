@@ -442,6 +442,13 @@ add('Objet cle / quete', 'Key / quest item', 'Objeto clave / misión', 'Schlüss
 add("Carte d'exploration", 'Exploration map', 'Mapa de exploración', 'Erkundungskarte', 'Mappa di esplorazione')
 add("Equipement d'aventurier", "Adventurer's gear", 'Equipo de aventurero', 'Abenteurerausrüstung', 'Equipaggiamento da avventuriero')
 
+# --- Maisons de Valbois ---
+add("Echoppe de Mira","Mira's Shop","Tienda de Mira","Miras Laden","Bottega di Mira")
+add("Maison du maire","Mayor's House","Casa del alcalde","Haus des Bürgermeisters","Casa del sindaco")
+add("Maison de Milo","Milo's House","Casa de Milo","Milos Haus","Casa di Milo")
+add("Atelier d'Edric","Edric's Workshop","Taller de Edric","Edrics Werkstatt","Bottega di Edric")
+add("Chaumiere abandonnee","Abandoned Cottage","Cabaña abandonada","Verlassene Hütte","Casolare abbandonato")
+
 # ===== Generation =====
 def esc(s): return s.replace('\\','\\\\').replace('"','\\"')
 lines=[]

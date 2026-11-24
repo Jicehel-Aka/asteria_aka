@@ -23,6 +23,7 @@ void     return_to_loader();
 void     log(const char* msg);
 bool     write_text(const char* path, const char* content);
 int      read_text(const char* path, char* out, int maxlen);  // lit un fichier, renvoie la taille (ou -1)
+int      read_bin (const char* path, void* out, int maxlen);  // lecture BINAIRE (PMF...) : taille lue, ou -1
 }
 
 namespace gb {
@@ -38,6 +39,11 @@ void* alloc_big(unsigned bytes);
 void  free_big(void* p);
 }
 #include "platform/gb_raster.h"   // set_target / set_origin / set_clip (etat commun aux ports)
+#include "platform/gb_light.h"    // Light, light_row (eclairage jour / nuit)
+namespace gb {
+// Applique l'eclairage (gb_light.h) aux rangees [y0,y1[ de l'ECRAN deja dessine.
+void light_screen(int y0, int y1, int ambient, const Light* lights, int n);
+}
 
 namespace gb {
 // --- Audio synthétisé (AUCUN fichier requis) ---------------------------------
@@ -51,4 +57,9 @@ void audio_init();                                                   // idempote
 void tone_music(float freq, float vol, uint16_t ms, uint8_t type=TONE_SQUARE);
 void tone_sfx  (float freq, float vol, uint16_t ms, uint8_t type=TONE_SQUARE);
 void audio_stop();                                                   // coupe les 2 voix
+// Musique PMF (lecteur de la bibliotheque AKA, gb_audio_track_pmf) : 3e piste, mixee
+// avec les 2 voix tone. 'pmf' doit rester valide pendant toute la lecture (boucle).
+bool music_play(const void* pmf);                                    // false si indisponible
+void music_stop();
+void music_volume(float v);                                          // 0..1
 }

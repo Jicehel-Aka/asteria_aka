@@ -8,6 +8,7 @@
 #include <cstdint>  // INT32_MIN
 #include "gb_core.h"
 #include "gb_graphics.h"
+#include "gb_ll_lcd.h"            // lcd_getpixel / lcd_putpixel (eclairage)
 #include "gb_common.h"          // SCREEN_WIDTH/HEIGHT
 #include "core/input.h"
 #include "aka_runtime/aka_runtime.h"
@@ -243,6 +244,19 @@ void blit_region(const uint16_t* src, int src_w, int src_h, int sx, int sy, int 
     for (int j = 0; j < h; ++j) { int yy = sy + j; if ((unsigned)yy >= (unsigned)src_h) continue;
         for (int i = 0; i < w; ++i) { int xx = sx + i; if ((unsigned)xx < (unsigned)src_w) put(dx + i, dy + j, src[yy * src_w + xx]); } }
 }
+// Eclairage jour/nuit : chaque rangee est relue depuis le framebuffer de la
+// bibliotheque (lcd_getpixel, valable qu'il soit en SRAM ou en PSRAM), traitee par
+// light_row() (gb_light.h, meme code que sur PC) puis reecrite. Appele seulement
+// hors du plein jour (ambiance < 256 ou sources de lumiere).
+void light_screen(int y0, int y1, int ambient, const Light* lights, int n){
+    static uint16_t row[SCREEN_WIDTH];
+    if (y0 < 0) y0 = 0; if (y1 > SCREEN_HEIGHT) y1 = SCREEN_HEIGHT;
+    for (int y = y0; y < y1; ++y) {
+        for (int x = 0; x < SCREEN_WIDTH; ++x) row[x] = lcd_getpixel((uint16_t)x, (uint16_t)y);
+        light_row(row, SCREEN_WIDTH, y, ambient, lights, n);
+        for (int x = 0; x < SCREEN_WIDTH; ++x) lcd_putpixel((uint16_t)x, (uint16_t)y, row[x]);
+    }
+}
 // Gros tampons : PSRAM (8 Mo octal sur l'AKA) d'abord, tas interne en repli.
 void* alloc_big(unsigned bytes){
     void* p = heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -264,6 +278,10 @@ bool write_text(const char* path, const char* content){
 }
 }
 namespace gb {
+int read_bin(const char* path, void* out, int maxlen){
+    if(!path||!out||maxlen<=0) return -1;
+    FILE* f=fopen(path,"rb"); if(!f) return -1; int n=(int)fread(out,1,(size_t)maxlen,f); fclose(f); return n;
+}
 int read_text(const char* path, char* out, int maxlen){
     if(!path||!out||maxlen<=0) return -1;   // SEC-07
     FILE* f=fopen(path,"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
@@ -278,9 +296,11 @@ int read_text(const char* path, char* out, int maxlen){
 // pendant l'ecriture ; AudioMixTask ne prend pas ce verrou, ce n'est donc pas une
 // exclusion mutuelle complete (inutile en pratique, inoffensif : quelques us).
 #include "gb_audio_track_tone.h"
+#include "gb_audio_track_pmf.h"
 extern gb_audio_player g_audio_player;
 namespace gb {
 static gb_audio_track_tone s_music_tr, s_sfx_tr;
+static gb_audio_track_pmf  s_pmf_tr;          // 3e piste : musique PMF (asteria/audio/music.cpp)
 static bool s_audio_ready=false;
 static portMUX_TYPE s_audio_mux = portMUX_INITIALIZER_UNLOCKED;
 
@@ -288,8 +308,23 @@ void audio_init(){
     if(s_audio_ready) return;
     g_audio_player.add_track(&s_music_tr, 0.9f);
     g_audio_player.add_track(&s_sfx_tr,   0.9f);
+    g_audio_player.add_track(&s_pmf_tr,   0.55f); // la musique reste sous les jingles et les effets
     s_audio_ready=true;
 }
+// Musique PMF. AudioMixTask (coeur 1) peut etre en train de mixer la piste : on
+// l'arrete puis on laisse passer ~2 tampons audio avant de recharger le lecteur,
+// pour ne jamais modifier son etat en plein mixage. Le gestionnaire de musique
+// alterne deux tampons de donnees : l'ancien morceau reste valide pendant ce temps.
+bool music_play(const void* pmf){
+    if(!s_audio_ready||!pmf) return false;
+    if(memcmp(pmf,"pmfx",4)!=0) return false;            // signature PMF
+    s_pmf_tr.stop_playing();
+    vTaskDelay(pdMS_TO_TICKS(30));
+    s_pmf_tr.play_pmf(pmf);
+    return true;
+}
+void music_stop(){ if(s_audio_ready) s_pmf_tr.stop_playing(); }
+void music_volume(float v){ if(s_audio_ready) s_pmf_tr.set_track_volume(v<0?0:(v>1?1:v)*0.55f); }
 void tone_music(float f,float vol,uint16_t ms,uint8_t type){
     if(!s_audio_ready) return;
     portENTER_CRITICAL(&s_audio_mux);

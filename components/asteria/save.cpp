@@ -1,5 +1,6 @@
 // Sauvegarde / chargement ASTERIA : 3 emplacements portables, tampon temporaire alloc_big (PSRAM/heap).
 #include "save.h"
+#include "daytime.h"
 #include "player.h"
 #include "gamestate.h"
 #include "scene/world_scene.h"
@@ -97,6 +98,7 @@ bool game_save_slot(int slot){
   app(snprintf(buf+o, CAP-o, "L %d\n", c.torchFuel));
   app(snprintf(buf+o, CAP-o, "N %d %s\n", c.female?1:0, c.name));
   app(snprintf(buf+o, CAP-o, "W %d %d %d %d\n", w.map, w.px, w.py, w.dir));
+  app(snprintf(buf+o, CAP-o, "T %d\n", daytime::minutes()));   // heure du jeu (absente des vieilles sauvegardes -> 8h)
   app(snprintf(buf+o, CAP-o, "I %d\n", (int)c.inv.n));
   for (int i=0; i<c.inv.n && o < CAP-32; i++)
     app(snprintf(buf+o, CAP-o, "i %d %d\n", (int)c.inv.slots[i].item, (int)c.inv.slots[i].qty));
@@ -127,7 +129,7 @@ bool game_load_slot(int slot){
   state_reset();
   Character& c = player(); c = new_caithness();   // base, puis on ecrase avec la sauvegarde
   WorldScene& w = world_scene();
-  int smap=0, spx=1, spy=1, sdir=2, gfn=0; bool haveW=false;
+  int smap=0, spx=1, spy=1, sdir=2, gfn=0, tmin=8*60; bool haveW=false;
   char* cur = buf;
   char* line = next_line(&cur);
   while (line) {
@@ -150,6 +152,8 @@ bool game_load_slot(int slot){
         c.name[sizeof(c.name)-1] = 0;
         if (!c.name[0]) strcpy(c.name, "Caithness");
       }
+    } else if (line[0] == 'T') {
+      int t = 8 * 60; if (sscanf(line, "T %d", &t) == 1) tmin = t;
     } else if (line[0] == 'W') {
       sscanf(line, "W %d %d %d %d", &smap, &spx, &spy, &sdir);
       haveW = true;
@@ -178,6 +182,7 @@ bool game_load_slot(int slot){
   if (!haveW) return false;
   if (smap < 0 || smap >= data::MAP_COUNT) smap = 0;
   w.load_map(smap); w.px = spx; w.py = spy; w.dir = sdir; w.started = true;   // position sauvee (apres load_map qui remet le defaut)
+  daytime::reset(tmin);
   return true;
 }
 

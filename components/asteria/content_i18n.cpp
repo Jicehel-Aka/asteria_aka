@@ -409,6 +409,11 @@ static const CTr CTBL[] = {
   {"Objet cle / quete",{"Key / quest item","Objeto clave / misión","Schlüssel- / Questgegenstand","Oggetto chiave / missione"}},
   {"Carte d'exploration",{"Exploration map","Mapa de exploración","Erkundungskarte","Mappa di esplorazione"}},
   {"Equipement d'aventurier",{"Adventurer's gear","Equipo de aventurero","Abenteurerausrüstung","Equipaggiamento da avventuriero"}},
+  {"Echoppe de Mira",{"Mira's Shop","Tienda de Mira","Miras Laden","Bottega di Mira"}},
+  {"Maison du maire",{"Mayor's House","Casa del alcalde","Haus des Bürgermeisters","Casa del sindaco"}},
+  {"Maison de Milo",{"Milo's House","Casa de Milo","Milos Haus","Casa di Milo"}},
+  {"Atelier d'Edric",{"Edric's Workshop","Taller de Edric","Edrics Werkstatt","Bottega di Edric"}},
+  {"Chaumiere abandonnee",{"Abandoned Cottage","Cabaña abandonada","Verlassene Hütte","Casolare abbandonato"}},
 };
 static const int NCTBL = sizeof(CTBL)/sizeof(CTBL[0]);
 const char* trc(const char* fr){

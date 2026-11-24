@@ -284,7 +284,7 @@ void CombatScene::update(SceneManager& m){
       if(player().mana<cost){ snprintf(msg,64,"Pas assez de pouvoir !"); phase=4; }
       else {
         player().mana-=cost; int r=roll3();
-        if(r<=player().MA+player().level) cast(s);
+        if(r<=player().MA+player().level){ cast(s); audio::sfx_spell(); }
         else snprintf(msg,64,"Le sort echoue ! (%d>MA)",r);
         phase=1;
       }

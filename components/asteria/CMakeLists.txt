@@ -11,6 +11,8 @@ idf_component_register(
     "save.cpp"
     "autotile.cpp"
     "audio/jingle.cpp"
+    "audio/music.cpp"
+    "daytime.cpp"
     "progress.cpp"
     "ui/text.cpp"
     "scene/scene.cpp"

@@ -85,6 +85,10 @@ void blit_region(const uint16_t* src, int src_w, int src_h, int sx, int sy, int 
     for(int j=0;j<h;++j){ int yy=sy+j; if((unsigned)yy>=(unsigned)src_h) continue;
       for(int i=0;i<w;++i){ int xx=sx+i; if((unsigned)xx<(unsigned)src_w) put(dx+i,dy+j,src[yy*src_w+xx]); } }
 }
+void light_screen(int y0, int y1, int ambient, const Light* lights, int n){
+    if(y0<0)y0=0; if(y1>SCREEN_H)y1=SCREEN_H;
+    for(int y=y0;y<y1;++y) light_row(&FB[y*SCREEN_W],SCREEN_W,y,ambient,lights,n);
+}
 void* alloc_big(unsigned bytes){ return malloc(bytes); }
 void  free_big(void* p){ free(p); }
 }
@@ -102,6 +106,11 @@ bool write_text(const char* path, const char* content){
 }
 
 namespace gb {
+int read_bin(const char* path, void* out, int maxlen){
+    std::string s=mp(path); if(s.empty()||!out||maxlen<=0) return -1;
+    FILE* fp=fopen(s.c_str(),"rb"); if(!fp) return -1;               // "rb" : pas de conversion de fins de ligne (Windows)
+    int n=(int)fread(out,1,(size_t)maxlen,fp); fclose(fp); return n;
+}
 int read_text(const char* path, char* out, int maxlen){
     std::string s=mp(path); if(s.empty()||maxlen<=0) return -1;   // SEC-05
     FILE* f=fopen(s.c_str(),"r"); if(!f) return -1; int n=(int)fread(out,1,maxlen-1,f); fclose(f); if(n<0)n=0; out[n]=0; return n;
@@ -114,4 +123,7 @@ void audio_init(){}
 void tone_music(float, float, uint16_t, uint8_t){}
 void tone_sfx(float, float, uint16_t, uint8_t){}
 void audio_stop(){}
+bool music_play(const void*){ return false; }   // host sans son
+void music_stop(){}
+void music_volume(float){}
 }

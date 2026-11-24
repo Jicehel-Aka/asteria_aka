@@ -64,9 +64,9 @@ void ShopScene::update(SceneManager& m){
       const ShopOffer& of = OFFERS[sel];
       int it = item_index(of.id);
       int pr = apply_au_discount(of.basePrice, player().AU);
-      if(it < 0){ snprintf(msg,64,"%s",trc("Objet indisponible.")); }
-      else if(player().gold < pr){ snprintf(msg,64,"%s",i18n::tr(i18n::SH_NOGOLD)); }
-      else if(!player().inv.add(it, of.qty)){ snprintf(msg,64,"%s",trc("Inventaire plein !")); }
+      if(it < 0){ snprintf(msg,64,"%s",trc("Objet indisponible.")); audio::sfx_error(); }
+      else if(player().gold < pr){ snprintf(msg,64,"%s",i18n::tr(i18n::SH_NOGOLD)); audio::sfx_error(); }
+      else if(!player().inv.add(it, of.qty)){ snprintf(msg,64,"%s",trc("Inventaire plein !")); audio::sfx_error(); }
       else {
         player().gold -= pr;
         audio::sfx_coin();
