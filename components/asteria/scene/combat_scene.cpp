@@ -109,6 +109,7 @@ bool spell_known(int i){
   if(player().spells&(1u<<i)) return true;
   return data::SPELLS[i].tier==data::ST_ADVANCED && player().level>=data::SPELLS[i].level;
 }
+const char* spell_fx(int i){ return (i>=0&&i<data::SPELL_COUNT)?SPELL_FX[i]:""; }
 int spell_cost(int i){ return data::SPELLS[i].tier==data::ST_BASE ? 3 : data::SPELLS[i].po_cost; }
 const char* spell_short(int i){ return (i>=0&&i<data::SPELL_COUNT)?SPELL_SHORT[i]:""; }
 

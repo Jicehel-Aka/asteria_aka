@@ -449,6 +449,23 @@ add("Maison de Milo","Milo's House","Casa de Milo","Milos Haus","Casa di Milo")
 add("Atelier d'Edric","Edric's Workshop","Taller de Edric","Edrics Werkstatt","Bottega di Edric")
 add("Chaumiere abandonnee","Abandoned Cottage","Cabaña abandonada","Verlassene Hütte","Casolare abbandonato")
 
+# --- Fenetres "Objet obtenu" et Personnage (v1.4) ---
+add("Objet obtenu","Item obtained","Objeto obtenido","Gegenstand erhalten","Oggetto ottenuto")
+add("%d pièces d'or","%d gold coins","%d monedas de oro","%d Goldmünzen","%d monete d'oro")
+add("De quoi remplir ta bourse.","Enough to fill your purse.","Lo justo para llenar tu bolsa.","Genug, um deinen Beutel zu füllen.","Quanto basta per riempire la borsa.")
+add("Ton sac est plein !","Your bag is full!","¡Tu bolsa está llena!","Deine Tasche ist voll!","La tua sacca è piena!")
+add("Personnage","Character","Personaje","Charakter","Personaggio")
+add("Sac","Bag","Bolsa","Tasche","Sacca")
+add("Sorts","Spells","Hechizos","Zauber","Incantesimi")
+add("Niv. %d","Lv. %d","Niv. %d","St. %d","Liv. %d")
+add("%d or","%d gold","%d oro","%d Gold","%d oro")
+add("Armure %d","Armor %d","Armadura %d","Rüstung %d","Armatura %d")
+add("Aucun sort connu.","No spells known.","Ningún hechizo conocido.","Keine Zauber bekannt.","Nessun incantesimo noto.")
+add("%s (%d PM)","%s (%d MP)","%s (%d PM)","%s (%d MP)","%s (%d PM)")
+add("Ce sort ne sert qu'en combat.","This spell only works in combat.","Este hechizo solo sirve en combate.","Dieser Zauber wirkt nur im Kampf.","Questo incantesimo serve solo in combattimento.")
+add("A: utiliser  RUN: sorts  B: fermer","A: use  RUN: spells  B: close","A: usar  RUN: hechizos  B: cerrar","A: benutzen  RUN: Zauber  B: zu","A: usa  RUN: incantesimi  B: chiudi")
+add("A: lancer  RUN: sac  B: fermer","A: cast  RUN: bag  B: close","A: lanzar  RUN: bolsa  B: cerrar","A: wirken  RUN: Tasche  B: zu","A: lancia  RUN: sacca  B: chiudi")
+
 # ===== Generation =====
 def esc(s): return s.replace('\\','\\\\').replace('"','\\"')
 lines=[]

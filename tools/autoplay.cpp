@@ -1,6 +1,7 @@
 // Autopilote de validation : joue ASTERIA de bout en bout en pilotant le vrai moteur.
 #include "scene/scene.h"
 #include "scene/world_scene.h"
+#include "ui/item_ui.h"
 #include "scene/combat_scene.h"
 #include "scene/dungeon_scene.h"
 #include "platform/gb_port.h"
@@ -159,7 +160,7 @@ int main(){
     }
     else if(sc==SceneId::WORLD){
       WorldScene& w=world_scene();
-      if(w.notice){ inj=5; }
+      if(w.notice || item_ui::pickup_active()){ inj=5; }   // message ou fenetre "Objet obtenu" : A
       else if(w.dlg){ inj=5; }
       else {
         const Map& M=CM(); int L=loc();

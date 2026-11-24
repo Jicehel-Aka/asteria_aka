@@ -2,6 +2,7 @@
 // en accordant les prerequis (objets) -> teste le CABLAGE (pas la cueillette).
 #include "scene/scene.h"
 #include "scene/world_scene.h"
+#include "ui/item_ui.h"
 #include "platform/gb_port.h"
 #include "player.h"
 #include "gamestate.h"
@@ -18,7 +19,7 @@ static void talk(int px,int py,int faceCode){
   WorldScene& w=world_scene(); w.px=px; w.py=py; w.notice=false; w.dlg=false;
   step(faceCode);                 // orienter
   step(5);                        // A : ouvre le dialogue (+ annexe de quete)
-  for(int i=0;i<16 && (w.dlg||w.notice);i++) step(5);  // avancer / fermer
+  for(int i=0;i<24 && (w.dlg||w.notice||item_ui::pickup_active());i++) step(5);  // avancer / fermer (fenetres "Objet obtenu" comprises)
 }
 static void grant(const char* id,int n){ int k=item_index(id); if(k>=0) for(int i=0;i<n;i++) player().inv.add(k,1); }
 static int Q(int n){ return quest_status(n); }
@@ -74,7 +75,7 @@ int main(){
   { WorldScene& w=world_scene();
     // 4 noeuds d'herbes dans les clairieres : voisin sur la ramification -> marcher SUR la plante
     int sx[]={22,17,24,9}, sy[]={31,6,8,29}, mv[]={4,3,4,3};   // (23,31)(16,6)(25,8)(8,29)
-    for(int i=0;i<4;i++){ w.px=sx[i]; w.py=sy[i]; w.notice=false; w.dlg=false; step(mv[i]); for(int k=0;k<4&&w.notice;k++) step(5); } }
+    for(int i=0;i<4;i++){ w.px=sx[i]; w.py=sy[i]; w.notice=false; w.dlg=false; step(mv[i]); for(int k=0;k<8&&(w.notice||item_ui::pickup_active());k++) step(5); } }
   { int n=0,k=item_index("OBJ_0034"); while(player().inv.has(k,n+1)) n++; printf("Herbes cueillies en foret: %d (attendu >=3)\n",n); }
 
   // --- Grand-Castel (loc10) ---

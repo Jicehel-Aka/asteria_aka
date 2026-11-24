@@ -414,6 +414,20 @@ static const CTr CTBL[] = {
   {"Maison de Milo",{"Milo's House","Casa de Milo","Milos Haus","Casa di Milo"}},
   {"Atelier d'Edric",{"Edric's Workshop","Taller de Edric","Edrics Werkstatt","Bottega di Edric"}},
   {"Chaumiere abandonnee",{"Abandoned Cottage","Cabaña abandonada","Verlassene Hütte","Casolare abbandonato"}},
+  {"Objet obtenu",{"Item obtained","Objeto obtenido","Gegenstand erhalten","Oggetto ottenuto"}},
+  {"%d pièces d'or",{"%d gold coins","%d monedas de oro","%d Goldmünzen","%d monete d'oro"}},
+  {"De quoi remplir ta bourse.",{"Enough to fill your purse.","Lo justo para llenar tu bolsa.","Genug, um deinen Beutel zu füllen.","Quanto basta per riempire la borsa."}},
+  {"Ton sac est plein !",{"Your bag is full!","¡Tu bolsa está llena!","Deine Tasche ist voll!","La tua sacca è piena!"}},
+  {"Personnage",{"Character","Personaje","Charakter","Personaggio"}},
+  {"Sac",{"Bag","Bolsa","Tasche","Sacca"}},
+  {"Sorts",{"Spells","Hechizos","Zauber","Incantesimi"}},
+  {"Niv. %d",{"Lv. %d","Niv. %d","St. %d","Liv. %d"}},
+  {"Armure %d",{"Armor %d","Armadura %d","Rüstung %d","Armatura %d"}},
+  {"Aucun sort connu.",{"No spells known.","Ningún hechizo conocido.","Keine Zauber bekannt.","Nessun incantesimo noto."}},
+  {"%s (%d PM)",{"%s (%d MP)","%s (%d PM)","%s (%d MP)","%s (%d PM)"}},
+  {"Ce sort ne sert qu'en combat.",{"This spell only works in combat.","Este hechizo solo sirve en combate.","Dieser Zauber wirkt nur im Kampf.","Questo incantesimo serve solo in combattimento."}},
+  {"A: utiliser  RUN: sorts  B: fermer",{"A: use  RUN: spells  B: close","A: usar  RUN: hechizos  B: cerrar","A: benutzen  RUN: Zauber  B: zu","A: usa  RUN: incantesimi  B: chiudi"}},
+  {"A: lancer  RUN: sac  B: fermer",{"A: cast  RUN: bag  B: close","A: lanzar  RUN: bolsa  B: cerrar","A: wirken  RUN: Tasche  B: zu","A: lancia  RUN: sacca  B: chiudi"}},
 };
 static const int NCTBL = sizeof(CTBL)/sizeof(CTBL[0]);
 const char* trc(const char* fr){

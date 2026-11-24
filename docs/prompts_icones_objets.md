@@ -184,3 +184,17 @@ A sprite sheet of 6 item icons arranged in a grid of 3 columns and 2 rows:
 - Envoie-moi les planches telles quelles (PNG). Je fais la découpe, le détourage, la
   réduction en 24 × 24 et 48 × 48 et l'association aux ID dans l'ordre des tableaux
   ci-dessus.
+
+## Intégration dans le jeu
+
+Les planches validées sont dans `tools/icon_src/planche1.png` … `planche5.png`
+(réduites à 768 px). Pour remplacer une icône : régénérer sa planche, l'enregistrer
+sous le même nom, puis lancer depuis la racine du dépôt :
+
+```
+python3 tools/bake_icons.py
+```
+
+Le script découpe les cases, retire le fond magenta, réduit en 24 × 24 et 48 × 48 et
+réécrit `components/asteria/generated/asteria_icons.h`. Avec
+`ICON_PREVIEW=apercu.png`, il produit aussi une planche de contrôle.

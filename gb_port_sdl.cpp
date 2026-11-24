@@ -30,7 +30,8 @@ static void pump(){
         case SDLK_RIGHT: case SDLK_d: b=gb::BTN_RIGHT; break;
         case SDLK_x: case SDLK_RETURN: b=gb::BTN_A; break;
         case SDLK_c: case SDLK_BACKSPACE: b=gb::BTN_B; break;
-        case SDLK_RETURN2: b=gb::BTN_MENU; break;
+        case SDLK_RETURN2: case SDLK_TAB: case SDLK_p: b=gb::BTN_MENU; break;
+        case SDLK_v: case SDLK_i: case SDLK_SPACE: b=gb::BTN_RUN; break;   // RUN : fenetre personnage, onglets
         case SDLK_ESCAPE: g_quit=true; break;
       }
       if(b){ if(d){ if(!(g_held&b)) g_pressed|=b; g_held|=b; } else g_held&=~b; }

@@ -1,5 +1,6 @@
 // ASTERIA (Gamebuino AKA) - Scene monde : exploration, PNJ, cueillette (herbes/champignons/miel/bois),
-// menu Pause complet (Sac & Equipement, Alchimie & Soins, Journal & Stats, 3 emplacements de sauvegarde).
+// fenetres "Objet obtenu" et Personnage (ui/item_ui, scene/char_window),
+// menu Pause complet (Personnage, Alchimie & Soins, Journal & Stats, 3 emplacements de sauvegarde).
 #include <cstdio>
 #include <cstring>
 #include "i18n.h"
@@ -26,6 +27,8 @@
 #include "generated/asteria_recipes_gen.h"
 #include "player.h"
 #include "progress.h"
+#include "ui/item_ui.h"
+#include "scene/char_window.h"
 
 namespace asteria {
 using namespace data;
@@ -162,6 +165,7 @@ void new_game_reset(){
   WorldScene& w=world_scene(); w.started=false; w.confirmQuit=false;
   w.pauseSel=0; w.pauseSub=0; w.pauseListSel=0; w.stepCount=0;
   w.pauseMsg=nullptr; w.epiLine=0; w.notice=false; w.dlg=false; w.savedMap=-2;
+  item_ui::pickup_clear(); charwin::close();
   state_reset(); progress_reset(); player()=new_caithness(); dungeon_reset();
 }
 
@@ -213,7 +217,7 @@ void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
     if(!(p&gb::BTN_A)) return;
     switch(pauseSel){
       case 0: confirmQuit=false; break;
-      case 1: pauseSub=1; pauseListSel=0; pauseMsg=nullptr; break;
+      case 1: charwin::open(0); pauseMsg=nullptr; break;   // fenetre personnage par-dessus la pause
       case 2: pauseSub=2; pauseListSel=0; pauseMsg=nullptr; break;
       case 3: pauseSub=3; pauseListSel=0; pauseMsg=nullptr; break;
       case 4: pauseSub=4; pauseListSel=active_save_slot()-1; pauseMsg=nullptr; refresh_slot_summaries(); break;
@@ -224,26 +228,7 @@ void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
 
   if(p&gb::BTN_B){ pauseSub=0; pauseMsg=nullptr; return; }
 
-  if(pauseSub==1){ // Sac & Equipement
-    int n = player().inv.n;
-    if(n>0 && pauseListSel>=n) pauseListSel=n-1;
-    if(n>0 && (p&gb::BTN_DOWN)){ pauseListSel=(pauseListSel+1)%n; pauseMsg=nullptr; }
-    if(n>0 && (p&gb::BTN_UP)){   pauseListSel=(pauseListSel+n-1)%n; pauseMsg=nullptr; }
-    if(n>0 && (p&gb::BTN_A)){
-      int it = player().inv.slots[pauseListSel].item;
-      if(is_weapon_item(it)){
-        player().weapon = it;
-        snprintf(g_pmsg_buf,sizeof(g_pmsg_buf),trc("Équipé : %s"),trc(ITEMS[it].name));
-        pauseMsg = g_pmsg_buf;
-        audio::sfx_confirm();
-      } else if(is_consumable_field(it)){
-        if(use_item_field(player(), it, g_pmsg_buf, sizeof(g_pmsg_buf))) audio::sfx_coin();
-        pauseMsg = g_pmsg_buf;
-      } else {
-        pauseMsg = item_desc(it);
-      }
-    }
-  } else if(pauseSub==2){ // Alchimie & Soins
+  if(pauseSub==2){ // Alchimie & Soins
     int kinds[8], ids[8]; int n=alch_entries(kinds,ids);
     if(n>0 && pauseListSel>=n) pauseListSel=n-1;
     if(n>0 && (p&gb::BTN_DOWN)){ pauseListSel=(pauseListSel+1)%n; pauseMsg=nullptr; }
@@ -304,7 +289,8 @@ void WorldScene::update(SceneManager& mgr){
   if(MAPS[map].location==23 && !flag_get("vallee_intro")){ flag_set("vallee_intro"); notice=true; noticeTxt="La Vallee des Pierres Murmurantes. Des monolithes graves veillent entre les rochers."; }
   if(quest_status(0)==2 && quest_status(2)==0) quest_start(2);
   if(quest_status(2)==2 && quest_status(3)==0) quest_start(3);   // Q3 Les empreintes (annexe)
-  if(confirmQuit){ pause_update(mgr,p); return; }   // menu pause : Sac & Equipement, Alchimie & Soins, Journal, Sauvegarde (3 empl.), Quitter
+  if(charwin::is_open()){ charwin::update(p); return; }   // fenetre personnage (B : retour au jeu ou au menu pause)
+  if(confirmQuit){ pause_update(mgr,p); return; }   // menu pause : Personnage, Alchimie & Soins, Journal, Sauvegarde (3 empl.), Quitter
   if(notice){ if(p&(gb::BTN_A|gb::BTN_B)) notice=false; return; }
   if(started && !dlg && map!=savedMap){ savedMap=map; if(g_autosave) game_save(); }   // auto-sauvegarde a chaque arrivee sur une carte
 
@@ -334,8 +320,9 @@ void WorldScene::update(SceneManager& mgr){
   }
 
   if(dlg){ const dlg::Node& N=dlg::DIALOG[dlgNpc].nodes[dlgNode];
-    if(p&gb::BTN_A){ dlgLine++; if(dlgLine>=N.nlines){ if(N.set_flag) flag_set(N.set_flag); if(N.give_item>=0) player().inv.add(N.give_item,1); if(N.complete_quest>=0) complete_quest_reward(N.complete_quest); if(N.start_quest>=0) quest_start(N.start_quest); dlg=false; } }
+    if(p&gb::BTN_A){ dlgLine++; if(dlgLine>=N.nlines){ if(N.set_flag) flag_set(N.set_flag); if(N.give_item>=0 && player().inv.add(N.give_item,1)) item_ui::pickup_push(N.give_item,1); if(N.complete_quest>=0) complete_quest_reward(N.complete_quest); if(N.start_quest>=0) quest_start(N.start_quest); dlg=false; } }
     if(p&gb::BTN_B) dlg=false; return; }
+  if(item_ui::pickup_active()){ item_ui::pickup_update(p); return; }   // fenetres "Objet obtenu" en attente
 
   int nx=px,ny=py;
   if(p&gb::BTN_UP){ny=py-1;dir=1;} if(p&gb::BTN_DOWN){ny=py+1;dir=0;}
@@ -354,17 +341,14 @@ void WorldScene::update(SceneManager& mgr){
           // type: 0=herbe(33), 1=champignon(34), 2=miel(25), 3=bois(35, x2)
           static const uint8_t PKT[]={0,0,0,0,0,0,0,0,0, 1,1,1,1, 2,2,2, 3,3,3};
           static const char* PKF[]={"pk0","pk1","pk2","pk3","pk4","pk5","pk6","pk7","pk8","pk9","pk10","pk11","pk12","pk13","pk14","pk15","pk16","pk17","pk18"};
-          for(int i=0;i<19;i++) if(px==PKX[i]&&py==PKY[i]&&!flag_get(PKF[i])){ flag_set(PKF[i]);
+          for(int i=0;i<19;i++) if(px==PKX[i]&&py==PKY[i]&&!flag_get(PKF[i])){
             int kind=PKT[i];
             const char* id = (kind==0)?"OBJ_0034":(kind==1)?"OBJ_0035":(kind==2)?"OBJ_0026":"OBJ_0036";
             int qty = (kind==3) ? 2 : 1;
-            int it=item_index(id); if(it>=0) player().inv.add(it,qty);
+            int it=item_index(id);
+            if(it>=0 && player().inv.add(it,qty)){ flag_set(PKF[i]); item_ui::pickup_push(it,qty); }   // fenetre "Objet obtenu"
+            else { notice=true; noticeTxt="Ton sac est plein !"; audio::sfx_error(); break; }   // la cueillette reste en place
             audio::sfx_pickup();
-            notice=true;
-            noticeTxt = (kind==0)?"Tu cueilles une herbe medicinale.":
-                        (kind==1)?"Tu ramasses un champignon.":
-                        (kind==2)?"Tu recoltes du miel sauvage !":
-                                  "Tu ramasses 2 branches de bois sec.";
             break;
           }
         }
@@ -388,6 +372,7 @@ void WorldScene::update(SceneManager& mgr){
           int cape = item_index("OBJ_0024");
           int mod = (cape>=0 && player().inv.has(cape,1)) ? 12 : 9;
           if(daytime::is_night()) mod = mod*2/3;                       // la nuit, les rencontres sont plus frequentes
+          else if(_loc==8 || _loc==20) mod = mod*4/3;                  // de jour, foret et route sont plus calmes (1 pas sur 12, 16 avec la cape)
           if(!_tp && !g_no_encounters && (_loc==8||_loc==9||_loc==20) && (ws_rand()%mod==0)){
             int _m=(_loc==8)?5+(int)(ws_rand()%4):(_loc==20)?(10+(int)(ws_rand()%2)):((ws_rand()&1u)?16:23);
             set_combat_return(SceneId::WORLD); start_combat(_m, backdrop(_loc));
@@ -426,7 +411,7 @@ void WorldScene::update(SceneManager& mgr){
         }
       } else if(n==15 && _loc==10){
         if(!flag_get("q8_pris")){ flag_set("q8_pris"); if(quest_status(8)==0) quest_start(8);
-          int pli=item_index("OBJ_0039"); if(pli>=0 && !player().inv.has(pli,1)) player().inv.add(pli,1); }
+          int pli=item_index("OBJ_0039"); if(pli>=0 && !player().inv.has(pli,1) && player().inv.add(pli,1)) item_ui::pickup_push(pli,1); }
         else if(!flag_get("q8_fait") && flag_get("c_pli") && flag_get("c_herbes") && flag_get("c_aumone")){
           flag_set("q8_fait"); complete_quest_reward(8); }
       } else if(n==16 && _loc==10 && flag_get("q8_pris") && !flag_get("c_pli")){
@@ -443,14 +428,14 @@ void WorldScene::update(SceneManager& mgr){
         else { int col=item_index("OBJ_0038");
           if(col>=0 && player().inv.has(col,1) && !flag_get("q15_fait")){ player().inv.remove(col,1); flag_set("q15_fait"); player().gold+=30; complete_quest_reward(15); } }
       } else if(n==18 && _loc==10 && flag_get("vu_meluve") && !flag_get("collier_pris")){
-        flag_set("collier_pris"); int col=item_index("OBJ_0038"); if(col>=0 && !player().inv.has(col,1)) player().inv.add(col,1);
+        flag_set("collier_pris"); int col=item_index("OBJ_0038"); if(col>=0 && !player().inv.has(col,1) && player().inv.add(col,1)) item_ui::pickup_push(col,1);
       } else if(n==20 && !flag_get("anneau_recu")){
-        flag_set("anneau_recu"); int rg=item_index("OBJ_0040"); if(rg>=0 && !player().inv.has(rg,1)) player().inv.add(rg,1);
+        flag_set("anneau_recu"); int rg=item_index("OBJ_0040"); if(rg>=0 && !player().inv.has(rg,1) && player().inv.add(rg,1)) item_ui::pickup_push(rg,1);
         complete_quest_reward(16);
       } else if(n==20 && !flag_get("orwenn_apres")) flag_set("orwenn_apres");
       else if(n==21 && !flag_get("vu_voyageur")){   // Voyageur Encapuchonne : remet le Livre des Elements (Arc 0)
         flag_set("vu_voyageur");
-        int lv=item_index("OBJ_0041"); if(lv>=0 && !player().inv.has(lv,1)) player().inv.add(lv,1);
+        int lv=item_index("OBJ_0041"); if(lv>=0 && !player().inv.has(lv,1) && player().inv.add(lv,1)) item_ui::pickup_push(lv,1);
       }
       dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0;
     } else if(MAPS[map].location==23 && ((fx==5&&fy==9)||(fx==12&&fy==4)||(fx==20&&fy==7)||(fx==21&&fy==16))){
@@ -468,12 +453,15 @@ void WorldScene::update(SceneManager& mgr){
         if(c.item>=0 && !player().inv.add(c.item,1)){   // BUG-07 : inventaire plein -> on laisse le coffre FERME, le joueur reviendra
           notice=true; noticeTxt="Ton inventaire est plein ! Fais de la place et reviens ouvrir ce coffre."; audio::sfx_error();
         } else {
-          player().gold+=c.gold; flag_set(c.flag); notice=true; asteria::audio::sfx_chest();
-          noticeTxt="Un coffre ! Tu recuperes du butin.";
+          player().gold+=c.gold; flag_set(c.flag); asteria::audio::sfx_chest();
+          if(c.item>=0) item_ui::pickup_push(c.item,1);           // fenetres "Objet obtenu" : l'objet puis l'or
+          if(c.gold>0)  item_ui::pickup_push(item_ui::GOLD,c.gold);
+          if(c.item<0 && c.gold<=0){ notice=true; noticeTxt="Un coffre ! Tu recuperes du butin."; }
           if(c.complete_q>=0){
             if(quest_status(c.complete_q)==0) quest_start(c.complete_q);
             if(quest_status(c.complete_q)==1) complete_quest_reward(c.complete_q);
             if(c.setflag) flag_set(c.setflag);
+            if(c.complete_q==5||c.complete_q==10) notice=true;     // note de quete trouvee dans le coffre
             if(c.complete_q==5) noticeTxt="Un tissu dechire, arrache a un villageois... Les traces menent a la Vieille Mine.";
             else if(c.complete_q==10) noticeTxt="Le carnet du chef de caravane ! Ses notes mènent à Grand-Castel.";
           }
@@ -484,6 +472,7 @@ void WorldScene::update(SceneManager& mgr){
     }
   }
 
+  if(p&gb::BTN_RUN){ charwin::open(0); return; }   // raccourci : fenetre personnage
   if(p&(gb::BTN_MENU|gb::BTN_B)){ confirmQuit=true; pauseSel=0; pauseSub=0; pauseListSel=0; pauseMsg=nullptr; }
 }
 
@@ -708,6 +697,8 @@ void WorldScene::render(){
     ui::text(206,214,i18n::tr(i18n::W_CONT),gb::rgb(170,160,132));
   }
 
+  if(!notice && !dlg && !confirmQuit) item_ui::pickup_render();   // fenetre "Objet obtenu"
+
   if(confirmQuit){   // DELTA-03 : menu pause
     gb::fill_rect(14,34,292,196,gb::rgb(20,16,10));
     gb::fill_rect(14,34,292,2,gb::rgb(200,170,90));
@@ -720,30 +711,11 @@ void WorldScene::render(){
     if(pauseSub==0){
       ui::gold(24,40,trc("Pause"),true);
       char saveLbl[32]; snprintf(saveLbl,sizeof(saveLbl),trc("Sauvegarder (Empl.%d)"),active_save_slot());
-      const char* MENU[6]={trc("Reprendre"),trc("Sac & Équipement"),trc("Alchimie & Soins"),trc("Journal & Stats"),saveLbl,trc("Quitter vers le titre")};
+      const char* MENU[6]={trc("Reprendre"),trc("Personnage"),trc("Alchimie & Soins"),trc("Journal & Stats"),saveLbl,trc("Quitter vers le titre")};
       for(int i=0;i<6;i++){ int y=64+i*22;
         if(i==pauseSel){ gb::fill_rect(22,y-2,276,17,gb::rgb(60,45,20)); ui::gold(26,y,">",true); }
         ui::text(40,y,MENU[i],gb::rgb(235,225,190)); }
       ui::text(24,208,trc("A: ouvrir   B: reprendre"),gb::rgb(170,160,132));
-    } else if(pauseSub==1){
-      ui::gold(24,40,trc("Sac & Équipement"),true);
-      int n=player().inv.n;
-      const int VIS=6;
-      int top=(pauseListSel>=VIS)?(pauseListSel-VIS+1):0;
-      if(n==0) ui::text(26,68,trc("Le sac est vide."),gb::rgb(170,160,132));
-      else {
-        for(int r=0;r<VIS && (top+r)<n;r++){
-          int idx=top+r, y=62+r*19;
-          const ItemStack& s=player().inv.slots[idx];
-          bool eq = (s.item == player().weapon);
-          if(idx==pauseListSel){ gb::fill_rect(22,y-2,276,16,gb::rgb(60,45,20)); ui::gold(24,y,">",true); }
-          char ln[48]; snprintf(ln,sizeof(ln),"%s%s x%d",eq?"* ":"",trc(ITEMS[s.item].name),(int)s.qty);
-          ui::text(36,y,ln, eq?gb::rgb(245,215,95):gb::rgb(235,225,190));
-        }
-        int curItem = player().inv.slots[pauseListSel].item;
-        ui::text(24,184,pauseMsg ? trc(pauseMsg) : trc(item_desc(curItem)), gb::rgb(185,225,175));
-      }
-      ui::text(24,208,trc("A: équiper/utiliser   B: retour"),gb::rgb(170,160,132));
     } else if(pauseSub==2){
       ui::gold(24,40,trc("Alchimie & Soins"),true);
       int kinds[8], ids[8]; int n=alch_entries(kinds,ids);
@@ -795,5 +767,6 @@ void WorldScene::render(){
       ui::text(24,208,trc("A: sauvegarder ici   B: retour"),gb::rgb(170,160,132));
     }
   }
+  charwin::render();   // fenetre personnage (au-dessus du menu pause si ouverte depuis celui-ci)
 }
 }

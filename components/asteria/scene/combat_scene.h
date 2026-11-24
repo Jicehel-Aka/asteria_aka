@@ -14,4 +14,5 @@ CombatScene& combat_scene();
 bool spell_known(int i);          // sort data::SPELLS[i] utilisable par le joueur
 int  spell_cost(int i);           // cout en pouvoir
 const char* spell_short(int i);   // nom court (FR, passe par trc())
+const char* spell_fx(int i);      // effet resume (FR, passe par trc())
 }

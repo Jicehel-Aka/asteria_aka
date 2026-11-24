@@ -89,7 +89,7 @@ jobs:
         run: |
           A=components/asteria
           g++ -std=c++17 -O2 -I "$A" \
-            $A/asteria_app.cpp $A/ui/text.cpp $A/player.cpp $A/gamestate.cpp \
+            $A/asteria_app.cpp $A/ui/text.cpp $A/ui/item_ui.cpp $A/player.cpp $A/gamestate.cpp \
             $A/i18n.cpp $A/content_i18n.cpp $A/save.cpp $A/autotile.cpp $A/audio/jingle.cpp $A/audio/music.cpp $A/daytime.cpp $A/progress.cpp $A/scene/*.cpp \
             gb_port_sdl.cpp main_sdl.cpp pmf_pc.cpp components/gamebuino/gb_lib/pmf_player/pmf_player.cpp -I components/gamebuino/gb_lib/pmf_player -I components/gamebuino/include_lib -I components/gamebuino/include_ll $(sdl2-config --cflags --libs) \
             -o asteria_pc.exe
@@ -123,7 +123,7 @@ jobs:
         run: |
           A=components/asteria
           g++ -std=c++17 -O2 -I "$A" \
-            $A/asteria_app.cpp $A/ui/text.cpp $A/player.cpp $A/gamestate.cpp \
+            $A/asteria_app.cpp $A/ui/text.cpp $A/ui/item_ui.cpp $A/player.cpp $A/gamestate.cpp \
             $A/i18n.cpp $A/content_i18n.cpp $A/save.cpp $A/autotile.cpp $A/audio/jingle.cpp $A/audio/music.cpp $A/daytime.cpp $A/progress.cpp $A/scene/*.cpp \
             gb_port_sdl.cpp main_sdl.cpp pmf_pc.cpp components/gamebuino/gb_lib/pmf_player/pmf_player.cpp -I components/gamebuino/gb_lib/pmf_player -I components/gamebuino/include_lib -I components/gamebuino/include_ll $(sdl2-config --cflags --libs) \
             -o asteria_pc

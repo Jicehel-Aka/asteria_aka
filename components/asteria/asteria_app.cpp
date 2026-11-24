@@ -7,6 +7,8 @@
 #include "audio/jingle.h"
 #include "audio/music.h"
 #include "daytime.h"
+#include "ui/item_ui.h"
+#include "scene/char_window.h"
 namespace asteria {
 
 // Sons d'interface generiques, deduits des touches pressees AVANT la mise a jour de
@@ -26,13 +28,17 @@ static void ui_sounds(SceneId sc){
       break;
     case SceneId::WORLD: {
       const WorldScene& w = world_scene();
-      if(w.confirmQuit){                                   // menu pause ouvert
+      if(charwin::is_open()){                              // fenetre personnage
+        if(p & ARROWS) audio::sfx_select();
+        else if(p & gb::BTN_RUN) audio::sfx_page();
+        else if(p & gb::BTN_B) audio::sfx_back();          // A : la fenetre joue elle-meme le son de l'action
+      } else if(w.confirmQuit){                            // menu pause ouvert
         if(p & ARROWS) audio::sfx_select();
         else if(p & gb::BTN_A) audio::sfx_confirm();
         else if(p & (gb::BTN_B | gb::BTN_MENU)) audio::sfx_back();
-      } else if(w.dlg || w.notice){
+      } else if(w.dlg || w.notice || item_ui::pickup_active()){
         if(p & gb::BTN_A) audio::sfx_page();               // ligne de dialogue / message suivant
-      } else if(p & (gb::BTN_MENU | gb::BTN_B)) audio::sfx_open();
+      } else if(p & (gb::BTN_MENU | gb::BTN_B | gb::BTN_RUN)) audio::sfx_open();
     } break;
     default: break;
   }
