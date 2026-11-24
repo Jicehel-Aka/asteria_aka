@@ -683,7 +683,7 @@ void WorldScene::render(){
     // Horloge (droite) : soleil ou lune + heure ; le nom de la quete se place a sa gauche.
     int clockX=314;
     {
-      char hh[8]; int m=daytime::minutes(); snprintf(hh,sizeof(hh),"%dh%02d",m/60,m%60);
+      char hh[16]; int m=daytime::minutes(); snprintf(hh,sizeof(hh),"%dh%02d",(m/60)%24,m%60);
       int tw=ui::text_w(hh); clockX=314-tw-14;
       if(daytime::is_night()){ for(int dy=-4;dy<=4;dy++) for(int dx=-4;dx<=4;dx++){ int d=dx*dx+dy*dy, e=(dx-2)*(dx-2)+(dy+1)*(dy+1);
           if(d<=16 && e>9) gb::pixel(clockX+6+dx,9+dy,gb::rgb(220,225,255)); } }          // croissant de lune
