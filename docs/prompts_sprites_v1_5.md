@@ -4,6 +4,9 @@ J'ai d'abord vérifié ce qui existe déjà (banque PNJ, bestiaire, décors de c
 icônes des planches 1 à 5, héroïne Caïthness) : tout ce qui suit **manque vraiment**.
 Les besoins sont regroupés par image à générer, de la plus utile à la plus facultative.
 
+> **État (v1.5.1)** : les images 1 à 4 sont reçues et intégrées (planche 6, poupée,
+> carte `CARTE.BMP`, voyageur : `tools/bake_hero_m.py` + `VOYAG.BMP`). Reste la 5.
+
 | # | Image | Format | Où ça sert | Déjà prévu dans le code ? |
 |---|---|---|---|---|
 | 1 | Planche 6 : équipement | 3 × 2 cases, fond magenta | Sac, poupée, boutique, forge | Oui : il suffit de déposer `tools/icon_src/planche6.png` |

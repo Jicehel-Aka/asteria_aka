@@ -32,6 +32,7 @@
 #include "scene/journal.h"
 #include "scene/worldmap.h"
 #include "scene/dialog_choice.h"
+#include "ui/hero_sprite.h"
 
 namespace asteria {
 using namespace data;
@@ -609,7 +610,7 @@ void WorldScene::render(){
       } else gb::fill_rect(s.x*TILE_SIZE+4-camx,s.y*TILE_SIZE+2-camy,8,12,gb::rgb(230,220,120)); }
     if(py==y){
       int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1;
-      const spr::Sprite& hs=spr::HERO[dir][fr];
+      const spr::Sprite& hs=hero_sprite(dir,fr);   // Caithness / voyageuse ou voyageur
       int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy;
       gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY);
       if(cached) occlude(M,y,camx,camy,sx,sy,hs.w,hs.h);   // arbres/toits de la rangee suivante par-dessus le heros
@@ -623,7 +624,7 @@ void WorldScene::render(){
   }
   if(py<y0||py>=y1){
     int fr = (gb::millis()-lastMove < 300) ? (int)((gb::millis()/120)%3) : 1;
-    const spr::Sprite& hs=spr::HERO[dir][fr];
+    const spr::Sprite& hs=hero_sprite(dir,fr);   // Caithness / voyageuse ou voyageur
     int sx=px*TILE_SIZE+(TILE_SIZE-hs.w)/2-camx; int sy=py*TILE_SIZE+TILE_SIZE-hs.h+2-camy;
     gb::draw_image_key(hs.px,hs.w,hs.h,sx,sy,spr::KEY);
   }

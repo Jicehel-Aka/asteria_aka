@@ -5,7 +5,7 @@
 #include "ui/item_ui.h"
 #include "platform/gb_port.h"
 #include "generated/asteria_gen.h"
-#include "generated/asteria_hero.h"
+#include "ui/hero_sprite.h"
 #include "generated/asteria_spells_gen.h"
 #include "audio/jingle.h"
 #include "content_i18n.h"
@@ -177,7 +177,7 @@ static void bar(int x, int y, int w, int v, int vmax, gb::Color c){
   if(vmax > 0 && v > 0){ int f = w * (v > vmax ? vmax : v) / vmax; gb::fill_rect(x, y, f, 5, c); }
 }
 static void hero_x2(int x, int y){                  // portrait : sprite de face, double taille
-  const spr::Sprite& s = spr::HERO[0][1];
+  const spr::Sprite& s = hero_sprite(0,1);
   for(int j = 0; j < s.h; ++j) for(int i = 0; i < s.w; ++i){
     uint16_t c = s.px[j * s.w + i]; if(c != spr::KEY) gb::fill_rect(x + i*2, y + j*2, 2, 2, c);
   }
