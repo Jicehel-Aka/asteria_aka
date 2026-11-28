@@ -328,7 +328,7 @@ function renderMap(){
   mapstatus.textContent=`${map.id} — ${map.w}×${map.h} — départ (${map.px},${map.py}) — ${map.spawns.length} PNJ, ${map.portals.length} portail(s) — pinceau: ${NAMES[selTile]} — outil: ${mapTool}`;
 }
 function tag(x,y,txt,col){ mctx.fillStyle=col;mctx.font=`bold ${Math.max(8,CELL*0.5)}px monospace`;mctx.textAlign='center';mctx.textBaseline='middle';mctx.fillText(''+txt,x*CELL+CELL/2,y*CELL+CELL/2); }
-function buildPal(){ const pal=document.getElementById('pal');pal.innerHTML='';
+function buildPal(){ const pal=document.getElementById('pal');pal.replaceChildren();
   NAMES.forEach((nm,i)=>{ const d=document.createElement('div');d.className='cell'+(i===selTile?' on':'');
     const c=document.createElement('canvas');c.width=c.height=32;drawTileInto(c,i,32);
     const lab=document.createElement('div');lab.className='nm';lab.textContent=i+' '+nm;
@@ -407,7 +407,7 @@ function renderSpr(){
   for(let y=0;y<SZ;y++)for(let x=0;x<SZ;x++){const p=sprPix[y*SZ+x];if(p){pctx.fillStyle=rgb2hex(p[0],p[1],p[2]);pctx.fillRect(x,y,1,1);}}
   sprstatus.textContent=`${SZ}×${SZ} — outil: ${sprTool} — couleur ${rgb2hex(...curColor)}`;
 }
-function buildSwatches(el,arr,pick){ el.innerHTML=''; arr.forEach((c,i)=>{const d=document.createElement('div');d.className='sw';
+function buildSwatches(el,arr,pick){ el.replaceChildren(); arr.forEach((c,i)=>{const d=document.createElement('div');d.className='sw';
   const isKey=(c[0]===255&&c[1]===0&&c[2]===255); d.style.background=isKey?'#ff00ff':rgb2hex(...c);
   if(isKey)d.title='transparent'; d.onclick=()=>pick(c);el.appendChild(d);}); }
 function sprCell(e){const r=sprcv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:Math.floor((t.clientX-r.left)/SCELL),y:Math.floor((t.clientY-r.top)/SCELL)};}
@@ -465,7 +465,7 @@ function renderChr(){
   chrstatus.textContent=`${['bas','haut','gauche','droite'][chrDir]} / frame ${chrFr+1} — ${CSZ}×${CSZ} — ${rgb2hex(...chrColor)}`;
   buildFrameBtns();
 }
-function buildFrameBtns(){ const el=document.getElementById('c_frames');el.innerHTML='';
+function buildFrameBtns(){ const el=document.getElementById('c_frames');el.replaceChildren();
   for(let f=0;f<NFR;f++){const b=document.createElement('button');b.className='btn'+(f===chrFr?' on':'');b.textContent=(f+1);b.onclick=()=>{chrFr=f;renderChr();};el.appendChild(b);} }
 function chrCell(e){const r=chrcv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:Math.floor((t.clientX-r.left)/CCELL),y:Math.floor((t.clientY-r.top)/CCELL)};}
 function applyChr(x,y){if(x<0||y<0||x>=CSZ||y>=CSZ)return;const px=chrSheet[frIndex()],idx=y*CSZ+x;
@@ -500,7 +500,11 @@ chrExpGrid.onclick=()=>{ // export RGB565 "grid" façon bake_sprites (DIR][FRAME
 buildSwatches(document.getElementById('c_swatches'),swatches,c=>{chrColor=c.slice();c_col.value=rgb2hex(...c);c_colhex.textContent=c_col.value;});
 
 /* ---------------- boot ---------------- */
-mapsel.innerHTML=DATA.maps.map((m,i)=>`<option value="${i}">${m.id} — ${['Valbois','Auberge','?','?','?','?','?','?','Forêt de Brume','Vallée','Grand-Castel'][m.loc]||('loc '+m.loc)} (${m.w}×${m.h})</option>`).join('');
+// SEC-06 : options construites via createElement/textContent (jamais d'innerHTML sur des donnees chargees)
+mapsel.replaceChildren();
+DATA.maps.forEach((m,i)=>{ const opt=document.createElement('option'); opt.value=String(i);
+  const lieu=['Valbois','Auberge','Forge de Doran','?','?','?','?','?','Forêt de Brume','Vallée','Grand-Castel'][m.loc]||('loc '+m.loc);
+  opt.textContent=`${m.id} — ${lieu} (${m.w}×${m.h})`; mapsel.appendChild(opt); });
 buildPal(); loadMapByIndex(0);
 newSpr(16); buildSwatches(document.getElementById('swatches'),swatches,c=>{curColor=c.slice();colpick.value=rgb2hex(...c);colhex.textContent=colpick.value;});
 renderChr();

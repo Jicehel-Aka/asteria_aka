@@ -22,7 +22,7 @@ void DiceScene::update(SceneManager& m){
       else { pr=d6()+d6()+d6(); hr=d6()+d6()+d6();
         if(pr>hr){ player().gold+=bet; snprintf(msg,64,"Tu gagnes ! %d contre %d  (+%d or)",pr,hr,bet); }
         else if(pr<hr){ player().gold-=bet; snprintf(msg,64,"Perdu... %d contre %d  (-%d or)",pr,hr,bet); }
-        else snprintf(msg,64,"Egalite ! %d partout. Mise rendue.",pr);
+        else snprintf(msg,64,"Égalité ! %d partout. Mise rendue.",pr);
         phase=1; } }
   } else { if(p&gb::BTN_A) phase=0; if(p&gb::BTN_B) m.set(SceneId::WORLD); }
 }

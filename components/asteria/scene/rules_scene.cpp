@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Ecran des regles du jeu (texte defilant).
 #include "scene/rules_scene.h"
 #include "ui/text.h"
 #include "platform/gb_port.h"

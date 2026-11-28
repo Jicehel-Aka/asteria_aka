@@ -1,6 +1,9 @@
 // Autopilote de validation : joue ASTERIA de bout en bout en pilotant le vrai moteur.
+#include "i18n.h"
+#include <cstdlib>
 #include "scene/scene.h"
 #include "scene/world_scene.h"
+#include "ui/item_ui.h"
 #include "scene/combat_scene.h"
 #include "scene/dungeon_scene.h"
 #include "platform/gb_port.h"
@@ -15,6 +18,7 @@
 #include <cstring>
 #include <vector>
 void host_set_budget(int n); void host_inject(int code); void host_tick();
+namespace asteria { extern bool g_autosave; }
 using namespace asteria;
 using data::MAPS; using data::TILE_SOLID; using data::Map;
 
@@ -92,7 +96,8 @@ static int dBfsStep(DungeonScene& d,int sx,int sy,int tx,int ty,bool adjacent,in
 }
 
 int main(){
-  audio::init(); host_set_budget(1000000000);
+  if(getenv("ASTERIA_LANG")) i18n::set_lang(atoi(getenv("ASTERIA_LANG")));   // harnais multilingue (controle des largeurs)
+  audio::init(); host_set_budget(1000000000); asteria::g_autosave=false;
   new_game_reset();
   // MODE VALIDATION : on neutralise l'equilibrage du combat (stats gonflees) pour
   // isoler la VALIDATION DE LA PROGRESSION (verrous, declencheurs, quetes, bosses,
@@ -134,7 +139,8 @@ int main(){
     else if(sc==SceneId::TITLE||sc==SceneId::CREATE||sc==SceneId::RULES){ inj=5; }
     else if(sc==SceneId::DUNGEON){
       DungeonScene& d=dungeon_scene();
-      if(d.anim){ inj=-1; }
+      if(item_ui::pickup_active()){ inj=5; }   // butin du dernier combat : fenetre "Objet obtenu"
+      else if(d.anim){ inj=-1; }
       else {
         int tx,ty; bool adjacent;
         if(player().level<5){ // farmer les rencontres : faire la navette entree <-> voisinage du boss
@@ -158,7 +164,7 @@ int main(){
     }
     else if(sc==SceneId::WORLD){
       WorldScene& w=world_scene();
-      if(w.notice){ inj=5; }
+      if(w.notice || item_ui::pickup_active()){ inj=5; }   // message ou fenetre "Objet obtenu" : A
       else if(w.dlg){ inj=5; }
       else {
         const Map& M=CM(); int L=loc();
@@ -171,16 +177,24 @@ int main(){
         else if(step==1){ portalCell(M,8,tx,ty); }
         else if(step==2){ tx=22; ty=7; adjacent=true; interact=true; }           // coffre foret
         else if(step==3){ portalCell(M,9,tx,ty); }
-        else if(step==5){ tx=10; ty=1; }                                         // monter la route (ambush)
+        else if(step==5){ portalCell(M,10,tx,ty); }                              // monter la route -> Grand-Castel (ambush Corbeau en chemin)
         else if(step==6){ portalCell(M,10,tx,ty); }
         else if(step==7){ npcCell(M,13,tx,ty); adjacent=true; interact=true; }   // Albin
-        else if(step==8){                                                        // detour Pierres Murmurantes (Q13) puis Antre
-          if(quest_status(13)==1 && L==20){ int my=-1;
-            if(!flag_get("pm6"))my=6; else if(!flag_get("pm12"))my=12; else if(!flag_get("pm22"))my=22; else if(!flag_get("pm36"))my=36;
-            if(my>=0){ tx=9; ty=my; adjacent=true; interact=true; } else { portalCell(M,10,tx,ty); } }
-          else if(quest_status(13)==1 && L==10){ portalCell(M,20,tx,ty); }
-          else if(L==20){ portalCell(M,10,tx,ty); }
-          else { portalCell(M,21,tx,ty); }
+        else if(step==8){                                                        // detour Vallee des Pierres (Q13) puis Antre
+          if(quest_status(13)==1){
+            if(L==23){ int mx=-1,my=0;
+              if(!flag_get("pm6")){mx=5;my=9;} else if(!flag_get("pm12")){mx=12;my=4;}
+              else if(!flag_get("pm22")){mx=20;my=7;} else if(!flag_get("pm36")){mx=21;my=16;}
+              if(mx>=0){ tx=mx; ty=my; adjacent=true; interact=true; } else { portalCell(M,20,tx,ty); } }
+            else if(L==20){ portalCell(M,23,tx,ty); }    // route -> Vallee
+            else if(L==10){ portalCell(M,20,tx,ty); }    // Grand-Castel -> route
+            else { portalCell(M,21,tx,ty); }
+          } else {                                       // Q13 absente/finie -> cap sur l'Antre
+            if(L==10){ portalCell(M,21,tx,ty); }
+            else if(L==20){ portalCell(M,10,tx,ty); }
+            else if(L==23){ portalCell(M,20,tx,ty); }
+            else { portalCell(M,21,tx,ty); }
+          }
         }
         else if(step>=9){ tx=10; ty=4; }                                         // autel de l'Antre
         if(tx<0){ inj=-1; }

@@ -1,12 +1,16 @@
 // Donjon 1re personne (pseudo-3D grille, facon Dark & Under).
+// Optims AKA: scanline buffer memcpy + Q16.16 + PSRAM framebuffer.
+// Gameplay: filons minables (A), lumiere torche/lanterne + recharge/corde (R1).
 // Murs/sol/plafond textures pierre + eclairage par distance + torches vacillantes.
 #include "scene/dungeon_scene.h"
 #include "scene/combat_scene.h"
 #include "scene/world_scene.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
+#include "ui/item_ui.h"
 #include "player.h"
 #include "gamestate.h"
+#include "audio/jingle.h"
 #include "generated/asteria_tiles.h"
 #include "generated/asteria_monster.h"
 #include "generated/asteria_dungeon_tex.h"
@@ -14,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+
 namespace asteria {
 
 static const int DX[4]={0,1,0,-1};   // 0=N 1=E 2=S 3=O
@@ -23,19 +28,13 @@ DungeonScene& dungeon_scene(){ static DungeonScene s; return s; }
 void dungeon_reset(){ dungeon_scene().gen=false; }
 uint32_t DungeonScene::rnd(){ rng^=rng<<13; rng^=rng>>17; rng^=rng<<5; return rng; }
 
-// cadres de projection (viewport 210x240, centre 105,120)
-static const int LX[6]={0,44,70,84,93,98};
-static const int RX[6]={210,166,140,126,117,112};
-static const int TY[6]={0,50,80,97,106,112};
-static const int BY[6]={240,190,160,143,134,128};
-static const int VW=210, VH=240, CX=105, CY=120, MAXD=5;
+static const int VW=210, VH=240, CX=105, CY=120;
 
 // cellules : 0 sol, 1 mur, 2 filon, 3 mur a torche, 5 eau
 static bool  inbg(int x,int y){ return x>=0&&y>=0&&x<DungeonScene::GW&&y<DungeonScene::GH; }
 static int   cellAt(DungeonScene& d,int x,int y){ return inbg(x,y)? d.cell[y*DungeonScene::GW+x] : 1; }
 static bool  isWallC(int c){ return c==1||c==2||c==3; }
 static bool  isWall(DungeonScene& d,int x,int y){ return isWallC(cellAt(d,x,y)); }
-
 static void vline(int x,int y0,int y1,gb::Color c){ if(y0>y1){int t=y0;y0=y1;y1=t;} for(int y=y0;y<y1;y++) gb::pixel(x,y,c); }
 
 // ----- eclairage entier d'un texel : l=256 -> 1.0 -----
@@ -43,20 +42,73 @@ static inline gb::Color shade(uint16_t c,int l){
   int b=(c>>11)&31, g=(c>>5)&63, r=c&31; b=b*l>>8; g=g*l>>8; r=r*l>>8;
   if(b>31)b=31; if(g>63)g=63; if(r>31)r=31; return (gb::Color)((b<<11)|(g<<5)|r);
 }
+
 static void sparkle(int x0,int y0,int x1,int y1,uint32_t s){
   if(x1<=x0)x1=x0+1; if(y1<=y0)y1=y0+1; uint32_t r=(s*2654435761u)|1u;
   for(int i=0;i<7;i++){ r^=r<<13;r^=r>>17;r^=r<<5; int x=x0+(int)(r%(uint32_t)(x1-x0)); r^=r<<7; int y=y0+(int)(r%(uint32_t)(y1-y0));
     gb::pixel(x,y,gb::rgb(235,205,95)); gb::pixel(x,y+1,gb::rgb(150,120,40)); }
 }
+
 // bruit de roche lisse (value-noise) pour casser les aretes droites, stable par cellule
 static int hsh(int v){ uint32_t x=(uint32_t)v*2654435761u; x^=x>>13; x*=2246822519u; x^=x>>16; return (int)(x&2047); }
 static int rough(int seed,int i,int amp){ if(amp<1)amp=1; int a=hsh(seed+(i>>2)), b=hsh(seed+(i>>2)+1); int f=i&3; int va=a%amp, vb=b%amp; return va+((vb-va)*f)/4; }
 static int vari(int wx,int wy){ return (wx*7+wy*13)&(dtex::NWALL-1); }
 
-// ----- sol + plafond en floor-casting perspectif (dalles qui fuient correctement) -----
-static void floorCeil(DungeonScene& d,float posX,float posY,float dirX,float dirY,float planeX,float planeY,float flick){
+// Lumiere de la mine : la Lanterne renforcee (OBJ_0019) eclaire a 100 % en permanence ;
+// sinon la torche s'use (-2 % par pas, voir update) jusqu'a 44 % de luminosite.
+// R1 rallume avec une Torche ou de l'Huile ; sans rien, R1 utilise une corde pour sortir.
+static bool has_lantern(){ int l=item_index("OBJ_0019"); return l>=0 && player().inv.has(l,1); }
+static float dungeon_light_mult(){
+  if(has_lantern()) return 1.0f;
+  int tf = player().torchFuel;
+  if(tf<0) tf=0; if(tf>100) tf=100;
+  return 0.44f + 0.56f * ((float)tf / 100.0f);
+}
+
+// OPT-AKA-1 : floor-casting du sol/plafond.
+// La version optimisee (ASTERIA_FAST_RAYCAST) remplace la math flottante par pixel
+// par de la virgule fixe Q16.16 (la boucle interne ~50 000 px/frame devient entiere,
+// nettement plus rapide sur ESP32). Pour revenir a la version flottante d'origine :
+// compiler avec -DASTERIA_FAST_RAYCAST=0.
+#ifndef ASTERIA_FAST_RAYCAST
+#define ASTERIA_FAST_RAYCAST 1
+#endif
+
+// fb != nullptr : chaque rangee est calculee dans line[] puis copiee d'un bloc
+// (memcpy) dans le tampon de la vue ; sinon repli pixel par pixel.
+static void floorCeil(DungeonScene& d,uint16_t* fb,float posX,float posY,float dirX,float dirY,float planeX,float planeY,float flick){
   const int TWt=dtex::TW, TWm=dtex::TW-1, THm=dtex::TH-1;
   const uint16_t* FL=dtex::FLOOR[0]; const uint16_t* CE=dtex::WALL[2];
+  gb::Color line[VW];
+#if ASTERIA_FAST_RAYCAST
+  for(int y=CY+1;y<240;y++){
+    int p=y-CY; float rowDist=(float)CY/p;
+    float sX=rowDist*(2*planeX)/VW, sY=rowDist*(2*planeY)/VW;
+    float fX=posX+rowDist*dirX-rowDist*planeX, fY=posY+rowDist*dirY-rowDist*planeY;
+    float lf=1.18f-rowDist*0.17f; if(lf<0.14f)lf=0.14f; int l=(int)(lf*flick*256.f);
+    int32_t fXq=(int32_t)(fX*65536.f), fYq=(int32_t)(fY*65536.f), sXq=(int32_t)(sX*65536.f), sYq=(int32_t)(sY*65536.f);
+    for(int x=0;x<VW;x++){ int cx=fXq>>16, cy=fYq>>16;
+      int tx=(int)(((uint32_t)(fXq&0xFFFF)*dtex::TW)>>16)&TWm, ty=(int)(((uint32_t)(fYq&0xFFFF)*dtex::TH)>>16)&THm;
+      gb::Color c=shade(FL[ty*TWt+tx],l);
+      if(cellAt(d,cx,cy)==5){ int wl=l>270?270:l; int sh=((tx*5+ty*9)&7);
+        c=shade(gb::rgb(16+sh*2, 40+sh*2, 62+sh*3), wl); }
+      line[x]=c; fXq+=sXq; fYq+=sYq; }
+    if(fb) memcpy(fb+y*VW, line, sizeof(line));
+    else for(int x=0;x<VW;x++) gb::pixel(x,y,line[x]);
+  }
+  for(int y=0;y<CY;y++){
+    int p=CY-y; if(p<1)p=1; float rowDist=(float)CY/p;
+    float sX=rowDist*(2*planeX)/VW, sY=rowDist*(2*planeY)/VW;
+    float fX=posX+rowDist*dirX-rowDist*planeX, fY=posY+rowDist*dirY-rowDist*planeY;
+    float lf=0.78f-rowDist*0.16f; if(lf<0.10f)lf=0.10f; int l=(int)(lf*flick*256.f);
+    int32_t fXq=(int32_t)(fX*65536.f), fYq=(int32_t)(fY*65536.f), sXq=(int32_t)(sX*65536.f), sYq=(int32_t)(sY*65536.f);
+    for(int x=0;x<VW;x++){
+      int tx=(int)(((uint32_t)(fXq&0xFFFF)*dtex::TW)>>16)&TWm, ty=(int)(((uint32_t)(fYq&0xFFFF)*dtex::TH)>>16)&THm;
+      line[x]=shade(CE[ty*TWt+tx],l); fXq+=sXq; fYq+=sYq; }
+    if(fb) memcpy(fb+y*VW, line, sizeof(line));
+    else for(int x=0;x<VW;x++) gb::pixel(x,y,line[x]);
+  }
+#else
   for(int y=CY+1;y<240;y++){
     int p=y-CY; float rowDist=(float)CY/p;
     float sX=rowDist*(2*planeX)/VW, sY=rowDist*(2*planeY)/VW;
@@ -65,9 +117,11 @@ static void floorCeil(DungeonScene& d,float posX,float posY,float dirX,float dir
     for(int x=0;x<VW;x++){ int cx=(int)fX, cy=(int)fY; if(fX<0)cx--; if(fY<0)cy--;
       int tx=((int)(dtex::TW*(fX-cx)))&TWm, ty=((int)(dtex::TH*(fY-cy)))&THm;
       gb::Color c=shade(FL[ty*TWt+tx],l);
-      if(cellAt(d,cx,cy)==5){ int wl=l>270?270:l; int sh=((tx*5+ty*9)&7);   // flaque : eau sombre feutree, luminosite plafonnee (pas de bleu criard)
+      if(cellAt(d,cx,cy)==5){ int wl=l>270?270:l; int sh=((tx*5+ty*9)&7);
         c=shade(gb::rgb(16+sh*2, 40+sh*2, 62+sh*3), wl); }
-      gb::pixel(x,y,c); fX+=sX; fY+=sY; }
+      line[x]=c; fX+=sX; fY+=sY; }
+    if(fb) memcpy(fb+y*VW, line, sizeof(line));
+    else for(int x=0;x<VW;x++) gb::pixel(x,y,line[x]);
   }
   for(int y=0;y<CY;y++){
     int p=CY-y; if(p<1)p=1; float rowDist=(float)CY/p;
@@ -76,8 +130,11 @@ static void floorCeil(DungeonScene& d,float posX,float posY,float dirX,float dir
     float lf=0.78f-rowDist*0.16f; if(lf<0.10f)lf=0.10f; int l=(int)(lf*flick*256.f);
     for(int x=0;x<VW;x++){ int cx=(int)fX, cy=(int)fY; if(fX<0)cx--; if(fY<0)cy--;
       int tx=((int)(dtex::TW*(fX-cx)))&TWm, ty=((int)(dtex::TH*(fY-cy)))&THm;
-      gb::pixel(x,y,shade(CE[ty*TWt+tx],l)); fX+=sX; fY+=sY; }
+      line[x]=shade(CE[ty*TWt+tx],l); fX+=sX; fY+=sY; }
+    if(fb) memcpy(fb+y*VW, line, sizeof(line));
+    else for(int x=0;x<VW;x++) gb::pixel(x,y,line[x]);
   }
+#endif
 }
 
 // ----- flamme de torche vacillante -----
@@ -90,22 +147,20 @@ static void flame(int cx,int baseY,int h,float ph){
       gb::pixel(xx,yy,c); } }
   gb::pixel(cx,baseY-h/2,gb::rgb(255,252,235));
 }
+
 static void torch(int cx,int midY,int sz,float ph){
-  if(sz<2)sz=2; if(sz>11)sz=11;                          // plafonne : pas de torche geante au premier plan
-  gb::fill_rect(cx-1,midY,2,sz,gb::rgb(66,46,26));        // support/baton
+  if(sz<2)sz=2; if(sz>11)sz=11;   // plafonne : pas de torche geante au premier plan
+  gb::fill_rect(cx-1,midY,2,sz,gb::rgb(66,46,26));   // support/baton
   gb::fill_rect(cx-sz/3,midY+sz,(sz*2)/3+1,1,gb::rgb(40,30,18));
   int fh=sz + (int)(sz*0.8f*(0.55f+0.45f*sinf(ph*6.283f)));
   flame(cx,midY-1,fh,ph);
 }
 
-static void blit_scaled(const spr::Sprite& s,int dx,int dy,int dw,int dh){
-  if(dw<1||dh<1)return; for(int y=0;y<dh;y++){ int sy=y*s.h/dh; for(int x=0;x<dw;x++){ int sx=x*s.w/dw;
-    uint16_t c=s.px[sy*s.w+sx]; if(c!=spr::KEY) gb::pixel(dx+x,dy+y,c); } }
-}
 static void draw_line(int x0,int y0,int x1,int y1,gb::Color c){
   int dx=x1-x0,dy=y1-y0,ax=dx<0?-dx:dx,ay=dy<0?-dy:dy,sx=dx<0?-1:1,sy=dy<0?-1:1,e=ax-ay;
   for(;;){ gb::pixel(x0,y0,c); if(x0==x1&&y0==y1)break; int e2=2*e; if(e2>-ay){e-=ay;x0+=sx;} if(e2<ax){e+=ax;y0+=sy;} }
 }
+
 static void bar(int x,int y,int w,int h,int val,int mx,gb::Color fg,gb::Color bg){
   if(mx<1)mx=1; if(val<0)val=0; if(val>mx)val=mx; gb::fill_rect(x,y,w,h,bg); gb::fill_rect(x,y,val*w/mx,h,fg);
 }
@@ -114,26 +169,36 @@ static void bar(int x,int y,int w,int h,int val,int mx,gb::Color fg,gb::Color bg
 static void draw_panel(DungeonScene& d){
   const int PX=211;
   gb::fill_rect(PX,0,320-PX,240,gb::rgb(16,14,18)); vline(PX,0,240,gb::rgb(74,66,84));
-  int ccx=PX+54, ccy=30, R=15; gb::fill_rect(PX+6,4,98,52,gb::rgb(26,22,30));
+  int ccx=PX+54, ccy=26, R=13; gb::fill_rect(PX+6,3,98,46,gb::rgb(26,22,30));
   const char* L[4]={"N","E","S","O"}; int lx[4]={ccx-3,ccx+R+2,ccx-3,ccx-R-9}; int ly[4]={ccy-R-11,ccy-6,ccy+R-2,ccy-6};
   for(int i=0;i<4;i++) ui::text(lx[i],ly[i],L[i], i==d.face?gb::rgb(242,212,110):gb::rgb(120,112,100));
   draw_line(ccx,ccy,ccx+DX[d.face]*R,ccy+DY[d.face]*R,gb::rgb(222,84,62));
   gb::fill_rect(ccx-1,ccy-1,3,3,gb::rgb(232,222,182));
-  int yy=64; char b[32]; int pv=player().VIT-player().BL; if(pv<0)pv=0;
-  ui::text(PX+6,yy,"PV",gb::rgb(200,200,180)); bar(PX+30,yy+2,68,6,pv,player().VIT,gb::rgb(80,180,90),gb::rgb(45,60,45)); yy+=15;
-  ui::text(PX+6,yy,"PM",gb::rgb(200,200,180)); bar(PX+30,yy+2,68,6,player().mana,player().manaMax,gb::rgb(92,120,222),gb::rgb(40,44,70)); yy+=15;
-  snprintf(b,32,"Or %d  Niv %d",player().gold,player().level); ui::text(PX+6,yy,b,gb::rgb(222,200,120)); yy+=16;
+
+  int yy=52; char b[32]; int pv=player().VIT-player().BL; if(pv<0)pv=0;
+  ui::text(PX+6,yy,"PV",gb::rgb(200,200,180)); bar(PX+30,yy+2,68,6,pv,player().VIT,gb::rgb(80,180,90),gb::rgb(45,60,45)); yy+=13;
+  ui::text(PX+6,yy,"PM",gb::rgb(200,200,180)); bar(PX+30,yy+2,68,6,player().mana,player().manaMax,gb::rgb(92,120,222),gb::rgb(40,44,70)); yy+=13;
+  if(has_lantern()) ui::text(PX+6,yy,"Lant.",gb::rgb(245,215,95));
+  else {
+    ui::text(PX+6,yy,"Lum",gb::rgb(225,180,95));
+    bar(PX+30,yy+2,68,6,player().torchFuel,100,
+        player().torchFuel>25?gb::rgb(235,175,65):gb::rgb(210,70,55), gb::rgb(48,38,24));
+  }
+  yy+=13;
+  snprintf(b,32,"Or %d  Niv %d",player().gold,player().level); ui::text(PX+6,yy,b,gb::rgb(222,200,120)); yy+=14;
+
   const int GW=DungeonScene::GW, GH=DungeonScene::GH, mc=5; int mx=PX+(108-GW*mc)/2, my=yy;
   gb::fill_rect(mx-2,my-2,GW*mc+4,GH*mc+4,gb::rgb(10,9,12));
   for(int y=0;y<GH;y++)for(int x=0;x<GW;x++){ if(!d.seen[y*GW+x])continue; uint8_t t=d.cell[y*GW+x]; gb::Color c;
-    if(t==1)c=gb::rgb(70,64,58); else if(t==2)c=gb::rgb(150,130,60); else if(t==3)c=gb::rgb(210,120,40); else if(t==5)c=gb::rgb(50,80,130); else c=gb::rgb(120,112,100);
+    if(t==1)c=gb::rgb(70,64,58); else if(t==2)c=gb::rgb(190,165,65); else if(t==3)c=gb::rgb(210,120,40); else if(t==5)c=gb::rgb(50,80,130); else c=gb::rgb(120,112,100);
     gb::fill_rect(mx+x*mc,my+y*mc,mc-1,mc-1,c); }
-  if(d.seen[d.by*GW+d.bx]&&!flag_get("boss_mine")) gb::fill_rect(mx+d.bx*mc,my+d.by*mc,mc-1,mc-1,gb::rgb(205,62,50));
+  if(!flag_get("boss_mine") && d.seen[d.oy*GW+d.ox]) gb::fill_rect(mx+d.ox*mc,my+d.oy*mc,mc-1,mc-1,gb::rgb(205,62,50));   // orc (position courante)
   gb::fill_rect(mx+d.px*mc,my+d.py*mc,mc-1,mc-1,gb::rgb(242,212,92));
   gb::fill_rect(mx+d.px*mc+2+DX[d.face]*2,my+d.py*mc+2+DY[d.face]*2,2,2,gb::rgb(255,255,255));
-  int jy=my+GH*mc+8, jmaxw=320-(PX+5)-3;
+
+  int jy=my+GH*mc+5, jmaxw=320-(PX+5)-3;
   for(int i=0;i<d.jrn;i++){ char tmp[40]; strncpy(tmp,d.jr[i],39); tmp[39]=0; int n=(int)strlen(tmp);
-    while(n>0 && ui::text_w(tmp)>jmaxw) tmp[--n]=0; ui::text(PX+5,jy+i*13,tmp,gb::rgb(172,164,142)); }
+    while(n>0 && ui::text_w(tmp)>jmaxw) tmp[--n]=0; ui::text(PX+5,jy+i*12,tmp,gb::rgb(172,164,142)); }
 }
 
 // ----- scene -----
@@ -141,23 +206,26 @@ void DungeonScene::journal(const char* s){
   if(jrn<3){ strncpy(jr[jrn],s,39); jr[jrn][39]=0; jrn++; }
   else { for(int i=0;i<2;i++) strncpy(jr[i],jr[i+1],40); strncpy(jr[2],s,39); jr[2][39]=0; }
 }
+
 void DungeonScene::mark_seen(){
   seen[py*GW+px]=1; const int nd[4][2]={{0,-1},{0,1},{1,0},{-1,0}};
   for(int i=0;i<4;i++){ int x=px+nd[i][0],y=py+nd[i][1]; if(inbg(x,y)) seen[y*GW+x]=1; }
   int cx=px,cy=py; for(int i=0;i<5;i++){ cx+=DX[face]; cy+=DY[face]; if(!inbg(cx,cy))break; seen[cy*GW+cx]=1; if(isWall(*this,cx,cy))break; }
 }
+
 void DungeonScene::generate(){
-  for(int i=0;i<GW*GH;i++){ cell[i]=1; seen[i]=0; }
-  int sx[GW*GH], sy[GW*GH], sp=0; cell[1*GW+1]=0; sx[sp]=1; sy[sp]=1; sp++;
-  const int D4[4][2]={{0,-2},{0,2},{2,0},{-2,0}};
-  while(sp>0){ int cx=sx[sp-1], cy=sy[sp-1]; int ord[4]={0,1,2,3};
-    for(int i=3;i>0;i--){ int j=(int)(rnd()%(uint32_t)(i+1)); int t=ord[i];ord[i]=ord[j];ord[j]=t; }
+  memset(cell,1,sizeof(cell)); memset(seen,0,sizeof(seen));
+  int sx[128],sy[128],sp=0; cell[1*GW+1]=0; sx[sp]=1; sy[sp]=1; sp++;
+  while(sp>0){ int cx=sx[sp-1], cy=sy[sp-1];
+    int ord[4]={0,1,2,3}; const int D4[4][2]={{0,-2},{0,2},{2,0},{-2,0}};
+    for(int i=3;i>0;i--){ int j=rnd()%(i+1); int t=ord[i];ord[i]=ord[j];ord[j]=t; }
     bool carved=false;
     for(int k=0;k<4;k++){ int ddx=D4[ord[k]][0], ddy=D4[ord[k]][1]; int nx=cx+ddx, ny=cy+ddy;
       if(nx>0&&ny>0&&nx<GW-1&&ny<GH-1 && cell[ny*GW+nx]==1){
         cell[(cy+ddy/2)*GW+(cx+ddx/2)]=0; cell[ny*GW+nx]=0; sx[sp]=nx; sy[sp]=ny; sp++; carved=true; break; } }
     if(!carved) sp--; }
   enx=1; eny=1; px=1; py=1; face=(cell[2*GW+1]==0)?2:1; bx=GW-2; by=GH-2;
+  ox=bx; oy=by; oalert=false;   // l'orc commence au fond de la mine (pres du puits)
   for(int yy=GH-4; yy<=GH-2; yy++) for(int xx=GW-4; xx<=GW-2; xx++) if(xx>0&&yy>0) cell[yy*GW+xx]=0;
   int placed=0;
   for(int t=0;t<300 && placed<12;t++){ int x=1+(int)(rnd()%(GW-2)), y=1+(int)(rnd()%(GH-2));
@@ -165,39 +233,66 @@ void DungeonScene::generate(){
   int w=0;
   for(int t=0;t<300 && w<6;t++){ int x=1+(int)(rnd()%(GW-2)), y=1+(int)(rnd()%(GH-2));
     if(cell[y*GW+x]==0 && !(x==1&&y==1) && !(x>=GW-4&&y>=GH-4)){ cell[y*GW+x]=5; w++; } }
-  int tc=0;                                   // torches murales
+  int tc=0;   // torches murales
   for(int y=1;y<GH-1 && tc<16;y++)for(int x=1;x<GW-1;x++){ if(cell[y*GW+x]!=1)continue;
     bool adj=cell[y*GW+x-1]==0||cell[y*GW+x+1]==0||cell[(y-1)*GW+x]==0||cell[(y+1)*GW+x]==0;
     if(adj && (rnd()%6==0)){ cell[y*GW+x]=3; tc++; } }
   gen=true; steps=0; jrn=0; mark_seen();
   vx=px+0.5f; vy=py+0.5f; vdx=DX[face]; vdy=DY[face]; anim=false; pendEnc=false; at=0.f;
-  journal("Mine humide."); journal("Chef au fond.");
+  journal("Mine humide."); journal("Filons : A = miner.");
 }
+
 void DungeonScene::enter(){ if(!gen){ rng=gb::millis()|1u; generate(); }
   // Q6 La Vieille Mine : démarrage + objectif « Explorer » (si pas déjà finie).
   if(quest_status(6)==0) quest_start(6);
   if(quest_status(6)==1) quest_set_obj(6,0);
 }
 
-static void exit_forest(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(1); w.px=18; w.py=1; m.set(SceneId::WORLD); }
+static void exit_forest(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(1); w.px=20; w.py=3; m.set(SceneId::WORLD); }
 // Après le boss : on débouche sur la Route Royale (loc 20, carte index 5),
 // pas directement sur Grand-Castel. Verrou : Clef du Puits + niveau 5.
-static void exit_route(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(5); w.px=10; w.py=38; m.set(SceneId::WORLD); }
+static void exit_route(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(5); w.px=8; w.py=50; m.set(SceneId::WORLD); }
 
 void DungeonScene::update(SceneManager& m){
-  if(anim){                                  // animation de pas / rotation en cours
+  if(item_ui::pickup_active()){ item_ui::pickup_update(gb::buttons_pressed()); return; }   // butin du dernier combat
+  if(anim){   // animation de pas / rotation en cours
     at+=0.22f;
     if(at>=1.f){ at=1.f; anim=false; vx=atx; vy=aty; vdx=atdx; vdy=atdy;
       if(animKind==1 && pendEnc){ pendEnc=false;
+        if(!has_lantern() && player().torchFuel>0){
+          player().torchFuel -= 2; if(player().torchFuel<0) player().torchFuel=0;
+          if(player().torchFuel==20) journal("Torche faible (R1).");
+          else if(player().torchFuel==0) journal("Torche éteinte !");
+        }
         if(cellAt(*this,px,py)==5) journal("Flaque d'eau.");
+        // --- Chef Gobelin actif : il repere le joueur en ligne de vue, le poursuit et engage le combat ---
+        if(!flag_get("boss_mine")){
+          bool see=false;
+          if(px==ox){ see=true; int a=(py<oy?py:oy)+1,b=(py<oy?oy:py); for(int yy=a;yy<b;yy++) if(isWall(*this,px,yy)){see=false;break;} }
+          else if(py==oy){ see=true; int a=(px<ox?px:ox)+1,b=(px<ox?ox:px); for(int xx=a;xx<b;xx++) if(isWall(*this,xx,py)){see=false;break;} }
+          if(see && !oalert){ oalert=true; journal("L'orc t'a repéré !"); journal("Il fonce sur toi !"); }
+          if(oalert){
+            int dx=(px>ox)-(px<ox), dy=(py>oy)-(py<oy);
+            int adx=(px>ox?px-ox:ox-px), ady=(py>oy?py-oy:oy-py);
+            if(adx>=ady){ if(dx&&!isWall(*this,ox+dx,oy)) ox+=dx; else if(dy&&!isWall(*this,ox,oy+dy)) oy+=dy; }
+            else        { if(dy&&!isWall(*this,ox,oy+dy)) oy+=dy; else if(dx&&!isWall(*this,ox+dx,oy)) ox+=dx; }
+            int mdist=(ox>px?ox-px:px-ox)+(oy>py?oy-py:py-oy);
+            if(mdist<=1){   // contact (meme case ou adjacent) -> combat automatique
+              if(quest_status(6)==1) quest_set_obj(6,3);
+              set_combat_return(SceneId::DUNGEON); start_combat(9,"/sdcard/ASTERIA/battle/CHEF.BMP");
+              journal("L'orc t'attaque !"); m.set(SceneId::COMBAT); return; }
+          }
+        }
         if(steps>1 && (rnd()%5==0) && !(px==bx&&py==by)){ set_combat_return(SceneId::DUNGEON);
-          start_combat((rnd()%2)?16:23,"/sdcard/ASTERIA/battle/MINE_L.BMP"); journal("Un monstre !"); m.set(SceneId::COMBAT); return; } }
-    } else { float t=at, te=t*t*(3.f-2.f*t);     // smoothstep
+          start_combat((rnd()%2)?16:23,"/sdcard/ASTERIA/battle/MINE_L.BMP"); journal("Un monstre !"); m.set(SceneId::COMBAT); return; }
+      }
+    } else { float t=at, te=t*t*(3.f-2.f*t);   // smoothstep
       vx=afx+(atx-afx)*te; vy=afy+(aty-afy)*te;
       vdx=afdx+(atdx-afdx)*te; vdy=afdy+(atdy-afdy)*te;
       float n=sqrtf(vdx*vdx+vdy*vdy); if(n>1e-4f){vdx/=n;vdy/=n;} }
     return;
   }
+
   uint32_t p=gb::buttons_pressed();
   if((p&gb::BTN_LEFT)||(p&gb::BTN_RIGHT)){ int nf=(p&gb::BTN_LEFT)?(face+3)%4:(face+1)%4;
     anim=true; animKind=2; at=0.f; afx=atx=vx; afy=aty=vy; afdx=vdx; afdy=vdy; atdx=DX[nf]; atdy=DY[nf]; face=nf; return; }
@@ -207,24 +302,79 @@ void DungeonScene::update(SceneManager& m){
     if(!isWall(*this,nx,ny)){ px=nx; py=ny; steps++; mark_seen();
       anim=true; animKind=1; at=0.f; afx=vx; afy=vy; atx=px+0.5f; aty=py+0.5f; afdx=atdx=vdx; afdy=atdy=vdy; pendEnc=true; }
     else journal("Un mur."); return; }
-  if(p&gb::BTN_A){ int fx=px+DX[face], fy=py+DY[face];
-    if(fx==bx&&fy==by && !flag_get("boss_mine")){ if(quest_status(6)==1) quest_set_obj(6,3); set_combat_return(SceneId::DUNGEON); start_combat(9,"/sdcard/ASTERIA/battle/MINE_L.BMP"); m.set(SceneId::COMBAT); return; }
+
+  if(p&gb::BTN_A){
+    int fx=px+DX[face], fy=py+DY[face];
+    if(fx==ox&&fy==oy && !flag_get("boss_mine")){
+      if(quest_status(6)==1) quest_set_obj(6,3);
+      set_combat_return(SceneId::DUNGEON); start_combat(9,"/sdcard/ASTERIA/battle/CHEF.BMP");
+      m.set(SceneId::COMBAT); return;
+    }
+    if(inbg(fx,fy) && cell[fy*GW+fx]==2){
+      cell[fy*GW+fx] = 1;
+      int pk=item_index("OBJ_0009"), hm=item_index("OBJ_0021");
+      bool tool = (pk>=0 && player().inv.has(pk,1)) || (hm>=0 && player().inv.has(hm,1));
+      int qty = tool ? 2 : 1;
+      int ch = item_index("OBJ_0012"), ir = item_index("OBJ_0013");
+      if(ch>=0) player().inv.add(ch, qty);
+      if(ir>=0) player().inv.add(ir, qty);
+      audio::sfx_coin();
+      char jb[40]; snprintf(jb,sizeof(jb),"+%d Charbon +%d Lingot",qty,qty);
+      journal(jb);
+      return;
+    }
     if(px==bx&&py==by && flag_get("boss_mine")){
-      if(!player().inv.has(item_index("OBJ_0015"),1)){ journal("Le puits est verrouille."); journal("Il te faut la Clef du Puits."); }
-      else if(player().level<5){ char jb[64]; snprintf(jb,64,"Pas encore prete (niv.%d/5).",player().level); journal(jb); journal("Gagne de l'experience dans la mine."); }
-      else { exit_route(m); } return; }
-    if(px==enx&&py==eny){ exit_forest(m); return; } }
+      if(!player().inv.has(item_index("OBJ_0015"),1)){ journal("Le puits est verrouillé."); journal("Il te faut la Clef du Puits."); }
+      else if(player().level<5){ char jb[64]; snprintf(jb,64,"Pas encore prête (niv.%d/5).",player().level); journal(jb); journal("Gagne de l'expérience dans la mine."); }
+      else { exit_route(m); } return;
+    }
+    if(px==enx&&py==eny){ exit_forest(m); return; }
+  }
+
+  if(p&gb::BTN_R1){   // R1 : rallumer (torche / huile) ou sortir avec une corde
+    char out[48]={0};
+    int oil = item_index("OBJ_0011"), trcItem = item_index("OBJ_0003");
+    if(!has_lantern() && player().torchFuel < 85 && ((oil>=0 && player().inv.has(oil,1)) || (trcItem>=0 && player().inv.has(trcItem,1)))){
+      int use = (oil>=0 && player().inv.has(oil,1)) ? oil : trcItem;
+      if(use_item_field(player(), use, out, sizeof(out))){ audio::sfx_confirm(); journal(out); return; }
+    }
+    int sc = item_index("OBJ_0025"), cr = item_index("OBJ_0004");
+    if(sc>=0 && player().inv.has(sc,1)){ journal("Corde solide : sortie!"); exit_forest(m); return; }
+    if(cr>=0 && player().inv.has(cr,1)){ player().inv.remove(cr,1); journal("Corde : sortie rapide!"); exit_forest(m); return; }
+    journal("Pas de torche/corde.");
+    return;
+  }
+
   if(p&(gb::BTN_B|gb::BTN_MENU)){ exit_forest(m); return; }
 }
 
 // --- raycaster : 1 rayon/colonne, distance continue -> eclairage + hauteur + texture lisses ---
+// OPT-AKA-1 : la vue 3D (210x240) est composee dans un tampon puis envoyee en UN
+// blit (gfx.drawImage sur AKA) au lieu de ~50 000 appels gb::pixel par image.
+// Retour au dessin direct : -DASTERIA_DUNGEON_FB=0 (ou si l'allocation echoue).
+#ifndef ASTERIA_DUNGEON_FB
+#define ASTERIA_DUNGEON_FB 1
+#endif
+static uint16_t* dungeon_fb(){
+#if ASTERIA_DUNGEON_FB
+  static uint16_t* fb=nullptr; static bool tried=false;
+  if(!tried){ tried=true; fb=(uint16_t*)gb::alloc_big(VW*VH*2u); }
+  return fb;
+#else
+  return nullptr;
+#endif
+}
+
 void DungeonScene::render(){
+  uint16_t* fb=dungeon_fb();
+  if(fb) gb::set_target(fb,VW,VH);   // tout ce qui suit (vue 3D) va dans le tampon
   uint32_t ms=gb::millis();
   float flick=1.f + 0.08f*sinf(ms*0.017f) + 0.05f*sinf(ms*0.041f) + 0.03f*sinf(ms*0.089f);
   if(flick<0.80f)flick=0.80f; if(flick>1.20f)flick=1.20f;
+  flick *= dungeon_light_mult();
   float torchPh=(ms%1000)/1000.f;
   float dirX=vdx, dirY=vdy, planeX=-vdy*0.66f, planeY=vdx*0.66f, posX=vx, posY=vy;
-  floorCeil(*this,posX,posY,dirX,dirY,planeX,planeY,flick);
+  floorCeil(*this,fb,posX,posY,dirX,dirY,planeX,planeY,flick);
   int tcx[16],tcy[16],tmin[16],tmax[16],tH[16],tn=0;
   static float zbuf[VW];
   for(int x=0;x<VW;x++){
@@ -234,15 +384,15 @@ void DungeonScene::render(){
     int stepX,stepY; float sdX,sdY;
     if(rayX<0){stepX=-1; sdX=(posX-mapX)*ddX;} else {stepX=1; sdX=(mapX+1.f-posX)*ddX;}
     if(rayY<0){stepY=-1; sdY=(posY-mapY)*ddY;} else {stepY=1; sdY=(mapY+1.f-posY)*ddY;}
-    int side=0, cell=1, guard=0;
+    int side=0, cellv=1, guard=0;
     for(;;){ if(sdX<sdY){ sdX+=ddX; mapX+=stepX; side=0; } else { sdY+=ddY; mapY+=stepY; side=1; }
-      cell=cellAt(*this,mapX,mapY); if(isWallC(cell)) break; if(++guard>40){cell=1;break;} }
+      cellv=cellAt(*this,mapX,mapY); if(isWallC(cellv)) break; if(++guard>40){cellv=1;break;} }
     float perp=(side==0)?(sdX-ddX):(sdY-ddY); if(perp<0.08f)perp=0.08f;
-    zbuf[x]=perp;                               // profondeur du mur pour l'occlusion des billboards
+    zbuf[x]=perp;   // profondeur du mur pour l'occlusion des billboards
     int H=(int)(VH/perp);
     float wallX=(side==0)?(posY+perp*rayY):(posX+perp*rayX); wallX-=floorf(wallX);
     int texX=(int)(wallX*dtex::TW); if((side==0&&rayX>0)||(side==1&&rayY<0)) texX=dtex::TW-1-texX;
-    float lf=1.20f-perp*0.14f; if(side==1)lf*=0.82f; if(cell==3)lf+=0.5f; if(lf<0.12f)lf=0.12f; if(lf>1.5f)lf=1.5f;
+    float lf=1.20f-perp*0.14f; if(side==1)lf*=0.82f; if(cellv==3)lf+=0.5f; if(lf<0.12f)lf=0.12f; if(lf>1.5f)lf=1.5f;
     int l=(int)(lf*flick*256.f);
     const uint16_t* T=dtex::WALL[vari(mapX,mapY)];
     int amp=H/12; if(amp<1)amp=1; if(amp>8)amp=8; int seed=mapX*131+mapY*57;
@@ -252,23 +402,22 @@ void DungeonScene::render(){
     int texStep=(int)(((long long)dtex::TH<<16)/(Hc>0?Hc:1));
     int texPos=(y0-ds)*texStep;
     for(int y=y0;y<y1;y++){ int texY=(texPos>>16)&(dtex::TH-1); texPos+=texStep; gb::pixel(x,y,shade(T[texY*dtex::TW+texX],l)); }
-    if(y0>0&&y0<240) gb::pixel(x,y0,gb::rgb(10,9,8));           // contour roche
-    if(cell==2 && (x&3)==0) sparkle(x,y0,x+1,y1,mapX*53+mapY*17+texX);
-    if(cell==3){ int fi=-1; for(int k=0;k<tn;k++) if(tcx[k]==mapX&&tcy[k]==mapY){fi=k;break;}
+    if(y0>0&&y0<240) gb::pixel(x,y0,gb::rgb(10,9,8));   // contour roche
+    if(cellv==2 && (x&3)==0) sparkle(x,y0,x+1,y1,mapX*53+mapY*17+texX);
+    if(cellv==3){ int fi=-1; for(int k=0;k<tn;k++) if(tcx[k]==mapX&&tcy[k]==mapY){fi=k;break;}
       if(fi<0){ if(tn<16){ fi=tn++; tcx[fi]=mapX; tcy[fi]=mapY; tmin[fi]=tmax[fi]=x; tH[fi]=H; } }
       else { if(x<tmin[fi])tmin[fi]=x; if(x>tmax[fi])tmax[fi]=x; if(H>tH[fi])tH[fi]=H; } }
   }
   for(int k=0;k<tn;k++){ int cx=(tmin[k]+tmax[k])/2, H=tH[k], top=CY-H/2; int sz=H/9; if(sz<2)sz=2; if(sz>11)sz=11; torch(cx,top+H/4,sz,torchPh); }
-
   // ---- DECOR (billboards) : etais, tonneaux, caisses, gravats, crane ----
   // Collecte des cases a prop visibles, transformees en espace camera, triees de loin a pres.
   { struct PV{ float ty,tx; int prop; }; PV vis[48]; int nv=0;
     float invDet=1.f/(planeX*dirY - dirX*planeY);
     for(int cy=0; cy<GH && nv<48; ++cy) for(int cx=0; cx<GW && nv<48; ++cx){
-      if(cell[cy*GW+cx]!=0) continue;                      // sol nu uniquement
+      if(cell[cy*GW+cx]!=0) continue;   // sol nu uniquement
       if(cx==enx&&cy==eny) continue;
-      if(cx>=bx-1&&cy>=by-1) continue;                     // salle du boss degagee
-      int hh=hsh(cx*131+cy*57+777); if(hh%6!=0) continue;  // ~1 case sur 6
+      if(cx>=bx-1&&cy>=by-1) continue;   // salle du boss degagee
+      int hh=hsh(cx*131+cy*57+777); if(hh%6!=0) continue;   // ~1 case sur 6
       static const int TBL[8]={dprop::P_RUBBLE,dprop::P_BARREL,dprop::P_CRATE,dprop::P_TIMBER,dprop::P_RUBBLE,dprop::P_SKULL,dprop::P_BARREL,dprop::P_CRATE};
       int prop=TBL[(hh/6)%8];
       float rx=(cx+0.5f)-posX, ry=(cy+0.5f)-posY;
@@ -288,13 +437,26 @@ void DungeonScene::render(){
           uint16_t c=T[tY*pw+tX]; if(c!=dprop::KEY) gb::pixel(X,Y,shade(c,l)); } }
     }
   }
-
-  // boss / escalier en billboard si la ligne droit devant est degagee
-  int cxg=px,cyg=py,dist=0; bool clear=false;
-  for(int s=1;s<=6;s++){ cxg+=DX[face]; cyg+=DY[face]; if(!inbg(cxg,cyg))break; if(cxg==bx&&cyg==by){clear=true;dist=s;break;} if(isWall(*this,cxg,cyg))break; }
-  if(clear){ float pd=dist-0.3f; if(pd<0.5f)pd=0.5f; int lh=(int)(VH/pd), feet=CY+lh/2;
-    if(!flag_get("boss_mine")){ const spr::Sprite& S=spr::MONSTER[9]; int dh=(int)(lh*0.85f); int dw=dh*S.w/S.h; blit_scaled(S,CX-dw/2,feet-dh,dw,dh); }
-    else { int w=lh/4; gb::fill_rect(CX-w/2,CY-lh/3,w,lh/3,gb::rgb(205,195,120)); ui::text(CX-4,CY-lh/3+4,"^",gb::rgb(60,50,20)); } }
+  // BUG-08 : orc (avant le boss) / puits (apres) projetes en espace camera comme le
+  // decor, avec occlusion colonne par colonne par zbuf : visibles meme hors de l'axe
+  // de vue, et caches derriere les murs.
+  { bool boss=flag_get("boss_mine");
+    int tgx=boss?bx:ox, tgy=boss?by:oy;   // apres boss : le puits ; avant : l'orc (ou qu'il soit)
+    float invDet=1.f/(planeX*dirY - dirX*planeY);
+    float rx=(tgx+0.5f)-posX, ry=(tgy+0.5f)-posY;
+    float tx=invDet*(dirY*rx - dirX*ry), ty=invDet*(-planeY*rx + planeX*ry);
+    if(ty>0.2f && ty<10.f){
+      int lh=(int)(VH/ty), feet=CY+lh/2, screenX=(int)((VW/2)*(1.f+tx/ty));
+      float lf=1.25f-ty*0.12f; if(lf<0.2f)lf=0.2f; if(lf>1.3f)lf=1.3f; int l=(int)(lf*flick*256.f);
+      if(!boss){ const spr::Sprite& S=spr::MONSTER[9]; int dh=(int)(lh*0.85f), dw=dh*S.w/S.h; int x0=screenX-dw/2, top=feet-dh;
+        if(dw>1&&dh>1) for(int sx=0;sx<dw;sx++){ int X=x0+sx; if(X<0||X>=VW||!(ty<zbuf[X])) continue; int tX=sx*S.w/dw;
+          for(int sy=0;sy<dh;sy++){ int Y=top+sy; if(Y<0||Y>=VH) continue; uint16_t c=S.px[(sy*S.h/dh)*S.w+tX]; if(c!=spr::KEY) gb::pixel(X,Y,shade(c,l)); } } }
+      else { int w=lh/4, h=lh/3, x0=screenX-w/2, top=CY-h; bool mid=false;
+        for(int X=x0;X<x0+w;X++){ if(X<0||X>=VW||!(ty<zbuf[X])) continue; if(X==screenX) mid=true;
+          for(int Y=(top<0?0:top);Y<CY&&Y<VH;Y++) gb::pixel(X,Y,shade(gb::rgb(205,195,120),l)); }
+        if(mid) ui::text(screenX-4,top+4,"^",gb::rgb(60,50,20)); } } }
+  if(fb){ gb::reset_raster(); gb::draw_image(fb,VW,VH,0,0); }   // OPT-AKA-1 : un seul blit de la vue
   draw_panel(*this);
+  item_ui::pickup_render();   // fenetre "Objet obtenu" (butin du dernier combat)
 }
 }

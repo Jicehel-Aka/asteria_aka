@@ -9,7 +9,9 @@ struct DungeonScene : Scene {
   uint8_t  cell[GW*GH];   // 0 sol, 1 mur, 2 filon (mur), 5 eau (sol)
   uint8_t  seen[GW*GH];   // auto-carte : 1 si deja vu
   int px=1, py=1, face=2; // 0=N 1=E 2=S 3=O (grille / logique)
-  int bx=0, by=0;         // salle du boss / sortie vers Grand-Castel
+  int bx=0, by=0;         // puits de sortie vers Grand-Castel (apres le boss)
+  int ox=0, oy=0;         // Chef Gobelin (orc) : position mobile dans la mine
+  bool oalert=false;      // l'orc a repere le joueur et le poursuit
   int enx=1, eny=1;       // entree (sortie vers la foret)
   bool gen=false; int steps=0; uint32_t rng=1;
   char jr[4][40]; int jrn=0;

@@ -1,9 +1,11 @@
+// ASTERIA (Gamebuino AKA) - Pile de scenes et routage SceneManager::set(SceneId) vers la scene active.
 #include "scene/scene.h"
 #include "scene/title_scene.h"
 #include "scene/create_scene.h"
 #include "scene/combat_scene.h"
 #include "scene/shop_scene.h"
 #include "scene/inn_scene.h"
+#include "scene/forge_scene.h"
 #include "scene/dice_scene.h"
 #include "scene/editor_scene.h"
 #include "scene/rules_scene.h"
@@ -23,6 +25,7 @@ void SceneManager::set(SceneId id){
     case SceneId::SHOP: s_=&shop_scene(); break;
     case SceneId::INN: s_=&inn_scene(); break;
     case SceneId::DICE: s_=&dice_scene(); break;
+    case SceneId::FORGE: s_=&forge_scene(); break;
     case SceneId::EDITOR: s_=&editor_scene(); break;
     case SceneId::DUNGEON: s_=&dungeon_scene(); break;
     case SceneId::GAMEOVER: s_=&gameover_scene(); break;

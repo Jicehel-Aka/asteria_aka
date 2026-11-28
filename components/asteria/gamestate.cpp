@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Etat de partie global : drapeaux nommes (progression) et statut/objectif des quetes. Sert de base a la sauvegarde.
 #include "gamestate.h"
 #include <cstring>
 namespace asteria {
@@ -11,4 +12,6 @@ void quest_complete(int i){ if(i>=0&&i<64) g_qst[i]=2; }
 void quest_set_obj(int i,int o){ if(i>=0&&i<64) g_qobj[i]=(unsigned char)o; }
 int  quest_status(int i){ return (i>=0&&i<64)?g_qst[i]:0; }
 int  quest_obj(int i){ return (i>=0&&i<64)?g_qobj[i]:0; }
+int  flag_count(){ return g_nf; }                                   // enumeration (sauvegarde)
+const char* flag_at(int i){ return (i>=0&&i<g_nf)?g_flags[i]:""; }
 }

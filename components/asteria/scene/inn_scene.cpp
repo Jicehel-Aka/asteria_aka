@@ -1,3 +1,4 @@
+// ASTERIA (Gamebuino AKA) - Auberge : repos (restaure les PV) et rumeurs localisees.
 #include "scene/inn_scene.h"
 #include "i18n.h"
 #include "platform/gb_port.h"
@@ -5,14 +6,16 @@
 #include "content_i18n.h"
 #include "player.h"
 #include <cstdio>
+#include "daytime.h"
+#include "audio/jingle.h"
 namespace asteria {
 static const int REST_COST=5;
 static const char* RUMORS[]={
   "On dit que la Vieille Mine cache plus qu'un gobelin.",
   "Le maire ne dort plus depuis les disparitions.",
-  "Un marchand jure avoir vu des lueurs au Temple Oublie.",
-  "La foret murmure, parait-il, aux voyageurs solitaires.",
-  "Selene connait des secrets qu'elle ne dit a personne.",
+  "Un marchand jure avoir vu des lueurs au Temple Oublié.",
+  "La forêt murmure, paraît-il, aux voyageurs solitaires.",
+  "Selene connaît des secrets qu'elle ne dit à personne.",
 };
 static int g_rum=0;
 InnScene& inn_scene(){ static InnScene s; return s; }
@@ -23,7 +26,8 @@ void InnScene::update(SceneManager& m){
   if(p&gb::BTN_UP)   sel=(sel+2)%3;
   if(p&gb::BTN_B) m.set(SceneId::WORLD);
   if(p&gb::BTN_A){
-    if(sel==0){ if(player().gold>=REST_COST){ player().gold-=REST_COST; player().BL=0; player().mana=player().manaMax; snprintf(msg,72,"%s",i18n::tr(i18n::IN_RESTED)); } else snprintf(msg,72,"Pas assez d'or (%d requis).",REST_COST); }
+    if(sel==0){ if(player().gold>=REST_COST){ player().gold-=REST_COST; player().BL=0; player().mana=player().manaMax; daytime::set_minutes(8*60); audio::sfx_save(); snprintf(msg,72,"%s",i18n::tr(i18n::IN_RESTED)); }   // une nuit de sommeil : reveil a 8h
+      else { snprintf(msg,72,"Pas assez d'or (%d requis).",REST_COST); audio::sfx_error(); } }
     else if(sel==1){ snprintf(msg,72,"\"%s\"",trc(RUMORS[g_rum])); g_rum=(g_rum+1)%5; }
     else m.set(SceneId::WORLD);
   }

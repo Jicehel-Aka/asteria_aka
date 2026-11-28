@@ -22,8 +22,18 @@ bool playing();         // true tant qu'une mélodie se joue
 // Effets courts (voix "sfx", n'interrompent pas la mélodie)
 void sfx_select();      // déplacement dans un menu
 void sfx_confirm();     // validation
-void sfx_coin();        // or / loot
+void sfx_back();        // retour / fermeture
+void sfx_page();        // dialogue : ligne suivante
+void sfx_coin();        // achat / vente
 void sfx_hit();         // coup porté
 void sfx_hurt();        // coup reçu
+void sfx_pickup();      // objet ramassé
+void sfx_chest();       // coffre ouvert
+void sfx_door();        // porte / changement de carte
+void sfx_error();       // action impossible (or, place, ingrédients...)
+void sfx_craft();       // fabrication réussie
+void sfx_open();        // ouverture d'un menu
+void sfx_save();        // partie sauvegardée
+void sfx_spell();       // sort lancé
 
 }} // namespace asteria::audio
