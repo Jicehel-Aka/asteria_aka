@@ -93,15 +93,15 @@ static int weapon_dmg(bool& usedArrow){
 // ---------------------------------------------------------------------------
 // Noms courts (le menu est une grille 2 colonnes de ~140 px) ; traduits par trc().
 static const char* const SPELL_SHORT[data::SPELL_COUNT]={
-  "Attirance","Engourdissement","Dissipation","Repulsion","Soins","Acceleration",
-  "Elementaire","Guerison majeure","Metamorphose","Invisibilite","Mimetisme","Vivacite"
+  "Attirance","Engourdissement","Dissipation","Répulsion","Soins","Accélération",
+  "Élémentaire","Guérison majeure","Métamorphose","Invisibilité","Mimétisme","Vivacité"
 };
 // Effet resume affiche sous la grille des sorts (traduit par trc()).
 static const char* const SPELL_FX[data::SPELL_COUNT]={
-  "+2 au toucher pendant 3 tours","L'ennemi perd son prochain tour","1D+2 degats, annule ses ruses",
-  "2D degats a la cible","Soigne 2D blessures","Tu rejoues avant l'ennemi","Un elementaire frappe 3 tours (2D)",
-  "Soigne 4D blessures","Ours : +3 deg, +2 toucher, bouclier 3D","L'ennemi rate 2 attaques, fuite assuree",
-  "-4 CO a l'ennemi pendant 3 tours","+3 toucher, +1 degat pendant 3 tours"
+  "+2 au toucher pendant 3 tours","L'ennemi perd son prochain tour","1D+2 dégâts, annule ses ruses",
+  "2D dégâts à la cible","Soigne 2D blessures","Tu rejoues avant l'ennemi","Un élémentaire frappe 3 tours (2D)",
+  "Soigne 4D blessures","Ours : +3 deg, +2 toucher, bouclier 3D","L'ennemi rate 2 attaques, fuite assurée",
+  "-4 CO à l'ennemi pendant 3 tours","+3 toucher, +1 dégât pendant 3 tours"
 };
 
 bool spell_known(int i){
@@ -149,17 +149,17 @@ static void drop_zone_loot(char* out, int cap){
 void CombatScene::cast(int s){
   switch(s){
     case 0:  hitBuff=3;  hitBonus=2; snprintf(msg,64,"Attirance : +2 au toucher (3 tours)"); break;
-    case 1:  stunned=true; snprintf(msg,64,"Engourdissement reussi !"); break;
+    case 1:  stunned=true; snprintf(msg,64,"Engourdissement réussi !"); break;
     case 2:  { int d=rollN(1)+2; hurt_monster(mhp,d); enemyDebuff=0; snprintf(msg,64,"Dissipation ! -%d",d); } break;
-    case 3:  { int d=rollN(2); hurt_monster(mhp,d); snprintf(msg,64,"Repulsion ! -%d",d); } break;
+    case 3:  { int d=rollN(2); hurt_monster(mhp,d); snprintf(msg,64,"Répulsion ! -%d",d); } break;
     case 4:  { int h=rollN(2); heal_player(h); snprintf(msg,64,"Soins ! Blessures -%d",h); } break;
-    case 5:  haste=true; snprintf(msg,64,"Acceleration : tu rejoues avant l'ennemi !"); break;
-    case 6:  summon=3; snprintf(msg,64,"Un elementaire surgit (3 tours)"); break;
-    case 7:  { int h=rollN(4); heal_player(h); snprintf(msg,64,"Guerison majeure ! Blessures -%d",h); } break;
-    case 8:  bear=3; shield=rollN(3); snprintf(msg,64,"Metamorphose en ours ! (bouclier %d)",shield); break;
-    case 9:  invis=2; snprintf(msg,64,"Invisibilite : l'ennemi frappe dans le vide"); break;
-    case 10: enemyDebuff=3; snprintf(msg,64,"Mimetisme : l'ennemi se trompe (-4 CO)"); break;
-    case 11: hitBuff=3; hitBonus=3; dmgBonus=1; snprintf(msg,64,"Vivacite : +3 toucher, +1 degat (3 tours)"); break;
+    case 5:  haste=true; snprintf(msg,64,"Accélération : tu rejoues avant l'ennemi !"); break;
+    case 6:  summon=3; snprintf(msg,64,"Un élémentaire surgit (3 tours)"); break;
+    case 7:  { int h=rollN(4); heal_player(h); snprintf(msg,64,"Guérison majeure ! Blessures -%d",h); } break;
+    case 8:  bear=3; shield=rollN(3); snprintf(msg,64,"Métamorphose en ours ! (bouclier %d)",shield); break;
+    case 9:  invis=2; snprintf(msg,64,"Invisibilité : l'ennemi frappe dans le vide"); break;
+    case 10: enemyDebuff=3; snprintf(msg,64,"Mimétisme : l'ennemi se trompe (-4 CO)"); break;
+    case 11: hitBuff=3; hitBonus=3; dmgBonus=1; snprintf(msg,64,"Vivacité : +3 toucher, +1 dégât (3 tours)"); break;
   }
 }
 
@@ -188,7 +188,7 @@ void CombatScene::update(SceneManager& m){
           hurt_monster(mhp,lastDmg);
           snprintf(msg,64,"%s%s (%d<=%d) -%d",
                    crit?"Critique ! ":"Touche ! ",
-                   usedArrow?"[Fleche]":"", r, toHit, lastDmg);
+                   usedArrow?"[Flèche]":"", r, toHit, lastDmg);
           audio::sfx_hit();
         } else {
           snprintf(msg,64,"Manque ! (%d>%d)",r,toHit);
@@ -200,12 +200,12 @@ void CombatScene::update(SceneManager& m){
         if(invis>0 || r<=player().IN){
           snprintf(msg,64,"Tu prends la fuite."); result=3; phase=3;
         } else if(sr>=0 && player().inv.has(sr,1)){
-          snprintf(msg,64,"Corde solide : fuite assuree !"); result=3; phase=3;
+          snprintf(msg,64,"Corde solide : fuite assurée !"); result=3; phase=3;
         } else if(cr>=0 && player().inv.has(cr,1)){
           player().inv.remove(cr,1);
-          snprintf(msg,64,"Corde lancee : fuite assuree !"); result=3; phase=3;
+          snprintf(msg,64,"Corde lancée : fuite assurée !"); result=3; phase=3;
         } else {
-          snprintf(msg,64,"Fuite ratee ! (%d>IN)",r); phase=1;
+          snprintf(msg,64,"Fuite ratée ! (%d>IN)",r); phase=1;
         }
       } else if(sel==2){
         int ci[4]; int cn=combat_items(ci);
@@ -219,7 +219,7 @@ void CombatScene::update(SceneManager& m){
     if(p&gb::BTN_A){
       if(mhp>0 && summon>0 && !summonActed){
         summonActed=true; summon--; int d=rollN(2); hurt_monster(mhp,d);
-        snprintf(msg,64,"L'elementaire frappe ! -%d",d); return;
+        snprintf(msg,64,"L'élémentaire frappe ! -%d",d); return;
       }
       if(mhp==0){
         int xp=M.VIT/2+M.CO; int gold=M.VIT/4+d6(); player().xp+=xp; player().gold+=gold;
@@ -238,7 +238,7 @@ void CombatScene::update(SceneManager& m){
           complete_quest_reward(6);
           snprintf(msg,64,"Chef Gobelin vaincu ! Clef du Puits + Pierre noire");
         } else if(g_enc==19){ flag_set("boss_gardien"); snprintf(msg,64,"Le Gardien du Seuil tombe."); }
-        else if(g_enc==24){ flag_set("boss_coeur"); snprintf(msg,64,"Le Coeur de Haine est detruit !"); }
+        else if(g_enc==24){ flag_set("boss_coeur"); snprintf(msg,64,"Le Cœur de Haine est détruit !"); }
         else if(g_enc==25){ flag_set("boss_corbeau"); complete_quest_reward(11); snprintf(msg,64,"Corbeau Noir tombe ! La route est libre."); }
         else {
           char loot[32]; drop_zone_loot(loot, sizeof(loot));
@@ -247,7 +247,7 @@ void CombatScene::update(SceneManager& m){
         }
         if(g_enc!=9 && g_enc!=25) audio::play(player().level>lvl0 ? audio::TUNE_LEVELUP : audio::TUNE_VICTORY);   // boss : jingle joue par complete_quest_reward
         result=1; phase=3;
-      } else if(haste){ haste=false; snprintf(msg,64,"Acceleration : a toi de jouer !"); phase=2; }
+      } else if(haste){ haste=false; snprintf(msg,64,"Accélération : à toi de jouer !"); phase=2; }
       else if(stunned){ stunned=false; snprintf(msg,64,"%s est engourdi.",M.name); phase=2; }
       else if(invis>0){ invis--; snprintf(msg,64,"%s frappe dans le vide !",M.name); phase=2; }
       else {
@@ -286,7 +286,7 @@ void CombatScene::update(SceneManager& m){
       else {
         player().mana-=cost; int r=roll3();
         if(r<=player().MA+player().level){ cast(s); audio::sfx_spell(); }
-        else snprintf(msg,64,"Le sort echoue ! (%d>MA)",r);
+        else snprintf(msg,64,"Le sort échoue ! (%d>MA)",r);
         phase=1;
       }
     }

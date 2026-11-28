@@ -260,7 +260,7 @@ void DungeonScene::update(SceneManager& m){
         if(!has_lantern() && player().torchFuel>0){
           player().torchFuel -= 2; if(player().torchFuel<0) player().torchFuel=0;
           if(player().torchFuel==20) journal("Torche faible (RUN).");
-          else if(player().torchFuel==0) journal("Torche eteinte !");
+          else if(player().torchFuel==0) journal("Torche éteinte !");
         }
         if(cellAt(*this,px,py)==5) journal("Flaque d'eau.");
         // --- Chef Gobelin actif : il repere le joueur en ligne de vue, le poursuit et engage le combat ---
@@ -268,7 +268,7 @@ void DungeonScene::update(SceneManager& m){
           bool see=false;
           if(px==ox){ see=true; int a=(py<oy?py:oy)+1,b=(py<oy?oy:py); for(int yy=a;yy<b;yy++) if(isWall(*this,px,yy)){see=false;break;} }
           else if(py==oy){ see=true; int a=(px<ox?px:ox)+1,b=(px<ox?ox:px); for(int xx=a;xx<b;xx++) if(isWall(*this,xx,py)){see=false;break;} }
-          if(see && !oalert){ oalert=true; journal("L'orc t'a repere !"); journal("Il fonce sur toi !"); }
+          if(see && !oalert){ oalert=true; journal("L'orc t'a repéré !"); journal("Il fonce sur toi !"); }
           if(oalert){
             int dx=(px>ox)-(px<ox), dy=(py>oy)-(py<oy);
             int adx=(px>ox?px-ox:ox-px), ady=(py>oy?py-oy:oy-py);
@@ -322,8 +322,8 @@ void DungeonScene::update(SceneManager& m){
       return;
     }
     if(px==bx&&py==by && flag_get("boss_mine")){
-      if(!player().inv.has(item_index("OBJ_0015"),1)){ journal("Le puits est verrouille."); journal("Il te faut la Clef du Puits."); }
-      else if(player().level<5){ char jb[64]; snprintf(jb,64,"Pas encore prete (niv.%d/5).",player().level); journal(jb); journal("Gagne de l'experience dans la mine."); }
+      if(!player().inv.has(item_index("OBJ_0015"),1)){ journal("Le puits est verrouillé."); journal("Il te faut la Clef du Puits."); }
+      else if(player().level<5){ char jb[64]; snprintf(jb,64,"Pas encore prête (niv.%d/5).",player().level); journal(jb); journal("Gagne de l'expérience dans la mine."); }
       else { exit_route(m); } return;
     }
     if(px==enx&&py==eny){ exit_forest(m); return; }

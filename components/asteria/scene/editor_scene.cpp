@@ -68,7 +68,7 @@ static const int MAP_BUF=24576, SPR_BUF=32000;   // SEC-04 : 64x64 tuiles "32, "
 
 // (voir EdBuf) SEC-04 : 64x64 tuiles * jusqu'a 4 octets ("32, ") = ~16 Ko + PNJ/portails -> 24 Ko.
 static bool map_export(){
-  EdBuf B(MAP_BUF); if(!B.p){ snprintf(mmsg,56,"Memoire insuffisante"); return false; } char* buf=B.p; const int BUFN=B.cap; int o=0;
+  EdBuf B(MAP_BUF); if(!B.p){ snprintf(mmsg,56,"Mémoire insuffisante"); return false; } char* buf=B.p; const int BUFN=B.cap; int o=0;
   o=app(buf,BUFN,o,"// MAP_%04d (editeur) start px=%d py=%d  w=%d h=%d\n",mp+1,mpx,mpy,mw,mh);
   o=app(buf,BUFN,o,"static const uint8_t MAP%d_T[]={",mp);
   for(int i=0;i<mw*mh;i++) o=app(buf,BUFN,o,"%s%d",i?", ":"",mtiles[i]);
@@ -81,12 +81,12 @@ static bool map_export(){
   o=app(buf,BUFN,o,"};\n// Coffres (a cabler dans world CHESTS) : ");
   for(int i=0;i<mchn;i++) o=app(buf,BUFN,o,"%s{loc,%d,%d}",i?", ":"",mch[i].x,mch[i].y);
   o=app(buf,BUFN,o,"\n");
-  if(o>=(int)BUFN-1){ snprintf(mmsg,56,"Export tronque !"); return false; }   // SEC-04 : jamais de fichier coupe
+  if(o>=(int)BUFN-1){ snprintf(mmsg,56,"Export tronqué !"); return false; }   // SEC-04 : jamais de fichier coupe
   return gb::write_text("/sdcard/ASTERIA/export_map.txt", buf);
 }
 
 static void map_reload(){
-  EdBuf B(MAP_BUF); if(!B.p){ snprintf(mmsg,56,"Memoire insuffisante"); return; } char* buf=B.p; int n=gb::read_text("/sdcard/ASTERIA/export_map.txt",buf,B.cap);
+  EdBuf B(MAP_BUF); if(!B.p){ snprintf(mmsg,56,"Mémoire insuffisante"); return; } char* buf=B.p; int n=gb::read_text("/sdcard/ASTERIA/export_map.txt",buf,B.cap);
   if(n<=0){ snprintf(mmsg,56,"export_map.txt introuvable"); return; }
   char key[16]; snprintf(key,16,"MAP%d_T[]={",mp);
   char* p=strstr(buf,key); if(!p){ snprintf(mmsg,56,"MAP%d_T absent",mp); return; }

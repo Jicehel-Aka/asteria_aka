@@ -3032,10 +3032,10 @@ static const Stats MON[26] = {
   {"Loup gris",6,7,16,1},
   {"Corbeau agressif",7,8,22,1},
   {"Sanglier sauvage",7,8,22,1},
-  {"Araignee des broussailles",8,9,28,2},
+  {"Araignée des broussailles",8,9,28,2},
   {"Rat des bois",6,7,16,1},
   {"Loup solitaire",6,7,16,1},
-  {"Araignee des broussailles",8,9,28,2},
+  {"Araignée des broussailles",8,9,28,2},
   {"Sanglier furieux",8,9,28,2},
   {"Chef Gobelin",10,11,40,2},
   {"Brigand",9,10,34,2},
@@ -3046,13 +3046,13 @@ static const Stats MON[26] = {
   {"Corbeau noir",5,6,10,1},
   {"Rat des mines",7,8,22,1},
   {"Chauve-souris",7,8,22,1},
-  {"Araignee des cavernes",8,9,28,2},
+  {"Araignée des cavernes",8,9,28,2},
   {"Gardien du Seuil",13,14,58,3},
   {"Gardien de Pierre",12,13,52,3},
-  {"Echo Vivant",11,12,46,3},
+  {"Écho Vivant",11,12,46,3},
   {"Veilleur Antique",12,13,52,3},
   {"Gobelin Fouisseur",8,9,28,2},
-  {"Coeur de Haine",1,30,16,4},   // tyran canonique (6D ramene a 4D : jouable en 3D6<=CO)
+  {"Cœur de Haine",1,30,16,4},   // tyran canonique (6D ramene a 4D : jouable en 3D6<=CO)
   {"Corbeau Noir",11,12,48,3}     // 25 chef des brigands de la Route Royale (Q11)
 };
 }

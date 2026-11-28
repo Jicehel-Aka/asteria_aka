@@ -1,5 +1,4 @@
 // ASTERIA (Gamebuino AKA) - Rendu de texte bitmap (police CP1252 + decodage UTF-8) et mesure text_w().
-// ASTERIA (Gamebuino AKA) - Rendu de texte bitmap (police CP1252, variante doree) et mesure de largeur text_w().
 #include "ui/text.h"
 #include "generated/font_asteria_body.h"
 #include "generated/font_asteria.h"

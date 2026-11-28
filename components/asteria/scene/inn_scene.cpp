@@ -13,9 +13,9 @@ static const int REST_COST=5;
 static const char* RUMORS[]={
   "On dit que la Vieille Mine cache plus qu'un gobelin.",
   "Le maire ne dort plus depuis les disparitions.",
-  "Un marchand jure avoir vu des lueurs au Temple Oublie.",
-  "La foret murmure, parait-il, aux voyageurs solitaires.",
-  "Selene connait des secrets qu'elle ne dit a personne.",
+  "Un marchand jure avoir vu des lueurs au Temple Oublié.",
+  "La forêt murmure, paraît-il, aux voyageurs solitaires.",
+  "Selene connaît des secrets qu'elle ne dit à personne.",
 };
 static int g_rum=0;
 InnScene& inn_scene(){ static InnScene s; return s; }

@@ -40,10 +40,10 @@ void TitleScene::update(SceneManager& m){
     switch(sel){
       case 0: m.set(SceneId::CREATE); break;
       case 1:
-        if(game_load_slot(slot)){ gb::log("TITLE: sauvegarde chargee -> WORLD"); m.set(SceneId::WORLD); }
-        else gb::log("TITLE: echec chargement");
+        if(game_load_slot(slot)){ gb::log("TITLE: sauvegarde chargée -> WORLD"); m.set(SceneId::WORLD); }
+        else gb::log("TITLE: échec chargement");
         break;
-      case 2: gb::log("TITLE: Lire les regles -> RULES"); m.set(SceneId::RULES); break;
+      case 2: gb::log("TITLE: Lire les règles -> RULES"); m.set(SceneId::RULES); break;
       case 3: i18n::next_lang(); break;
       case 4: editor_set_map(0); m.set(SceneId::EDITOR); break;
       case 5: m.set(SceneId::QUIT); break;

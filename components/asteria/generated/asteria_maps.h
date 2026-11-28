@@ -5,7 +5,7 @@
 namespace asteria { namespace data {
 static constexpr uint8_t TILE_SIZE=16;
 static const uint8_t TILE_SOLID[]={0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,1,1,1,0,1};
-static const char* const TILE_NAME[]={"herbe","chemin","mur","eau","porte","pont","arbre","toit","fenetre","toit_auberge","toit_boutique","toit_mairie","enseigne","mur_brique","mur_bois","mur_crepi","eau_nat","fleurs","herbe_haute","paves","terre","rempart","tour","comptoir","table","tonneau","bouteilles","tabouret","rocher","bosquet","cheminee","tapis","table_ronde"};
+static const char* const TILE_NAME[]={"herbe","chemin","mur","eau","porte","pont","arbre","toit","fenêtre","toit_auberge","toit_boutique","toit_mairie","enseigne","mur_brique","mur_bois","mur_crepi","eau_nat","fleurs","herbe_haute","pavés","terre","rempart","tour","comptoir","table","tonneau","bouteilles","tabouret","rocher","bosquet","cheminée","tapis","table_ronde"};
 static constexpr uint8_t TILE_COUNT=23;
 struct Spawn{int16_t npc;uint8_t x,y;};
 struct Portal{uint8_t x,y;int16_t target_loc;int16_t sx,sy;};

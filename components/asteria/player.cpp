@@ -90,47 +90,47 @@ bool use_item_field(Character& c, int item, char* out, int cap){
   if(item<0||item>=ITEM_COUNT||!c.inv.has(item,1)) return false;
   const char* id=ITEMS[item].id;
   auto heal=[&](int n){ c.BL-=n; if(c.BL<0) c.BL=0; };
-  if(!strcmp(id,"OBJ_0005")){ if(c.BL<=0){ snprintf(out,cap,"%s",trc("Sante deja au maximum.")); return false; } c.inv.remove(item,1); heal(8); snprintf(out,cap,"%s",trc("Petite potion : -8 blessures.")); return true; }
-  if(!strcmp(id,"OBJ_0033")){ if(c.BL<=0){ snprintf(out,cap,"%s",trc("Sante deja au maximum.")); return false; } c.inv.remove(item,1); heal(16); snprintf(out,cap,"%s",trc("Grande potion : -16 blessures.")); return true; }
-  if(!strcmp(id,"OBJ_0026")){ if(c.BL<=0 && c.mana>=c.manaMax){ snprintf(out,cap,"%s",trc("Tu es deja en pleine forme.")); return false; } c.inv.remove(item,1); heal(6); c.mana+=2; if(c.mana>c.manaMax)c.mana=c.manaMax; snprintf(out,cap,"%s",trc("Miel sauvage : +6 PV, +2 PO.")); return true; }
-  if(!strcmp(id,"OBJ_0034")){ if(c.BL<=0){ snprintf(out,cap,"%s",trc("Sante deja au maximum.")); return false; } c.inv.remove(item,1); heal(3); snprintf(out,cap,"%s",trc("Herbe machee : -3 blessures.")); return true; }
-  if(!strcmp(id,"OBJ_0003")){ c.inv.remove(item,1); c.torchFuel=100; snprintf(out,cap,"%s",trc("Torche allumee : lumiere 100%.")); return true; }
-  if(!strcmp(id,"OBJ_0011")){ c.inv.remove(item,1); c.torchFuel+=80; if(c.torchFuel>100)c.torchFuel=100; snprintf(out,cap,trc("Lanterne remplie : lumiere %d%%."),c.torchFuel); return true; }
+  if(!strcmp(id,"OBJ_0005")){ if(c.BL<=0){ snprintf(out,cap,"%s",trc("Santé déjà au maximum.")); return false; } c.inv.remove(item,1); heal(8); snprintf(out,cap,"%s",trc("Petite potion : -8 blessures.")); return true; }
+  if(!strcmp(id,"OBJ_0033")){ if(c.BL<=0){ snprintf(out,cap,"%s",trc("Santé déjà au maximum.")); return false; } c.inv.remove(item,1); heal(16); snprintf(out,cap,"%s",trc("Grande potion : -16 blessures.")); return true; }
+  if(!strcmp(id,"OBJ_0026")){ if(c.BL<=0 && c.mana>=c.manaMax){ snprintf(out,cap,"%s",trc("Tu es déjà en pleine forme.")); return false; } c.inv.remove(item,1); heal(6); c.mana+=2; if(c.mana>c.manaMax)c.mana=c.manaMax; snprintf(out,cap,"%s",trc("Miel sauvage : +6 PV, +2 PO.")); return true; }
+  if(!strcmp(id,"OBJ_0034")){ if(c.BL<=0){ snprintf(out,cap,"%s",trc("Santé déjà au maximum.")); return false; } c.inv.remove(item,1); heal(3); snprintf(out,cap,"%s",trc("Herbe mâchée : -3 blessures.")); return true; }
+  if(!strcmp(id,"OBJ_0003")){ c.inv.remove(item,1); c.torchFuel=100; snprintf(out,cap,"%s",trc("Torche allumée : lumière 100%.")); return true; }
+  if(!strcmp(id,"OBJ_0011")){ c.inv.remove(item,1); c.torchFuel+=80; if(c.torchFuel>100)c.torchFuel=100; snprintf(out,cap,trc("Lanterne remplie : lumière %d%%."),c.torchFuel); return true; }
   return false;
 }
 const char* item_desc(int item){
   if(item<0||item>=ITEM_COUNT) return "";
   const char* id=ITEMS[item].id;
-  if(!strcmp(id,"OBJ_0001")) return "Arme : 1D + 2 degats";
-  if(!strcmp(id,"OBJ_0002")) return "Arme : 1D + 3 degats";
-  if(!strcmp(id,"OBJ_0003")) return "Recharge la lumiere dans la Mine (100%)";
+  if(!strcmp(id,"OBJ_0001")) return "Arme : 1D + 2 dégâts";
+  if(!strcmp(id,"OBJ_0002")) return "Arme : 1D + 3 dégâts";
+  if(!strcmp(id,"OBJ_0003")) return "Recharge la lumière dans la Mine (100%)";
   if(!strcmp(id,"OBJ_0004")) return "Fuite garantie ou sortie rapide de Mine";
   if(!strcmp(id,"OBJ_0005")) return "Soigne 8 blessures (combat / sac)";
-  if(!strcmp(id,"OBJ_0008")) return "Arc : 1D + 2 degats, +1 toucher";
+  if(!strcmp(id,"OBJ_0008")) return "Arc : 1D + 2 dégâts, +1 toucher";
   if(!strcmp(id,"OBJ_0009")) return "Double les minerais extraits des filons";
-  if(!strcmp(id,"OBJ_0010")) return "Armure : -1 degat subi + quete Doran";
-  if(!strcmp(id,"OBJ_0011")) return "Recharge la lumiere (+80%) + forge";
-  if(!strcmp(id,"OBJ_0012")) return "Minerai de forge (avec lingot rouille)";
+  if(!strcmp(id,"OBJ_0010")) return "Armure : -1 dégât subi + quête Doran";
+  if(!strcmp(id,"OBJ_0011")) return "Recharge la lumière (+80%) + forge";
+  if(!strcmp(id,"OBJ_0012")) return "Minerai de forge (avec lingot rouillé)";
   if(!strcmp(id,"OBJ_0013")) return "Forge : fondre avec du charbon";
-  if(!strcmp(id,"OBJ_0019")) return "Lumiere permanente inepuisable en Mine";
-  if(!strcmp(id,"OBJ_0020")) return "Arc : 1D + 3 degats, +2 toucher";
+  if(!strcmp(id,"OBJ_0019")) return "Lumière permanente inépuisable en Mine";
+  if(!strcmp(id,"OBJ_0020")) return "Arc : 1D + 3 dégâts, +2 toucher";
   if(!strcmp(id,"OBJ_0021")) return "Double le rendement minier";
-  if(!strcmp(id,"OBJ_0023")) return "Armure passive : -2 degats subis";
-  if(!strcmp(id,"OBJ_0024")) return "Armure : -1 degat + moins d'embuscades";
-  if(!strcmp(id,"OBJ_0025")) return "Corde reutilisable : sortie/fuite sure";
+  if(!strcmp(id,"OBJ_0023")) return "Armure passive : -2 dégâts subis";
+  if(!strcmp(id,"OBJ_0024")) return "Armure : -1 dégât + moins d'embuscades";
+  if(!strcmp(id,"OBJ_0025")) return "Corde réutilisable : sortie/fuite sûre";
   if(!strcmp(id,"OBJ_0026")) return "+6 PV et +2 PO (ou alchimie)";
-  if(!strcmp(id,"OBJ_0027")) return "+2 degats avec un arc (munitions)";
-  if(!strcmp(id,"OBJ_0031")) return "Lingot pret pour forger armes & bouclier";
-  if(!strcmp(id,"OBJ_0032")) return "Arme : 1D + 4 degats, +1 toucher";
+  if(!strcmp(id,"OBJ_0027")) return "+2 dégâts avec un arc (munitions)";
+  if(!strcmp(id,"OBJ_0031")) return "Lingot prêt pour forger armes & bouclier";
+  if(!strcmp(id,"OBJ_0032")) return "Arme : 1D + 4 dégâts, +1 toucher";
   if(!strcmp(id,"OBJ_0033")) return "Soigne 16 blessures (combat / sac)";
-  if(!strcmp(id,"OBJ_0034")) return "Alchimie / quetes / -3 blessures";
-  if(!strcmp(id,"OBJ_0035")) return "Alchimie (potions) & quete d'Agnes";
-  if(!strcmp(id,"OBJ_0036")) return "Artisanat : fleches & bouclier";
-  if(!strcmp(id,"OBJ_0037")) return "Arme legere : 1D degats";
-  if(!strcmp(id,"OBJ_0040")) return "+2 CO et +1 degat en combat";
-  if(ITEMS[item].cat==IC_QUEST||ITEMS[item].cat==IC_KEY) return "Objet cle / quete";
+  if(!strcmp(id,"OBJ_0034")) return "Alchimie / quêtes / -3 blessures";
+  if(!strcmp(id,"OBJ_0035")) return "Alchimie (potions) & quête d'Agnès";
+  if(!strcmp(id,"OBJ_0036")) return "Artisanat : flèches & bouclier";
+  if(!strcmp(id,"OBJ_0037")) return "Arme légère : 1D dégâts";
+  if(!strcmp(id,"OBJ_0040")) return "+2 CO et +1 dégât en combat";
+  if(ITEMS[item].cat==IC_QUEST||ITEMS[item].cat==IC_KEY) return "Objet clé / quête";
   if(ITEMS[item].cat==IC_MAP) return "Carte d'exploration";
-  return "Equipement d'aventurier";
+  return "Équipement d'aventurier";
 }
 int item_base_price(int item){
   if(item<0||item>=ITEM_COUNT) return 0;
@@ -201,7 +201,7 @@ const char* hero_text(const char* s){
       {"la viajera","el viajero"},{"viajera","viajero"},{"Bienvenida","Bienvenido"},   // ES
       {"die Reisende","der Reisende"},{", Reisende",", Reisender"},   // DE
       {"la viaggiatrice","il viaggiatore"},{"viaggiatrice","viaggiatore"},{"Benvenuta","Benvenuto"},   // IT
-      {"fille des fees","fils des fees"},{"fae daughter","fae son"},{"hija de las hadas","hijo de las hadas"},
+      {"fille des fées","fils des fées"},{"fae daughter","fae son"},{"hija de las hadas","hijo de las hadas"},
       {"Feentochter","Feensohn"},{"figlia delle fate","figlio delle fate"} };   // "enfant des fees" (Orwenn, Voyageur)
     for(const auto& r:M) repl_all(b,256,r[0],r[1]);
   } else {

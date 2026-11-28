@@ -40,13 +40,13 @@ static const char* gate_block(int target_loc){
   if(target_loc==8 && !flag_get("vu_maire"))
     return "Tu devrais d'abord voir le maire Aldren : il te remettra la carte.";
   if(target_loc==9 && !flag_get("piste_mine"))
-    return "Rien ne t'indique encore ou chercher. Enquete d'abord dans la foret.";
+    return "Rien ne t'indique encore où chercher. Enquête d'abord dans la forêt.";
   if(target_loc==20 && (!player().inv.has(item_index("OBJ_0015"),1) || player().level<5))
-    return "La voie est coupee : il te faut la Clef du Puits et plus d'experience (niv. 5).";
+    return "La voie est coupée : il te faut la Clef du Puits et plus d'expérience (niv. 5).";
   if(target_loc==10 && !flag_get("boss_mine"))
     return "La route vers Grand-Castel longe la Vieille Mine. Nettoie-la d'abord de sa corruption.";
   if(target_loc==21 && quest_status(7)!=2)
-    return "Une porte scellee des Tenebres. Fais d'abord parler la Pierre noire a Maitre Albin.";
+    return "Une porte scellée des Ténèbres. Fais d'abord parler la Pierre noire à Maître Albin.";
   return nullptr;
 }
 
@@ -143,18 +143,18 @@ static const char* loc_name(int loc){
     case 0:  return "Valbois";
     case 1:  return "Taverne de Valbois";
     case 2:  return "Forge de Doran";
-    case 3:  return "Echoppe de Mira";
+    case 3:  return "Échoppe de Mira";
     case 4:  return "Maison du maire";
     case 5:  return "Maison de Milo";
     case 6:  return "Atelier d'Edric";
-    case 7:  return "Chaumiere abandonnee";
-    case 8:  return "Foret de Brume";
+    case 7:  return "Chaumière abandonnée";
+    case 8:  return "Forêt de Brume";
     case 9:  return "Vieille Mine";
     case 10: return "Grand-Castel";
     case 20: return "Route Royale";
-    case 21: return "Antre Malefique";
+    case 21: return "Antre Maléfique";
     case 22: return "Grande Plaine";
-    case 23: return "Vallee des Pierres";
+    case 23: return "Vallée des Pierres";
     default: return "";
   }
 }
@@ -178,7 +178,7 @@ void WorldScene::enter(){
   started=true; int gp=map_for_loc(22); load_map(gp>=0?gp:0);   // Arc 0 : demarrage dans la Grande Plaine
   if(MAPS[map].location==22){
     quest_start(17); discover_zone(22); notice=true;
-    noticeTxt="La Breche se referme derriere toi. Te voici dans la Grande Plaine d'Asteria.";
+    noticeTxt="La Brèche se referme derrière toi. Te voici dans la Grande Plaine d'Asteria.";
   }
 }
 
@@ -285,8 +285,8 @@ void WorldScene::update(SceneManager& mgr){
     if(quest_status(17)==1) complete_quest_reward(17); notice=true; noticeTxt=evt::EVENTS[0].desc; }
   if(MAPS[map].location==10 && !flag_get("gc_intro")){ flag_set("gc_intro"); quest_start(8); notice=true; noticeTxt="Les hautes tours de Grand-Castel se dressent devant toi."; }
   if(MAPS[map].location==20 && !flag_get("route_intro")){ flag_set("route_intro"); quest_start(9); notice=true; noticeTxt="La Route Royale s'ouvre devant toi. Des marchands auraient disparu sur ses chemins..."; }
-  if(MAPS[map].location==21 && !flag_get("antre_intro")){ flag_set("antre_intro"); if(quest_status(14)==0) quest_start(14); notice=true; noticeTxt="Tu penetres dans l'Antre Malefique. L'air brule et pue l'acide."; }
-  if(MAPS[map].location==23 && !flag_get("vallee_intro")){ flag_set("vallee_intro"); notice=true; noticeTxt="La Vallee des Pierres Murmurantes. Des monolithes graves veillent entre les rochers."; }
+  if(MAPS[map].location==21 && !flag_get("antre_intro")){ flag_set("antre_intro"); if(quest_status(14)==0) quest_start(14); notice=true; noticeTxt="Tu pénètres dans l'Antre Maléfique. L'air brûle et pue l'acide."; }
+  if(MAPS[map].location==23 && !flag_get("vallee_intro")){ flag_set("vallee_intro"); notice=true; noticeTxt="La Vallée des Pierres Murmurantes. Des monolithes gravés veillent entre les rochers."; }
   if(quest_status(0)==2 && quest_status(2)==0) quest_start(2);
   if(quest_status(2)==2 && quest_status(3)==0) quest_start(3);   // Q3 Les empreintes (annexe)
   if(charwin::is_open()){ charwin::update(p); return; }   // fenetre personnage (B : retour au jeu ou au menu pause)
@@ -299,21 +299,21 @@ void WorldScene::update(SceneManager& mgr){
     if(flag_get("boss_coeur")){   // le tyran est vaincu -> denouement
       if(!flag_get("fin_arc1")){
         static const char* D[]={
-          "Le Coeur de Haine s'effondre dans un dernier spasme.",
-          "Une lumiere pale revient : les Tenebres refluent de la region.",
+          "Le Cœur de Haine s'effondre dans un dernier spasme.",
+          "Une lumière pâle revient : les Ténèbres refluent de la région.",
           "Les disparus perdus ne reviendront pas tous... mais le pays respire.",
-          "Sur l'autel, un pendentif d'hermine. Tu le reconnais aussitot.",
-          "C'est celui de ta mere. Elle est passee ici, vivante.",
-          "La piste des tiens mene vers l'Est, au-dela des Monts. (Fin de l'Arc I)" };
+          "Sur l'autel, un pendentif d'hermine. Tu le reconnais aussitôt.",
+          "C'est celui de ta mère. Elle est passée ici, vivante.",
+          "La piste des tiens mène vers l'Est, au-delà des Monts. (Fin de l'Arc I)" };
         if(epiLine<6){ notice=true; noticeTxt=D[epiLine++]; return; } else { if(quest_status(14)==1) complete_quest_reward(14); flag_set("fin_arc1"); }
       }
     } else {
       bool atAltar=(py<=5 && px>=8 && px<=12);
       if(atAltar){
         if(!flag_get("boss_gardien")){
-          if(!flag_get("vu_gardien")){ flag_set("vu_gardien"); notice=true; noticeTxt="Le Gardien du Seuil, lieutenant du Coeur de Haine, surgit !"; return; }
+          if(!flag_get("vu_gardien")){ flag_set("vu_gardien"); notice=true; noticeTxt="Le Gardien du Seuil, lieutenant du Cœur de Haine, surgit !"; return; }
           set_combat_return(SceneId::WORLD); start_combat(19,"/sdcard/ASTERIA/battle/TEMP.BMP"); mgr.set(SceneId::COMBAT); return; }
-        if(!flag_get("vu_coeur")){ flag_set("vu_coeur"); notice=true; noticeTxt="Au centre, une chose sombre bat comme un coeur. Les veinules rouges palpitent."; return; }
+        if(!flag_get("vu_coeur")){ flag_set("vu_coeur"); notice=true; noticeTxt="Au centre, une chose sombre bat comme un cœur. Les veinules rouges palpitent."; return; }
         set_combat_return(SceneId::WORLD); start_combat(24,"/sdcard/ASTERIA/battle/TEMP_A.BMP"); mgr.set(SceneId::COMBAT); return;   // coeur du temple
       }
     }
@@ -396,10 +396,10 @@ void WorldScene::update(SceneManager& mgr){
         if(quest_status(1)==0) quest_start(1);
         else if(quest_status(1)==1 && player().inv.has(item_index("OBJ_0010"),1)){ complete_quest_reward(1); flag_set("doran_resolu"); }   // remise : resout Q1 (forge dispo des la prochaine visite)
       } else if(n==8){
-        if(quest_status(4)==0){ quest_start(4); notice=true; noticeTxt="Agnes : rapporte-moi 5 herbes medicinales et 3 champignons de la Foret de Brume."; }
+        if(quest_status(4)==0){ quest_start(4); notice=true; noticeTxt="Agnès : rapporte-moi 5 herbes médicinales et 3 champignons de la Forêt de Brume."; }
         else if(quest_status(4)==1){ int h=item_index("OBJ_0034"), c=item_index("OBJ_0035");
           if(player().inv.has(h,5) && player().inv.has(c,3)){ player().inv.remove(h,5); player().inv.remove(c,3); complete_quest_reward(4); }
-          else { notice=true; noticeTxt="Agnes : il me faut 5 herbes medicinales et 3 champignons."; } }
+          else { notice=true; noticeTxt="Agnès : il me faut 5 herbes médicinales et 3 champignons."; } }
       } else if(n==5){
         if(quest_status(3)==1) complete_quest_reward(3);
       } else if(n==13){
@@ -440,13 +440,13 @@ void WorldScene::update(SceneManager& mgr){
       dlg=true; dlgNpc=n; dlgNode=pick_node(dlg::DIALOG[n]); dlgLine=0;
     } else if(MAPS[map].location==23 && ((fx==5&&fy==9)||(fx==12&&fy==4)||(fx==20&&fy==7)||(fx==21&&fy==16))){
       static const char* PM[]={"pm6","pm12","pm22","pm36"}; const char* mf=(fx==5)?PM[0]:(fx==12)?PM[1]:(fx==20)?PM[2]:PM[3];
-      if(quest_status(13)<1){ notice=true; noticeTxt="Un monolithe grave, muet. Maitre Albin saurait peut-etre le lire."; }
-      else if(!player().inv.has(item_index("OBJ_0014"),1)){ notice=true; noticeTxt="La pierre reste muette. Il te faudrait la Pierre noire gravee."; }
-      else if(flag_get(mf)){ notice=true; noticeTxt="Cette pierre murmurante est deja eveillee."; }
+      if(quest_status(13)<1){ notice=true; noticeTxt="Un monolithe gravé, muet. Maître Albin saurait peut-être le lire."; }
+      else if(!player().inv.has(item_index("OBJ_0014"),1)){ notice=true; noticeTxt="La pierre reste muette. Il te faudrait la Pierre noire gravée."; }
+      else if(flag_get(mf)){ notice=true; noticeTxt="Cette pierre murmurante est déjà éveillée."; }
       else { flag_set(mf); notice=true; noticeTxt="La Pierre noire effleure le monolithe : il s'illumine et murmure.";
         if(flag_get("pm6")&&flag_get("pm12")&&flag_get("pm22")&&flag_get("pm36")){
           if(quest_status(13)==1) complete_quest_reward(13);
-          noticeTxt="Les quatre pierres resonnent a l'unisson. Le chemin du Temple t'est revele."; } }
+          noticeTxt="Les quatre pierres résonnent à l'unisson. Le chemin du Temple t'est révélé."; } }
     } else {
       int ci=chest_at(map,fx,fy);
       if(ci>=0){ const ChestDef& c=CHESTS[ci];
@@ -456,13 +456,13 @@ void WorldScene::update(SceneManager& mgr){
           player().gold+=c.gold; flag_set(c.flag); asteria::audio::sfx_chest();
           if(c.item>=0) item_ui::pickup_push(c.item,1);           // fenetres "Objet obtenu" : l'objet puis l'or
           if(c.gold>0)  item_ui::pickup_push(item_ui::GOLD,c.gold);
-          if(c.item<0 && c.gold<=0){ notice=true; noticeTxt="Un coffre ! Tu recuperes du butin."; }
+          if(c.item<0 && c.gold<=0){ notice=true; noticeTxt="Un coffre ! Tu récupères du butin."; }
           if(c.complete_q>=0){
             if(quest_status(c.complete_q)==0) quest_start(c.complete_q);
             if(quest_status(c.complete_q)==1) complete_quest_reward(c.complete_q);
             if(c.setflag) flag_set(c.setflag);
             if(c.complete_q==5||c.complete_q==10) notice=true;     // note de quete trouvee dans le coffre
-            if(c.complete_q==5) noticeTxt="Un tissu dechire, arrache a un villageois... Les traces menent a la Vieille Mine.";
+            if(c.complete_q==5) noticeTxt="Un tissu déchiré, arraché à un villageois... Les traces mènent à la Vieille Mine.";
             else if(c.complete_q==10) noticeTxt="Le carnet du chef de caravane ! Ses notes mènent à Grand-Castel.";
           }
         }
@@ -742,7 +742,7 @@ void WorldScene::render(){
       int qi[quest::QUEST_COUNT]; int n=quest_entries(qi);
       const int VIS=5;
       int top=(pauseListSel>=VIS)?(pauseListSel-VIS+1):0;
-      if(n==0) ui::text(24,84,trc("Aucune quete active."),gb::rgb(170,160,132));
+      if(n==0) ui::text(24,84,trc("Aucune quête active."),gb::rgb(170,160,132));
       else {
         for(int r=0;r<VIS && (top+r)<n;r++){
           int q=qi[top+r], y=82+r*19; bool done=(quest_status(q)==2);
