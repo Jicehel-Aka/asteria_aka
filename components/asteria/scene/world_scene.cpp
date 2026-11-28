@@ -651,19 +651,17 @@ void WorldScene::render(){
       gb::light_screen(32,240,amb,L,n);
     }
   }
-  if(dlg && choice::active()) choice::render(dlg::DIALOG[dlgNpc].name);   // choix d'attitude
+  if(dlg && choice::active()) choice::render(dlg::DIALOG[dlgNpc].name,dlgNpc);   // choix d'attitude
   else if(dlg){ const dlg::NpcDialog& D=dlg::DIALOG[dlgNpc];
-    gb::fill_rect(8,158,304,74,gb::rgb(20,16,10));
-    gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
-    ui::gold(16,162,trc(D.name),true);
+    gb::fill_rect(8,150,304,84,gb::rgb(20,16,10));
+    gb::fill_rect(8,150,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,232,304,2,gb::rgb(200,170,90));
+    // portrait du PNJ a gauche s'il existe (tools/icon_src/portraits_pnj.png), texte a droite
+    bool pic=item_ui::draw_portrait(dlgNpc,13,158); int tx=pic?72:16, tw=pic?232:288;
+    ui::gold(tx,154,trc(D.name),true);
     const dlg::Node& _N=D.nodes[dlgNode]; const char* t=(dlgLine<_N.nlines)?hero_text(trc(_N.lines[dlgLine])):"";
-    // wrap simple ~38 c
-    char l1[64]={0},l2[64]={0}; int n=0; while(t[n])n++;
-    if(n<=38){ for(int i=0;i<n;i++)l1[i]=t[i]; }
-    else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(cut==0)cut=38;
-      for(int i=0;i<cut;i++)l1[i]=t[i]; int k=0; for(int i=cut+1;t[i]&&k<63;i++)l2[k++]=t[i]; }   // SEC-03 : borne k<63
-    ui::text(16,182,l1,gb::rgb(236,226,192)); if(l2[0]) ui::text(16,198,l2,gb::rgb(236,226,192));
-    ui::text(192,214,i18n::tr(i18n::W_DLG_H),gb::rgb(170,160,132));
+    char L[3][64]; int nl=item_ui::wrap_text(t,tw,L,3);   // coupe au pixel pres (accents compris)
+    for(int i=0;i<nl;i++) ui::text(tx,172+i*15,L[i],gb::rgb(236,226,192));
+    const char* h=i18n::tr(i18n::W_DLG_H); ui::text(306-ui::text_w(h),216,h,gb::rgb(170,160,132));
   }
 
   // --- Bandeau HUD (2 lignes reservees en haut) : lieu + quete, sans aucun chevauchement ---

@@ -118,22 +118,25 @@ Result update(uint32_t p){
 
 static const gb::Color ATT_COL[4] = { gb::rgb(225,95,80), gb::rgb(120,205,110), gb::rgb(190,130,230), gb::rgb(110,170,235) };
 
-void render(const char* npcName){
+void render(const char* npcName, int npc){
   if(!s_set) return;
   gb::fill_rect(8,150,304,84,gb::rgb(20,16,10));
   gb::fill_rect(8,150,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,232,304,2,gb::rgb(200,170,90));
-  ui::gold(16,153,trc(npcName),true);
   if(s_reply){
-    char L[3][64]; int n = item_ui::wrap_text(hero_text(trc(s_text)), 288, L, 3);
-    for(int i = 0; i < n; ++i) ui::text(16,172 + i*15,L[i],gb::rgb(235,225,190));
+    // reponse du PNJ : son portrait a gauche s'il existe, nom et texte a droite
+    bool pic = item_ui::draw_portrait(npc, 13, 158); int tx = pic ? 72 : 16;
+    ui::gold(tx,153,trc(npcName),true);
+    char L[3][64]; int n = item_ui::wrap_text(hero_text(trc(s_text)), pic ? 232 : 288, L, 3);
+    for(int i = 0; i < n; ++i) ui::text(tx,172 + i*15,L[i],gb::rgb(235,225,190));
     if(s_accept){
       const Option& o = s_set->opt[s_sel];
       char a[48]; snprintf(a,sizeof(a),trc("%s +1 · Pouvoir %d"),trc(ATT_NAME[o.att]),player().PO);
-      ui::text(16,216,a,ATT_COL[o.att]);
+      ui::text(tx,216,a,ATT_COL[o.att]);
       if(s_extra[0]) ui::text(300 - ui::text_w(s_extra),216,s_extra,gb::rgb(245,215,95));
     }
     return;
   }
+  ui::gold(16,153,trc(npcName),true);
   // Attitude de la ligne selectionnee, en haut a droite
   const char* an = trc(ATT_NAME[s_set->opt[s_sel].att]);
   ui::text(300 - ui::text_w(an),153,an,ATT_COL[s_set->opt[s_sel].att]);

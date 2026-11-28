@@ -16,7 +16,7 @@ enum Result { RUNNING, DONE_ACCEPT, DONE_DECLINE };
 bool   begin(int npc, int node);       // true si un choix s'ouvre pour ce noeud
 bool   active();
 Result update(uint32_t pressed);       // DONE_ACCEPT : appliquer les effets du noeud
-void   render(const char* npcName);    // remplace la boite de dialogue tant qu'actif
+void   render(const char* npcName, int npc);   // remplace la boite de dialogue tant qu'actif (npc : portrait)
 void   reset();
 
 }}

@@ -5,7 +5,8 @@ icônes des planches 1 à 5, héroïne Caïthness) : tout ce qui suit **manque v
 Les besoins sont regroupés par image à générer, de la plus utile à la plus facultative.
 
 > **État (v1.5.1)** : les images 1 à 4 sont reçues et intégrées (planche 6, poupée,
-> carte `CARTE.BMP`, voyageur : `tools/bake_hero_m.py` + `VOYAG.BMP`). Reste la 5.
+> carte `CARTE.BMP`, voyageur : `tools/bake_hero_m.py` + `VOYAG.BMP`). La 5 (portraits) a été
+> générée via Figma (fond gris clair malgré la consigne : détourée par `tools/key_flat_bg.py`).
 
 | # | Image | Format | Où ça sert | Déjà prévu dans le code ? |
 |---|---|---|---|---|

@@ -19,6 +19,10 @@ void draw_icon(int item, int x, int y, bool big);
 // top. Renvoie false si aucune illustration n'a ete fournie (silhouette dessinee alors).
 bool draw_doll(int cx, int top, int h);
 
+// Portrait 48x48 d'un PNJ (index de dialogue) avec son cadre, en (x,y) = coin du cadre
+// (52x52). Renvoie false si ce PNJ n'a pas de portrait (rien n'est dessine).
+bool draw_portrait(int npc, int x, int y);
+
 void pickup_push(int item, int qty);   // met un gain en file (item = GOLD : qty pieces d'or)
 bool pickup_active();                  // une fenetre est a l'ecran
 void pickup_update(uint32_t pressed);  // A / B : fenetre suivante

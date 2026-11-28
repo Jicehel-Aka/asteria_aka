@@ -33,6 +33,16 @@ bool draw_doll(int cx, int top, int h){
   return true;
 }
 
+bool draw_portrait(int npc, int x, int y){
+  for(int i = 0; i < icons::PORTRAIT_COUNT; ++i){
+    if(icons::PORTRAIT_NPC[i] != npc) continue;
+    gb::fill_rect(x, y, 52, 52, gb::rgb(92,72,44)); gb::fill_rect(x + 1, y + 1, 50, 50, gb::rgb(46,36,22));
+    gb::draw_image_key(icons::PORTRAIT[i], 48, 48, x + 2, y + 2, icons::KEY);
+    return true;
+  }
+  return false;
+}
+
 int wrap_text(const char* s, int maxw, char out[][64], int nmax){
   int n = 0;
   while(s && *s && n < nmax){

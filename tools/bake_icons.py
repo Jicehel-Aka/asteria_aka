@@ -131,6 +131,29 @@ def main():
     else:
         L.append("static const int DOLL_W = 0, DOLL_H = 0;")
         L.append("static const uint16_t DOLL[1] = {0};")
+    # Portraits des PNJ (tools/icon_src/portraits_pnj.png, 3x3, fond magenta) : 48x48,
+    # personnage pose en bas de la case. PORTRAIT_NPC = index de dialogue (dlg::DIALOG).
+    pp = os.path.join(SRC, "portraits_pnj.png")
+    NPCS = [21, 0, 5, 15, 16, 19, 18, 8, 1]   # Voyageur, Aldren, Lysa, Garrick, Tomas Venn, Meluve, Racha, Agnes, Doran
+    if os.path.exists(pp):
+        sheet = Image.open(pp).convert("RGB"); cw, ch = sheet.width / 3, sheet.height / 3
+        L.append(f"static const int PORTRAIT_COUNT = {len(NPCS)};")
+        L.append("static const int8_t PORTRAIT_NPC[] = {" + ",".join(map(str, NPCS)) + "};")
+        L.append("static const uint16_t PORTRAIT[][48 * 48] = {")
+        for i in range(len(NPCS)):
+            cx, cy = i % 3, i // 3
+            obj = crop_alpha(key_out(sheet.crop((round(cx * cw), round(cy * ch), round((cx + 1) * cw), round((cy + 1) * ch)))))
+            f = fit(obj, 50)                                   # 48 utiles + marge de fit()
+            canvas = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
+            bb = f.getbbox() or (0, 0, 48, 48); f = f.crop(bb)
+            canvas.paste(f, ((48 - f.width) // 2, 48 - f.height), f)   # pose en bas
+            L.append("  {" + ",".join(f"0x{x:04X}" for x in to_565(canvas)) + "},")
+        L.append("};")
+        print("portraits :", len(NPCS))
+    else:
+        L.append("static const int PORTRAIT_COUNT = 0;")
+        L.append("static const int8_t PORTRAIT_NPC[1] = {-1};")
+        L.append("static const uint16_t PORTRAIT[1][48 * 48] = {{0}};")
     L.append("}}")
     open(OUT, "w").write("\n".join(L) + "\n")
     print(f"{OUT} : {ITEM_COUNT + 1} icones x {SIZES}")
