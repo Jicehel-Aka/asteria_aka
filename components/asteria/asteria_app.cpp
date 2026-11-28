@@ -31,11 +31,11 @@ static void ui_sounds(SceneId sc){
       const WorldScene& w = world_scene();
       if(journal::is_open()){                              // journal de quetes
         if(p & (gb::BTN_UP | gb::BTN_DOWN)) audio::sfx_select();
-        else if(p & (gb::BTN_LEFT | gb::BTN_RIGHT)) audio::sfx_page();
+        else if(p & (gb::BTN_LEFT | gb::BTN_RIGHT | gb::BTN_L1 | gb::BTN_R1)) audio::sfx_page();
         else if(p & (gb::BTN_B | gb::BTN_MENU)) audio::sfx_back();
       } else if(charwin::is_open()){                       // fenetre personnage
         if(p & ARROWS) audio::sfx_select();
-        else if(p & gb::BTN_RUN) audio::sfx_page();
+        else if(p & (gb::BTN_L1 | gb::BTN_R1)) audio::sfx_page();
         else if(p & gb::BTN_B) audio::sfx_back();          // A : la fenetre joue elle-meme le son de l'action
       } else if(w.confirmQuit){                            // menu pause ouvert
         if(p & ARROWS) audio::sfx_select();
@@ -43,7 +43,7 @@ static void ui_sounds(SceneId sc){
         else if(p & (gb::BTN_B | gb::BTN_MENU)) audio::sfx_back();
       } else if(w.dlg || w.notice || item_ui::pickup_active()){
         if(p & gb::BTN_A) audio::sfx_page();               // ligne de dialogue / message suivant
-      } else if(p & (gb::BTN_MENU | gb::BTN_B | gb::BTN_RUN)) audio::sfx_open();
+      } else if(p & (gb::BTN_MENU | gb::BTN_B | gb::BTN_L1 | gb::BTN_R1)) audio::sfx_open();
     } break;
     case SceneId::DUNGEON:
       if(item_ui::pickup_active() && (p & gb::BTN_A)) audio::sfx_page();

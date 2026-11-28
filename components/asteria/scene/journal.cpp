@@ -113,7 +113,7 @@ void close(){ s_open = false; }
 
 void update(uint32_t p){
   if(p & (gb::BTN_B | gb::BTN_MENU)){ close(); return; }
-  if(p & (gb::BTN_LEFT | gb::BTN_RIGHT)){ s_tab ^= 1; s_sel = 0; return; }
+  if(p & (gb::BTN_LEFT | gb::BTN_RIGHT | gb::BTN_L1 | gb::BTN_R1)){ s_tab ^= 1; s_sel = 0; return; }
   int L[quest::QUEST_COUNT]; int n = list(s_tab, L); if(n == 0) return;
   if(p & gb::BTN_DOWN) s_sel = (s_sel + 1) % n;
   if(p & gb::BTN_UP)   s_sel = (s_sel + n - 1) % n;

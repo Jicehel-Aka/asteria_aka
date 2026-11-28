@@ -441,6 +441,23 @@ void draw_hearth(int sx,int sy){ inn_floor(sx,sy);
   for(int x=0;x<10;x++){ int h=3+((x*7+5)%5); for(int k=0;k<h;k++){ uint16_t c=(k>=h-1)?fy:(k>=h-2)?fo:fr; gb::pixel(sx+3+x,sy+12-k,c);} } // flammes
   gb::pixel(sx+8,sy+6,fy);
 }
+// Flammes animees de la cheminee (redessinees a chaque image par-dessus le decor mis en
+// cache) : hauteur de chaque colonne de flamme et braises varient avec le temps.
+void draw_hearth_fire(int sx,int sy,uint32_t ms){
+  uint16_t dark=gb::rgb(28,22,22), glow=gb::rgb(60,30,22);
+  uint16_t fy=gb::rgb(252,224,96), fo=gb::rgb(242,146,44), fr=gb::rgb(214,74,38);
+  uint32_t t=ms/90;                                                   // ~11 images de flamme par seconde
+  gb::fill_rect(sx+2,sy+3,12,9,dark);                                 // fond du foyer (au-dessus des buches)
+  for(int x=3;x<13;x++) gb::pixel(sx+x,sy+11,glow);                   // lueur au ras des buches
+  for(int x=0;x<10;x++){
+    uint32_t n=(uint32_t)(x*2654435761u)^(t*40503u)^((t+x)*2246822519u); n^=n>>13; n*=0x5bd1e995u; n^=n>>15;
+    int base=(x>=2&&x<=7)?5:3;                                        // flammes plus hautes au centre
+    int h=base+(int)(n%4);
+    for(int k=0;k<h;k++){ uint16_t c=(k>=h-1)?fy:(k>=h-3)?fo:fr; gb::pixel(sx+3+x,sy+12-k,c); }
+  }
+  uint32_t e=t*7u+(uint32_t)sx; gb::pixel(sx+4+(int)(e%8),sy+13+(int)((e>>3)&1),fo);   // braise qui rougeoie
+  if(((t>>1)&3)==0) gb::pixel(sx+5+(int)((t*5u)%6),sy+3+(int)(t%2),fy);              // etincelle qui monte
+}
 // 31 tapis : natte rouge a bordure doree et losange creme (multi-tuiles : bordure seulement au bord)
 void draw_rug(int sx,int sy,bool up,bool down,bool left,bool right){ inn_floor(sx,sy);
   uint16_t base=gb::rgb(150,42,44), base2=gb::rgb(126,32,36), bord=gb::rgb(200,170,90), cream=gb::rgb(222,202,152);

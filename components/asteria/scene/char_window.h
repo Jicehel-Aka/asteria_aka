@@ -1,8 +1,8 @@
-// ASTERIA (Gamebuino AKA) - Fenetre personnage (ouverte depuis le monde par RUN, ou
+// ASTERIA (Gamebuino AKA) - Fenetre personnage (ouverte depuis le monde par R1, ou
 // depuis le menu pause, entree "Personnage").
 //
 // Colonne gauche : portrait, niveau, or, PV / PM, caracteristiques, armure.
-// Colonne droite, deux onglets (RUN pour passer de l'un a l'autre) :
+// Colonne droite, trois onglets (L1 / R1 pour passer de l'un a l'autre) :
 //   Sac   : equipement porte (arme, bouclier, casque, cape, anneau) et grille d'icones du
 //           sac ; A equipe une arme, utilise un consommable ou decrit l'objet.
 //   Sorts : sorts connus et leur cout ; A lance Soins / Guerison majeure hors combat.

@@ -463,8 +463,6 @@ add("Armure %d","Armor %d","Armadura %d","Rüstung %d","Armatura %d")
 add("Aucun sort connu.","No spells known.","Ningún hechizo conocido.","Keine Zauber bekannt.","Nessun incantesimo noto.")
 add("%s (%d PM)","%s (%d MP)","%s (%d PM)","%s (%d MP)","%s (%d PM)")
 add("Ce sort ne sert qu'en combat.","This spell only works in combat.","Este hechizo solo sirve en combate.","Dieser Zauber wirkt nur im Kampf.","Questo incantesimo serve solo in combattimento.")
-add("A: utiliser  RUN: sorts  B: fermer","A: use  RUN: spells  B: close","A: usar  RUN: hechizos  B: cerrar","A: benutzen  RUN: Zauber  B: zu","A: usa  RUN: incantesimi  B: chiudi")
-add("A: lancer  RUN: sac  B: fermer","A: cast  RUN: bag  B: close","A: lanzar  RUN: bolsa  B: cerrar","A: wirken  RUN: Tasche  B: zu","A: lancia  RUN: sacca  B: chiudi")
 
 # --- v1.5 : equipement, journal, carte du monde, dialogues a choix ---
 add("Équipement","Equipment","Equipo","Ausrüstung","Equipaggiamento")
@@ -475,9 +473,9 @@ add("Aucun objet du sac ne va ici.","Nothing in the bag fits here.","Nada de la 
 add("Aucun changement.","No change.","Sin cambios.","Keine Änderung.","Nessun cambiamento.")
 add("Arm","Arm","Arm","Rüst","Arm")
 add("Dég","Dmg","Daño","Schd","Dan")
-add("A: choisir  RUN: onglet  B: fermer","A: choose  RUN: tab  B: close","A: elegir  RUN: pestaña  B: cerrar","A: wählen  RUN: Reiter  B: zu","A: scegli  RUN: scheda  B: chiudi")
-add("A: équiper/utiliser  RUN: onglet  B: fermer","A: equip/use  RUN: tab  B: close","A: equipar/usar  RUN: pestaña  B: cerrar","A: anlegen/nutzen  RUN: Reiter  B: zu","A: equipaggia/usa  RUN: scheda  B: chiudi")
-add("A: lancer  RUN: onglet  B: fermer","A: cast  RUN: tab  B: close","A: lanzar  RUN: pestaña  B: cerrar","A: wirken  RUN: Reiter  B: zu","A: lancia  RUN: scheda  B: chiudi")
+add("A: choisir  L1/R1: onglet  B: fermer","A: choose  L1/R1: tab  B: close","A: elegir  L1/R1: pestaña  B: cerrar","A: wählen  L1/R1: Reiter  B: zu","A: scegli  L1/R1: scheda  B: chiudi")
+add("A: équiper/utiliser  L1/R1: onglet  B: fermer","A: equip/use  L1/R1: tab  B: close","A: equipar/usar  L1/R1: pestaña  B: cerrar","A: anlegen/nutzen  L1/R1: Reiter  B: zu","A: equipaggia/usa  L1/R1: scheda  B: chiudi")
+add("A: lancer  L1/R1: onglet  B: fermer","A: cast  L1/R1: tab  B: close","A: lanzar  L1/R1: pestaña  B: cerrar","A: wirken  L1/R1: Reiter  B: zu","A: lancia  L1/R1: scheda  B: chiudi")
 add("A: équiper  B: annuler","A: equip  B: cancel","A: equipar  B: cancelar","A: anlegen  B: abbrechen","A: equipaggia  B: annulla")
 add("Main droite","Right hand","Mano derecha","Rechte Hand","Mano destra")
 add("Main gauche","Left hand","Mano izquierda","Linke Hand","Mano sinistra")
@@ -585,6 +583,13 @@ add("Malheur ? Prends-le, et emporte ta guigne avec toi !","Bad luck? Take it, a
 add("Combien en veux-tu ? (20 or)","How much do you want? (20 gold)","¿Cuánto quieres? (20 oro)","Was willst du dafür? (20 Gold)","Quanto vuoi? (20 oro)")
 add("Vingt pièces. Marché conclu.","Twenty coins. Deal.","Veinte monedas. Trato hecho.","Zwanzig Münzen. Abgemacht.","Venti monete. Affare fatto.")
 add("Pas d'or, pas de collier. Reviens plus riche.","No gold, no necklace. Come back richer.","Sin oro no hay collar. Vuelve con oro.","Kein Gold, keine Kette. Komm reicher wieder.","Niente oro, niente collana. Torna con dell'oro.")
+
+# --- v1.5.4 : coffres des maisons (equilibrage) ---
+add("Mon coffre t'est ouvert, voyageuse : sers-toi, tu en auras besoin.","My chest is open to you, traveler: help yourself, you'll need it.","Mi cofre está abierto, viajera: sírvete, lo necesitarás.","Meine Truhe steht dir offen, Reisende: bedien dich, du wirst es brauchen.","Il mio forziere è tuo, viaggiatrice: serviti, ne avrai bisogno.")
+add("Passe chez moi : mon coffre est à toi, il pourra t'aider.","Drop by my place: my chest is yours, it may help you.","Pasa por mi casa: mi cofre es tuyo, te ayudará.","Komm bei mir vorbei: meine Truhe gehört dir, sie wird dir helfen.","Passa da me: il mio forziere è tuo, potrà aiutarti.")
+add("C'est le coffre du maire. Mieux vaut ne pas se servir sans lui demander.","This is the mayor's chest. Better not help yourself without asking him.","Es el cofre del alcalde. Mejor no servirse sin pedírselo.","Das ist die Truhe des Bürgermeisters. Besser nicht ohne zu fragen.","È il forziere del sindaco. Meglio non servirsi senza chiederglielo.")
+add("Le coffre d'Edric est fermé à clé.","Edric's chest is locked.","El cofre de Edric está cerrado con llave.","Edrics Truhe ist verschlossen.","Il forziere di Edric è chiuso a chiave.")
+add("Un coffre scellé par une rune sombre. Rien ne la fait céder... pour l'instant.","A chest sealed by a dark rune. Nothing will break it... for now.","Un cofre sellado por una runa oscura. Nada la rompe... por ahora.","Eine Truhe, versiegelt mit einer dunklen Rune. Nichts bricht sie... noch nicht.","Un forziere sigillato da una runa oscura. Nulla la spezza... per ora.")
 
 # ===== Generation =====
 def esc(s): return s.replace('\\','\\\\').replace('"','\\"')

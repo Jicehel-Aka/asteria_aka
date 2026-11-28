@@ -19,7 +19,7 @@
 #include <vector>
 static uint16_t FB[gb::SCREEN_W*gb::SCREEN_H];
 static int g_frame=0, g_budget=1; static uint32_t g_ms=0;
-static uint32_t code2btn(int c){ switch(c){case 1:return gb::BTN_UP;case 2:return gb::BTN_DOWN;case 3:return gb::BTN_LEFT;case 4:return gb::BTN_RIGHT;case 5:return gb::BTN_A;case 6:return gb::BTN_B;case 7:return gb::BTN_MENU;case 8:return gb::BTN_RUN;default:return 0;} }
+static uint32_t code2btn(int c){ switch(c){case 1:return gb::BTN_UP;case 2:return gb::BTN_DOWN;case 3:return gb::BTN_LEFT;case 4:return gb::BTN_RIGHT;case 5:return gb::BTN_A;case 6:return gb::BTN_B;case 7:return gb::BTN_MENU;case 8:return gb::BTN_R1;case 9:return gb::BTN_L1;default:return 0;} }
 static int g_script[512]; static int g_scriptN=-1;
 static void loadScript(){ g_scriptN=0; const char* e=getenv("ASTERIA_SCRIPT"); if(e){ const char* p=e; while(*p && g_scriptN<512){ g_script[g_scriptN++]=atoi(p); const char* c=strchr(p,','); if(!c)break; p=c+1; } } const char* b=getenv("ASTERIA_BUDGET"); if(b) g_budget=atoi(b); }
 namespace gb {

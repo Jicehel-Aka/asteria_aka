@@ -31,7 +31,8 @@ static void pump(){
         case SDLK_x: case SDLK_RETURN: b=gb::BTN_A; break;
         case SDLK_c: case SDLK_BACKSPACE: b=gb::BTN_B; break;
         case SDLK_RETURN2: case SDLK_TAB: case SDLK_p: b=gb::BTN_MENU; break;
-        case SDLK_v: case SDLK_i: case SDLK_SPACE: b=gb::BTN_RUN; break;   // RUN : fenetre personnage, onglets
+        case SDLK_a: case SDLK_PAGEUP: b=gb::BTN_L1; break;                 // L1 : journal, onglet precedent
+        case SDLK_e: case SDLK_PAGEDOWN: case SDLK_i: b=gb::BTN_R1; break;  // R1 : personnage, onglet suivant, torche/corde
         case SDLK_ESCAPE: g_quit=true; break;
       }
       if(b){ if(d){ if(!(g_held&b)) g_pressed|=b; g_held|=b; } else g_held&=~b; }

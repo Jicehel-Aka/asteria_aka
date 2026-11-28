@@ -72,7 +72,7 @@ static const char* const STR[STR_COUNT][LANG_COUNT] = {
   {"Tuile", "Tile", "Loseta", "Kachel", "Tessera"},
   {"Exporté -> export_map.txt", "Exported -> export_map.txt", "Exportado -> export_map.txt", "Export -> export_map.txt", "Esportato -> export_map.txt"},
   {"Flèches: déplacer  A: appliquer", "Arrows: move  A: apply", "Flechas: mover  A: aplicar", "Pfeile: bewegen  A: anwenden", "Frecce: muovi  A: applica"},
-  {"B: cycler  MENU: outil  RUN: menu", "B: cycle  MENU: tool  RUN: menu", "B: ciclar  MENU: útil  RUN: menú", "B: wechseln  MENU  RUN: menü", "B: cambia  MENU  RUN: menu"},
+  {"B: cycler  MENU: outil  R1: menu", "B: cycle  MENU: tool  R1: menu", "B: ciclar  MENU: útil  R1: menú", "B: wechseln  MENU  R1: Menü", "B: cambia  MENU  R1: menu"},
   {"Éditeur de carte", "Map editor", "Editor de mapa", "Karten-Editor", "Editor mappa"},
   {"Éditeur de sprites", "Sprite editor", "Editor de sprites", "Sprite-Editor", "Editor sprite"},
   {"Carte", "Map", "Mapa", "Karte", "Mappa"},

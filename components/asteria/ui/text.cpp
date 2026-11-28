@@ -31,8 +31,26 @@ static inline uint8_t next_cp(const unsigned char*& p){
 }
 static inline uint8_t idx_body(uint8_t cp){ return (cp < FONTB_FIRST) ? (uint8_t)('?' - FONTB_FIRST) : (uint8_t)(cp - FONTB_FIRST); }
 static inline uint8_t idx_big (uint8_t cp){ return (cp < FONT_FIRST)  ? (uint8_t)('?' - FONT_FIRST)  : (uint8_t)(cp - FONT_FIRST); }
+#ifdef ASTERIA_TEXT_AUDIT
+// Build de test uniquement (harnais) : signale une fois chaque texte qui deborde a droite
+// (au-dela de 314 px, bord interieur des fenetres) ou a gauche de l'ecran.
+}}
+#include <cstdio>
+#include <set>
+#include <string>
+namespace asteria { namespace ui {
+static void text_audit(int x, int y, const char* s){
+  static std::set<std::string> seen;
+  int w = text_w(s);
+  if((x + w > 314 || x < 0) && seen.insert(s).second) printf("[TEXTE] x=%d y=%d w=%d fin=%d : %s\n", x, y, w, x + w, s);
+}
+#define AUDIT(x, y, s) text_audit(x, y, s)
+#else
+#define AUDIT(x, y, s) ((void)0)
+#endif
 void text(int x,int y,const char* s, gb::Color c){
   if(!s) return;
+  AUDIT(x, y, s);
   for(const unsigned char* p=(const unsigned char*)s; *p; ){
     uint8_t g=idx_body(next_cp(p));
     for(int r=0;r<FONTB_HEIGHT;++r){ uint16_t row=FONTB_BITS[g][r];
@@ -57,6 +75,7 @@ int text_w(const char* s){
 // dégradé or (par ligne) + contour 4-voisins ; bright=false -> atténué
 void gold(int x,int y,const char* s, bool bright){
   if(!s) return;
+  AUDIT(x, y, s);
   gb::Color oc=gb::rgb(GOLD_OUTLINE.r,GOLD_OUTLINE.g,GOLD_OUTLINE.b);
   int x0=x;
   for(const unsigned char* p=(const unsigned char*)s; *p; ){ uint8_t g=idx_body(next_cp(p));

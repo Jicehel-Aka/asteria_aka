@@ -42,7 +42,9 @@ static uint32_t remap_keys(uint32_t raw) {
     if (raw & 0x8000) out |= BTN_A;      // AKA_KEY_A
     if (raw & 0x2000) out |= BTN_B;      // AKA_KEY_B
     if (raw & 0x0004) out |= BTN_MENU;   // AKA_KEY_MENU
-    if (raw & 0x0002) out |= BTN_RUN;    // AKA_KEY_RUN
+    if (raw & 0x0002) out |= BTN_RUN;    // AKA_KEY_RUN (extinction : non utilise par le jeu)
+    if (raw & 0x0080) out |= BTN_L1;     // AKA_KEY_L1
+    if (raw & 0x0040) out |= BTN_R1;     // AKA_KEY_R1
     return out;
 }
 

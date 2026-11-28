@@ -335,7 +335,8 @@ const char* hero_text(const char* s){
       {"Un voyageur","Une voyageuse"},{"un voyageur","une voyageuse"},{"le voyageur","la voyageuse"},
       {"El viajero","La viajera"},{"el viajero","la viajera"},
       {"Ein Reisender","Eine Reisende"},{"der Reisende","die Reisende"},
-      {"Un viaggiatore","Una viaggiatrice"},{"il viaggiatore","la viaggiatrice"} };
+      {"Un viaggiatore","Una viaggiatrice"},{"il viaggiatore","la viaggiatrice"},
+      {"Sois prudent.","Sois prudente."} };   // Edric (texte de base au masculin)
     for(const auto& r:F) repl_all(b,256,r[0],r[1]);
   }
   return b;

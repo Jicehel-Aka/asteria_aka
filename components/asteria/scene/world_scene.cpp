@@ -61,16 +61,18 @@ static const gb::Color TCOL(uint8_t t){
     case 5:return gb::rgb(130,96,60); case 6:return gb::rgb(34,64,40); default:return gb::rgb(150,60,50);}
 }
 
-struct ChestDef { int loc,x,y,item,gold; const char* flag; int complete_q; const char* setflag; };
+// require : drapeau necessaire pour ouvrir (sinon message locked) - equilibrage des coffres
+// des maisons de Valbois : on ne se sert pas chez les gens sans y etre invite.
+struct ChestDef { int loc,x,y,item,gold; const char* flag; int complete_q; const char* setflag; const char* require; const char* locked; };
 static const ChestDef CHESTS[]={
   {8,22,7,4,8,"coffre_foret",5,"piste_mine"},
   {0,3,21,2,5,"coffre_valbois",-1,nullptr},
   {20,4,16,-1,0,"coffre_carnet",10,"caravane_ok"},
   // maisons de Valbois (interieurs)
-  {4,12,8,4,10,"coffre_maire",-1,nullptr},      // potion + 10 or
+  {4,12,8,4,10,"coffre_maire",-1,nullptr,"maire_coffre","C'est le coffre du maire. Mieux vaut ne pas se servir sans lui demander."},      // potion + 10 or : offert par Aldren (2e conversation)
   {5,1,7,25,3,"coffre_milo",-1,nullptr},        // miel sauvage
-  {6,10,7,12,5,"coffre_edric",-1,nullptr},      // lingot rouille (forge)
-  {7,8,5,45,6,"coffre_chaumiere",-1,nullptr}    // Anneau de vigueur (v1.5)
+  {6,10,7,12,5,"coffre_edric",-1,nullptr,"edric_coffre","Le coffre d'Edric est fermé à clé."},      // lingot rouille (forge) : Edric t'y invite
+  {7,8,5,45,6,"coffre_chaumiere",-1,nullptr,"boss_mine","Un coffre scellé par une rune sombre. Rien ne la fait céder... pour l'instant."}    // Anneau de vigueur : apres le chef gobelin (rune = celle de la Pierre noire)
 };
 static const int NCHEST=(int)(sizeof(CHESTS)/sizeof(CHESTS[0]));
 static int chest_at(int map,int x,int y){
@@ -455,7 +457,8 @@ void WorldScene::update(SceneManager& mgr){
     } else {
       int ci=chest_at(map,fx,fy);
       if(ci>=0){ const ChestDef& c=CHESTS[ci];
-        if(c.item>=0 && !player().inv.add(c.item,1)){   // BUG-07 : inventaire plein -> on laisse le coffre FERME, le joueur reviendra
+        if(c.require && !flag_get(c.require)){ notice=true; noticeTxt=c.locked; audio::sfx_error(); }   // coffre pas encore accessible
+        else if(c.item>=0 && !player().inv.add(c.item,1)){   // BUG-07 : inventaire plein -> on laisse le coffre FERME, le joueur reviendra
           notice=true; noticeTxt="Ton inventaire est plein ! Fais de la place et reviens ouvrir ce coffre."; audio::sfx_error();
         } else {
           player().gold+=c.gold; flag_set(c.flag); asteria::audio::sfx_chest();
@@ -477,7 +480,8 @@ void WorldScene::update(SceneManager& mgr){
     }
   }
 
-  if(p&gb::BTN_RUN){ charwin::open(0); return; }   // raccourci : fenetre personnage
+  if(p&gb::BTN_R1){ charwin::open(0); return; }   // raccourci : fenetre personnage
+  if(p&gb::BTN_L1){ journal::open(); return; }    // raccourci : journal de quetes
   if(p&(gb::BTN_MENU|gb::BTN_B)){ confirmQuit=true; pauseSel=0; pauseSub=0; pauseListSel=0; pauseMsg=nullptr; }
 }
 
@@ -599,6 +603,7 @@ void WorldScene::render(){
   }
   for(int y=y0;y<y1;++y){
     if(!cached){ gb::set_origin(camx,camy); for(int x=x0;x<x1;++x) draw_map_tile(M,x,y); gb::reset_raster(); }
+    for(int x=x0;x<x1;++x) if(M.tiles[y*M.w+x]==30) draw_hearth_fire(x*TILE_SIZE-camx,y*TILE_SIZE-camy,gb::millis());   // feu anime des cheminees
     // Tri par profondeur : les entites de la rangee y sont dessinees APRES ses tuiles.
     // Un arbre/tour d'une rangee inferieure (en avant) sera dessine ensuite -> il masque le heros, qui "passe derriere".
     for(int i=0;i<M.spawn_n;++i){ const Spawn& s=M.spawns[i]; if(s.y!=y) continue;
@@ -691,13 +696,12 @@ void WorldScene::render(){
       else if(qs==2){ ui::gold(6,16,i18n::tr(i18n::W_QDONE),true); } }
   }
 
-  if(notice){ gb::fill_rect(8,158,304,74,gb::rgb(20,16,10)); gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
-    ui::gold(16,162,i18n::tr(i18n::W_EVENT),true);
-    // wrap ~38
-    const char* t=noticeTxt?hero_text(trc(noticeTxt)):""; char a[64]={0},b[64]={0}; int n=0; while(t[n])n++;
-    if(n<=38){ for(int i=0;i<n;i++)a[i]=t[i]; } else { int cut=38; while(cut>0&&t[cut]!=' ')cut--; if(!cut)cut=38; for(int i=0;i<cut;i++)a[i]=t[i]; int k=0; for(int i=cut+1;t[i]&&k<63;i++)b[k++]=t[i]; }   // SEC-03 : borne k<63
-    ui::text(16,182,a,gb::rgb(236,226,192)); if(b[0])ui::text(16,198,b,gb::rgb(236,226,192));
-    ui::text(206,214,i18n::tr(i18n::W_CONT),gb::rgb(170,160,132));
+  if(notice){ gb::fill_rect(8,150,304,84,gb::rgb(20,16,10)); gb::fill_rect(8,150,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,232,304,2,gb::rgb(200,170,90));
+    ui::gold(16,154,i18n::tr(i18n::W_EVENT),true);
+    // texte coupe au pixel pres (accents et lettres larges compris), 3 lignes au plus
+    const char* t=noticeTxt?hero_text(trc(noticeTxt)):""; char L[3][64]; int nl=item_ui::wrap_text(t,288,L,3);
+    for(int i=0;i<nl;i++) ui::text(16,172+i*15,L[i],gb::rgb(236,226,192));
+    const char* h=i18n::tr(i18n::W_CONT); ui::text(306-ui::text_w(h),216,h,gb::rgb(170,160,132));
   }
 
   if(!notice && !dlg && !confirmQuit) item_ui::pickup_render();   // fenetre "Objet obtenu"

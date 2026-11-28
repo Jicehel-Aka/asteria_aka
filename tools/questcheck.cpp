@@ -1,5 +1,7 @@
 // Validation des quetes secondaires : teleporte le joueur au donneur et dialogue,
 // en accordant les prerequis (objets) -> teste le CABLAGE (pas la cueillette).
+#include "i18n.h"
+#include <cstdlib>
 #include "scene/scene.h"
 #include "scene/world_scene.h"
 #include "ui/item_ui.h"
@@ -26,6 +28,7 @@ static int Q(int n){ return quest_status(n); }
 
 namespace asteria { extern bool g_no_encounters; extern bool g_autosave; }
 int main(){
+  if(getenv("ASTERIA_LANG")) i18n::set_lang(atoi(getenv("ASTERIA_LANG")));   // harnais multilingue (controle des largeurs)
   audio::init(); host_set_budget(1000000000);
   asteria::g_no_encounters=true;   // harnais : isoler la logique de quete des rencontres aleatoires
   asteria::g_autosave=false;       // ne pas ecrire SAVE.DAT pendant la validation

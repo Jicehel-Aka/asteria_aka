@@ -7,7 +7,9 @@ namespace gb {
 typedef uint16_t Color;                 // BGR565 (convention AKA)
 inline Color rgb(uint8_t r,uint8_t g,uint8_t b){ return (Color)(((b>>3)<<11)|((g>>2)<<5)|(r>>3)); }
 constexpr int SCREEN_W=320, SCREEN_H=240;
-enum Button:uint32_t{ BTN_UP=1,BTN_DOWN=2,BTN_LEFT=4,BTN_RIGHT=8,BTN_A=16,BTN_B=32,BTN_MENU=64,BTN_RUN=128 };
+enum Button:uint32_t{ BTN_UP=1,BTN_DOWN=2,BTN_LEFT=4,BTN_RIGHT=8,BTN_A=16,BTN_B=32,BTN_MENU=64,BTN_RUN=128,BTN_L1=256,BTN_R1=512 };
+// RUN eteint la console (et RUN+MENU ramene au loader) : le jeu ne l'utilise pas ;
+// les raccourcis et onglets passent par L1 / R1.
 bool     running();                     // device: true ; mock: budget de frames
 void     frame_begin();
 void     frame_end();                   // flush framebuffer -> écran

@@ -1,4 +1,6 @@
 // Autopilote de validation : joue ASTERIA de bout en bout en pilotant le vrai moteur.
+#include "i18n.h"
+#include <cstdlib>
 #include "scene/scene.h"
 #include "scene/world_scene.h"
 #include "ui/item_ui.h"
@@ -94,6 +96,7 @@ static int dBfsStep(DungeonScene& d,int sx,int sy,int tx,int ty,bool adjacent,in
 }
 
 int main(){
+  if(getenv("ASTERIA_LANG")) i18n::set_lang(atoi(getenv("ASTERIA_LANG")));   // harnais multilingue (controle des largeurs)
   audio::init(); host_set_budget(1000000000); asteria::g_autosave=false;
   new_game_reset();
   // MODE VALIDATION : on neutralise l'equilibrage du combat (stats gonflees) pour

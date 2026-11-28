@@ -160,7 +160,8 @@ static void spell_update(uint32_t p){
 
 void update(uint32_t p){
   if(p & gb::BTN_B){ if(s_pick){ s_pick = false; return; } close(); return; }
-  if(p & gb::BTN_RUN){ s_tab = (s_tab + 1) % TAB_N; s_pick = false; s_msg = nullptr; return; }
+  if(p & (gb::BTN_L1 | gb::BTN_R1)){                // onglet precedent / suivant
+    s_tab = (s_tab + ((p & gb::BTN_R1) ? 1 : TAB_N - 1)) % TAB_N; s_pick = false; s_msg = nullptr; return; }
   if(s_tab == TAB_EQUIP) equip_update(p);
   else if(s_tab == TAB_BAG) bag_update(p);
   else spell_update(p);
@@ -337,7 +338,7 @@ void render(){
   if(desc && y < 220){ char W[2][64]; int k = item_ui::wrap_text(desc,296,W,(220 - y) / 14);
     for(int i = 0; i < k; ++i) ui::text(12,y + i*14,W[i],gb::rgb(185,225,175)); }
   static const char* const HINT[TAB_N] = {
-    "A: choisir  RUN: onglet  B: fermer", "A: équiper/utiliser  RUN: onglet  B: fermer", "A: lancer  RUN: onglet  B: fermer" };
+    "A: choisir  L1/R1: onglet  B: fermer", "A: équiper/utiliser  L1/R1: onglet  B: fermer", "A: lancer  L1/R1: onglet  B: fermer" };
   ui::text(12,220,trc(s_pick ? "A: équiper  B: annuler" : HINT[s_tab]),DIM);
 }
 

@@ -1,6 +1,6 @@
 // Donjon 1re personne (pseudo-3D grille, facon Dark & Under).
 // Optims AKA: scanline buffer memcpy + Q16.16 + PSRAM framebuffer.
-// Gameplay: filons minables (A), lumiere torche/lanterne + recharge/corde (RUN).
+// Gameplay: filons minables (A), lumiere torche/lanterne + recharge/corde (R1).
 // Murs/sol/plafond textures pierre + eclairage par distance + torches vacillantes.
 #include "scene/dungeon_scene.h"
 #include "scene/combat_scene.h"
@@ -56,7 +56,7 @@ static int vari(int wx,int wy){ return (wx*7+wy*13)&(dtex::NWALL-1); }
 
 // Lumiere de la mine : la Lanterne renforcee (OBJ_0019) eclaire a 100 % en permanence ;
 // sinon la torche s'use (-2 % par pas, voir update) jusqu'a 44 % de luminosite.
-// RUN rallume avec une Torche ou de l'Huile ; sans rien, RUN utilise une corde pour sortir.
+// R1 rallume avec une Torche ou de l'Huile ; sans rien, R1 utilise une corde pour sortir.
 static bool has_lantern(){ int l=item_index("OBJ_0019"); return l>=0 && player().inv.has(l,1); }
 static float dungeon_light_mult(){
   if(has_lantern()) return 1.0f;
@@ -261,7 +261,7 @@ void DungeonScene::update(SceneManager& m){
       if(animKind==1 && pendEnc){ pendEnc=false;
         if(!has_lantern() && player().torchFuel>0){
           player().torchFuel -= 2; if(player().torchFuel<0) player().torchFuel=0;
-          if(player().torchFuel==20) journal("Torche faible (RUN).");
+          if(player().torchFuel==20) journal("Torche faible (R1).");
           else if(player().torchFuel==0) journal("Torche éteinte !");
         }
         if(cellAt(*this,px,py)==5) journal("Flaque d'eau.");
@@ -331,7 +331,7 @@ void DungeonScene::update(SceneManager& m){
     if(px==enx&&py==eny){ exit_forest(m); return; }
   }
 
-  if(p&gb::BTN_RUN){
+  if(p&gb::BTN_R1){   // R1 : rallumer (torche / huile) ou sortir avec une corde
     char out[48]={0};
     int oil = item_index("OBJ_0011"), trcItem = item_index("OBJ_0003");
     if(!has_lantern() && player().torchFuel < 85 && ((oil>=0 && player().inv.has(oil,1)) || (trcItem>=0 && player().inv.has(trcItem,1)))){

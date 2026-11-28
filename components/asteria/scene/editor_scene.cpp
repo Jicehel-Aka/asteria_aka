@@ -102,7 +102,7 @@ static void map_update(SceneManager& mgr){
     (void)OV;
     if(p&gb::BTN_DOWN) g_ovSel=(g_ovSel+1)%4;
     if(p&gb::BTN_UP)   g_ovSel=(g_ovSel+3)%4;
-    if(p&(gb::BTN_B|gb::BTN_RUN)) g_ov=false;
+    if(p&(gb::BTN_B|gb::BTN_R1)) g_ov=false;
     if(p&gb::BTN_A){ if(g_ovSel==0){ if(map_export()) snprintf(mmsg,56,"%s",i18n::tr(i18n::ED_EXPORTED)); }
       else if(g_ovSel==1){ mp=(mp+1)%MAP_COUNT; map_load(); }
       else if(g_ovSel==2){ map_reload(); }
@@ -122,7 +122,7 @@ static void map_update(SceneManager& mgr){
   }
   if(p&gb::BTN_B){ if(mtool==0) mtile=(mtile+1)%EDIT_TILE_N; else if(mtool==2) mnpc=(mnpc+1)%spr::NPC_COUNT; else if(mtool==3) mtarget=(mtarget+1)%EDIT_LOC_N; }   // BUG-08 : toutes les tuiles / tous les PNJ
   if(p&gb::BTN_MENU) mtool=(mtool+1)%5;
-  if(p&gb::BTN_RUN){ g_ov=true; g_ovSel=0; }
+  if(p&gb::BTN_R1){ g_ov=true; g_ovSel=0; }
 }
 
 static int ecamx=0, ecamy=0;
@@ -209,7 +209,7 @@ static void spr_update(SceneManager& mgr){
   if(g_ov){
     if(p&gb::BTN_DOWN) g_ovSel=(g_ovSel+1)%3;
     if(p&gb::BTN_UP)   g_ovSel=(g_ovSel+2)%3;
-    if(p&(gb::BTN_B|gb::BTN_RUN)) g_ov=false;
+    if(p&(gb::BTN_B|gb::BTN_R1)) g_ov=false;
     if(p&gb::BTN_A){ if(g_ovSel==0){ spr_export(); snprintf(smsg,48,"%s",i18n::tr(i18n::ED_SPR_EXP)); }
       else if(g_ovSel==1){ sasset=(sasset+1)%ASSET_N; spr_load(); }
       else { g_screen=0; } g_ov=false; }
@@ -222,7 +222,7 @@ static void spr_update(SceneManager& mgr){
   if(p&gb::BTN_A) sbuf[scy*sw+scx]=PAL(scol);
   if(p&gb::BTN_B) scol=(scol+1)%PAL_N;
   if(p&gb::BTN_MENU){ sasset=(sasset+1)%ASSET_N; spr_load(); }
-  if(p&gb::BTN_RUN){ g_ov=true; g_ovSel=0; }
+  if(p&gb::BTN_R1){ g_ov=true; g_ovSel=0; }
 }
 static void spr_render(){
   gb::clear(gb::rgb(12,12,16));
