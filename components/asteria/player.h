@@ -10,6 +10,13 @@ struct Inventory {
   bool add(int item, int qty);
   bool remove(int item, int qty);
 };
+// Emplacements d'equipement (v1.5). La main droite tient l'arme : sa valeur est
+// Character::weapon (equip[EQ_HAND_R] n'est pas utilise) ; les autres emplacements
+// contiennent un index d'objet ou -1. Un objet equipe reste dans le sac.
+enum EqSlot : uint8_t {
+  EQ_HAND_R, EQ_HAND_L, EQ_RING_R1, EQ_RING_R2, EQ_RING_L1, EQ_RING_L2,
+  EQ_NECK, EQ_BODY, EQ_LEGS, EQ_FEET, EQ_HEAD, EQ_COUNT
+};
 struct Character {
   // caractéristiques de départ (3..30)
   int IN, CO, MA, AU;
@@ -24,6 +31,7 @@ struct Character {
   char name[16];   // DELTA-02 : nom affiche (Caithness, ou nom du voyageur cree)
   bool female;   // DELTA-02 : accords des dialogues (voyageuse / voyageur)
   Inventory inv;
+  int16_t equip[EQ_COUNT];  // objets portes (voir EqSlot)
 };
 int  item_index(const char* id);   // résout un OBJ_xxxx -> index (ou -1)
 int  recipe_index(const char* id);
@@ -36,6 +44,27 @@ const char* hero_text(const char* s);
 Character& player();   // crée la feuille de départ
 void add_attitude(Character& c, int a);   // +1 attitude -> +1 Pouvoir
 bool try_craft(Character& c, int recipe_idx, bool at_forge);
+
+// Equipement (v1.5)
+// Bonus cumules de l'equipement porte : armure (degats subis en moins), CO (toucher),
+// degats, AU (prix, coups critiques).
+struct EqStats { int arm, co, dmg, hit, au; };
+int  item_eq_slot(int item);                 // emplacement naturel (anneau : EQ_RING_R1), ou -1
+bool is_equippable(int item);
+bool is_two_handed(int item);                // arcs : occupent aussi la main gauche
+int  eq_get(const Character& c, int slot);
+bool is_equipped(const Character& c, int item);
+// Equipe item a l'emplacement slot (-1 : emplacement naturel, premier anneau libre).
+// Renvoie un message deja traduit (dans out) ; false si impossible.
+bool equip_item(Character& c, int item, int slot, char* out, int cap);
+bool unequip_slot(Character& c, int slot, char* out, int cap);
+EqStats eq_stats(const Character& c);
+// Bonus qu'aurait le personnage avec item equipe a slot (comparaison avant d'equiper)
+EqStats eq_stats_if(const Character& c, int item, int slot);
+const char* eq_slot_name(int slot);          // FR, a passer par trc()
+bool slot_accepts(int slot, int item);
+void eq_clear(Character& c);
+void eq_auto_legacy(Character& c);           // vieilles sauvegardes : porte ce qui etait passif
 
 // Utilitaires RPG (artisanat, armures, boutique, consommables, lumiere)
 int  armor_defense(const Character& c);

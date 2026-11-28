@@ -24,8 +24,11 @@ SHEETS = [
     ("planche3.png", 3, 3, [3, 11, 19, 4, 25, 9, 21, 18, 24]),
     ("planche4.png", 3, 3, [6, 16, 17, 22, 41, 39, 7, 15, 38]),
     ("planche5.png", 3, 2, [40, 14, 28, 29, 30, None]),
+    ("planche6.png", 3, 2, [42, 43, 44, 45, 46, None]),   # v1.5, optionnelle (case 6 libre)
 ]
-ITEM_COUNT = 41
+import re as _re
+# nombre d'objets lu dans le jeu : les objets sans icone ont une case vide (ICON_HAS = 0)
+ITEM_COUNT = int(_re.search(r"ITEM_COUNT=(\d+)", open("components/asteria/generated/asteria_gen.h", encoding="utf-8").read()).group(1))
 SIZES = (24, 48)
 
 def bgr565(r, g, b): return ((b >> 3) << 11) | ((g >> 2) << 5) | (r >> 3)
@@ -82,22 +85,27 @@ def to_565(im):
 def main():
     icons = {}   # slot -> {size: RGBA}
     for fn, cols, rows, ids in SHEETS:
+        if not os.path.exists(os.path.join(SRC, fn)): continue   # planche pas encore fournie
         sheet = Image.open(os.path.join(SRC, fn)).convert("RGB")
         cw, ch = sheet.width / cols, sheet.height / rows
         for i, oid in enumerate(ids):
+            if oid is None and fn != "planche5.png": continue
             cx, cy = i % cols, i // cols
             cell = sheet.crop((round(cx * cw), round(cy * ch), round((cx + 1) * cw), round((cy + 1) * ch)))
             obj = crop_alpha(key_out(cell))
             slot = ITEM_COUNT if oid is None else oid - 1
             icons[slot] = {s: fit(obj, s) for s in SIZES}
     missing = [i + 1 for i in range(ITEM_COUNT) if i not in icons]
-    assert not missing, f"icones manquantes : {missing}"
+    if missing: print("sans icone (case provisoire en jeu) : " + ", ".join(f"OBJ_{m:04d}" for m in missing))
+    blank = {sz: Image.new("RGBA", (sz, sz), (0, 0, 0, 0)) for sz in SIZES}
+    for i in range(ITEM_COUNT): icons.setdefault(i, blank)
 
     L = ["// ASTERIA - Icones d'objets (genere par tools/bake_icons.py, ne pas editer).",
          "// ICON24 / ICON48 : index = rang dans data::ITEMS (OBJ_0001 -> 0) ; ICON_GOLD = bourse d'or.",
          "#pragma once", "#include <cstdint>", "namespace asteria { namespace icons {",
          f"static const int ICON_COUNT = {ITEM_COUNT + 1};", f"static const int ICON_GOLD = {ITEM_COUNT};",
-         f"static const uint16_t KEY = 0x{KEY:04X};"]
+         f"static const uint16_t KEY = 0x{KEY:04X};",
+         "static const uint8_t ICON_HAS[ICON_COUNT] = {" + ",".join("0" if (i + 1) in missing else "1" for i in range(ITEM_COUNT)) + ",1};"]
     for s in SIZES:
         L.append(f"static const uint16_t ICON{s}[ICON_COUNT][{s * s}] = {{")
         for slot in range(ITEM_COUNT + 1):
@@ -106,6 +114,23 @@ def main():
             body = ",".join(f"0x{x:04X}" for x in v)
             L.append(f"  {{ /* {tag} */ {body} }},")
         L.append("};")
+    # Poupee d'equipement facultative (tools/icon_src/poupee.png, fond magenta) : silhouette
+    # de face affichee derriere les cases de la fenetre personnage, au plus 100 x 116 px.
+    dp = os.path.join(SRC, "poupee.png")
+    if os.path.exists(dp):
+        doll = crop_alpha(key_out(Image.open(dp).convert("RGB")))
+        sc = min(100 / doll.width, 116 / doll.height)
+        dw, dh = max(1, round(doll.width * sc)), max(1, round(doll.height * sc))
+        canvas = Image.new("RGBA", (dw + 2, dh + 2), (0, 0, 0, 0))
+        tmp = fit(doll, max(dw, dh) + 2)      # reduction premultipliee
+        canvas = tmp.crop(((tmp.width - dw) // 2 - 1, (tmp.height - dh) // 2 - 1, (tmp.width + dw) // 2 + 1, (tmp.height + dh) // 2 + 1))
+        v = to_565(canvas)
+        L.append(f"static const int DOLL_W = {canvas.width}, DOLL_H = {canvas.height};")
+        L.append("static const uint16_t DOLL[] = {" + ",".join(f"0x{x:04X}" for x in v) + "};")
+        print(f"poupee : {canvas.width}x{canvas.height}")
+    else:
+        L.append("static const int DOLL_W = 0, DOLL_H = 0;")
+        L.append("static const uint16_t DOLL[1] = {0};")
     L.append("}}")
     open(OUT, "w").write("\n".join(L) + "\n")
     print(f"{OUT} : {ITEM_COUNT + 1} icones x {SIZES}")

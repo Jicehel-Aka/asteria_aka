@@ -62,12 +62,12 @@ static const Node D12_N[] = {
 // --- Cour des Miracles de Grand-Castel : Racha (18) et Meluve (19) ---
 static const char* const D18_0_L[] = {"L'hermine est repartie chez sa belle. Affaire classée.","Reviens si tu veux vendre, pas mendier."};
 static const char* const D18_1_L[] = {"Tu l'as déjà, le bijou. File le rendre avant que je change d'avis."};
-static const char* const D18_2_L[] = {"Un collier d'hermine ? Joli, mais sans valeur pour moi.","La fille t'envoie ? Bah... il porte le deuil, pas le profit.","Tiens. Et qu'on ne dise pas que Racha n'a pas de cœur."};
+static const char* const D18_2_L[] = {"Un collier d'hermine ? Joli, mais sans valeur pour moi.","La fille t'envoie ? Bah... il porte le deuil, pas le profit."};   // suite : dialogue a choix (scene/dialog_choice.cpp)
 static const char* const D18_3_L[] = {"Je ne traite qu'avec les gens que je connais.","Reviens quand tu sauras ce que tu cherches."};
 static const Node D18_N[] = {
   {"col_rendu",D18_0_L,2,nullptr,-1,-1},
   {"a_collier",D18_1_L,1,nullptr,-1,-1},
-  {"vu_meluve",D18_2_L,3,"a_collier",37,-1},
+  {"vu_meluve",D18_2_L,2,"a_collier",37,-1},
   {"",D18_3_L,2,nullptr,-1,-1}
 };
 static const char* const D19_0_L[] = {"Tu l'as rendu à sa vraie place. Merci, voyageuse.","Ce blason d'hermine était à ma mère, et avant elle, aux tiens.","Un jour tu sauras ce que cela signifie vraiment."};

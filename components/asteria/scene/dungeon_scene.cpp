@@ -7,6 +7,7 @@
 #include "scene/world_scene.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
+#include "ui/item_ui.h"
 #include "player.h"
 #include "gamestate.h"
 #include "audio/jingle.h"
@@ -253,6 +254,7 @@ static void exit_forest(SceneManager& m){ WorldScene& w=world_scene(); w.load_ma
 static void exit_route(SceneManager& m){ WorldScene& w=world_scene(); w.load_map(5); w.px=8; w.py=50; m.set(SceneId::WORLD); }
 
 void DungeonScene::update(SceneManager& m){
+  if(item_ui::pickup_active()){ item_ui::pickup_update(gb::buttons_pressed()); return; }   // butin du dernier combat
   if(anim){   // animation de pas / rotation en cours
     at+=0.22f;
     if(at>=1.f){ at=1.f; anim=false; vx=atx; vy=aty; vdx=atdx; vdy=atdy;
@@ -455,5 +457,6 @@ void DungeonScene::render(){
         if(mid) ui::text(screenX-4,top+4,"^",gb::rgb(60,50,20)); } } }
   if(fb){ gb::reset_raster(); gb::draw_image(fb,VW,VH,0,0); }   // OPT-AKA-1 : un seul blit de la vue
   draw_panel(*this);
+  item_ui::pickup_render();   // fenetre "Objet obtenu" (butin du dernier combat)
 }
 }

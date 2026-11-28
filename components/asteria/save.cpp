@@ -3,6 +3,7 @@
 #include "daytime.h"
 #include "player.h"
 #include "gamestate.h"
+#include "progress.h"
 #include "scene/world_scene.h"
 #include "generated/asteria_maps.h"
 #include "platform/gb_port.h"
@@ -98,7 +99,11 @@ bool game_save_slot(int slot){
   app(snprintf(buf+o, CAP-o, "L %d\n", c.torchFuel));
   app(snprintf(buf+o, CAP-o, "N %d %s\n", c.female?1:0, c.name));
   app(snprintf(buf+o, CAP-o, "W %d %d %d %d\n", w.map, w.px, w.py, w.dir));
-  app(snprintf(buf+o, CAP-o, "T %d\n", daytime::minutes()));   // heure du jeu (absente des vieilles sauvegardes -> 8h)
+  app(snprintf(buf+o, CAP-o, "T %d\n", daytime::minutes()));
+  app(snprintf(buf+o, CAP-o, "D %llu\n", (unsigned long long)discovered_mask()));   // zones decouvertes (carte du monde)   // heure du jeu (absente des vieilles sauvegardes -> 8h)
+  app(snprintf(buf+o, CAP-o, "E"));                       // equipement porte (v1.5), hors arme (ligne P)
+  for (int s=1; s<EQ_COUNT; s++) app(snprintf(buf+o, CAP-o, " %d", (int)c.equip[s]));
+  app(snprintf(buf+o, CAP-o, "\n"));
   app(snprintf(buf+o, CAP-o, "I %d\n", (int)c.inv.n));
   for (int i=0; i<c.inv.n && o < CAP-32; i++)
     app(snprintf(buf+o, CAP-o, "i %d %d\n", (int)c.inv.slots[i].item, (int)c.inv.slots[i].qty));
@@ -129,7 +134,7 @@ bool game_load_slot(int slot){
   state_reset();
   Character& c = player(); c = new_caithness();   // base, puis on ecrase avec la sauvegarde
   WorldScene& w = world_scene();
-  int smap=0, spx=1, spy=1, sdir=2, gfn=0, tmin=8*60; bool haveW=false;
+  int smap=0, spx=1, spy=1, sdir=2, gfn=0, tmin=8*60; bool haveW=false, haveE=false; unsigned long long dmask=0;
   char* cur = buf;
   char* line = next_line(&cur);
   while (line) {
@@ -152,6 +157,11 @@ bool game_load_slot(int slot){
         c.name[sizeof(c.name)-1] = 0;
         if (!c.name[0]) strcpy(c.name, "Caithness");
       }
+    } else if (line[0] == 'E') {
+      haveE = true; char* p = line + 1;
+      for (int s=1; s<EQ_COUNT; s++) { int v = -1, k = 0; if (sscanf(p, " %d%n", &v, &k) != 1) break; c.equip[s] = (int16_t)v; p += k; }
+    } else if (line[0] == 'D') {
+      unsigned long long m = 0; if (sscanf(line, "D %llu", &m) == 1) dmask = m;
     } else if (line[0] == 'T') {
       int t = 8 * 60; if (sscanf(line, "T %d", &t) == 1) tmin = t;
     } else if (line[0] == 'W') {
@@ -180,9 +190,16 @@ bool game_load_slot(int slot){
   }
   gb::free_big(buf);
   if (!haveW) return false;
+  // Equipement : l'arme portee doit etre dans le sac (avant la v1.5, la dague de depart
+  // n'y etait pas) ; sans ligne E (vieille sauvegarde), on porte ce qui etait passif.
+  if (c.weapon >= 0 && c.weapon < (int)data::ITEM_COUNT && !c.inv.has(c.weapon, 1)) c.inv.add(c.weapon, 1);
+  if (!haveE) { eq_clear(c); eq_auto_legacy(c); }
+  for (int s=1; s<EQ_COUNT; s++) if (c.equip[s] >= 0 && !c.inv.has(c.equip[s], 1)) c.equip[s] = -1;
   if (smap < 0 || smap >= data::MAP_COUNT) smap = 0;
   w.load_map(smap); w.px = spx; w.py = spy; w.dir = sdir; w.started = true;   // position sauvee (apres load_map qui remet le defaut)
   daytime::reset(tmin);
+  set_discovered_mask(dmask);   // apres load_map : pas de nouveau bonus de decouverte au chargement
+  if (!dmask) set_discovered_mask(1ull << (data::MAPS[smap].location & 63));   // vieille sauvegarde : zone courante, sans XP
   return true;
 }
 

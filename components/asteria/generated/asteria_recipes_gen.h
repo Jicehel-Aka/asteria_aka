@@ -12,7 +12,8 @@ static const Ingredient REC3_IN[]={{4,2},{25,1}};    // 2 Petite potion + Miel s
 static const Ingredient REC4_IN[]={{30,1},{35,2}};   // Lingot de fer + 2 Bois -> 5 Fleches renforcees
 static const Ingredient REC5_IN[]={{30,2},{35,2}};   // 2 Lingot de fer + 2 Bois -> Bouclier de voyage
 static const Ingredient REC6_IN[]={{30,1},{10,1}};   // Lingot de fer + Huile lanterne -> Lanterne renforcee
-static constexpr uint8_t RECIPE_COUNT=7;
+static const Ingredient REC7_IN[]={{30,3},{11,1}};   // 3 Lingot de fer + Charbon -> Cotte de mailles (v1.5)
+static constexpr uint8_t RECIPE_COUNT=8;
 static const Recipe RECIPES[RECIPE_COUNT]={
   {"REC_0001",0,REC0_IN,2,30,1},
   {"REC_0002",0,REC1_IN,2,31,1},
@@ -21,5 +22,6 @@ static const Recipe RECIPES[RECIPE_COUNT]={
   {"REC_0005",0,REC4_IN,2,26,5},
   {"REC_0006",0,REC5_IN,2,22,1},
   {"REC_0007",0,REC6_IN,2,18,1},
+  {"REC_0008",0,REC7_IN,2,42,1},
 };
 } }

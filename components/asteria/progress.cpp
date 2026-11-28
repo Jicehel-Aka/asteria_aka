@@ -37,6 +37,9 @@ void discover_zone(int loc){
   g_disc[loc]=true;
   gain_xp(50);
 }
+bool zone_discovered(int loc){ return loc>=0 && loc<64 && g_disc[loc]; }
+uint64_t discovered_mask(){ uint64_t m=0; for(int i=0;i<64;i++) if(g_disc[i]) m|=(1ull<<i); return m; }
+void set_discovered_mask(uint64_t m){ for(int i=0;i<64;i++) g_disc[i]=((m>>i)&1)!=0; }
 void progress_reset(){ for(int i=0;i<64;i++) g_disc[i]=false; }
 
 }

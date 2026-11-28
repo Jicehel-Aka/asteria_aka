@@ -136,7 +136,8 @@ int main(){
     else if(sc==SceneId::TITLE||sc==SceneId::CREATE||sc==SceneId::RULES){ inj=5; }
     else if(sc==SceneId::DUNGEON){
       DungeonScene& d=dungeon_scene();
-      if(d.anim){ inj=-1; }
+      if(item_ui::pickup_active()){ inj=5; }   // butin du dernier combat : fenetre "Objet obtenu"
+      else if(d.anim){ inj=-1; }
       else {
         int tx,ty; bool adjacent;
         if(player().level<5){ // farmer les rencontres : faire la navette entree <-> voisinage du boss

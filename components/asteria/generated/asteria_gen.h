@@ -96,7 +96,7 @@ static const Npc NPCS[NPC_COUNT]={
   {"NPC_0017","Tomas Venn",27,2,"Marchand itinérant, présent certains jours seulement."},
   {"NPC_0018","Iris",27,2,"Apothicaire de Grand-Castel."},
 };
-static constexpr uint16_t ITEM_COUNT=41;
+static constexpr uint16_t ITEM_COUNT=46;
 struct Item{const char* id;const char* name;uint8_t cat;uint16_t flags;int16_t source;};
 static const Item ITEMS[ITEM_COUNT]={
   {"OBJ_0001","Épée usée",IC_WEAPON,0,-1},
@@ -140,6 +140,12 @@ static const Item ITEMS[ITEM_COUNT]={
   {"OBJ_0039","Pli scellé de la Guilde",IC_QUEST,1,-1},
   {"OBJ_0040","Anneau de l'Aube",IC_ARMOR,1,-1},
   {"OBJ_0041","Livre des Éléments",IC_QUEST,1,-1},
+  // v1.5 : equipement des emplacements armure / pantalon / bottes / anneau (voir player.cpp EQ_DEFS)
+  {"OBJ_0042","Veste de cuir",IC_ARMOR,0,-1},
+  {"OBJ_0043","Cotte de mailles",IC_ARMOR,0,-1},
+  {"OBJ_0044","Braies renforcées",IC_ARMOR,0,-1},
+  {"OBJ_0045","Bottes de cuir",IC_ARMOR,0,-1},
+  {"OBJ_0046","Anneau de vigueur",IC_ARMOR,0,-1},
 };
 static constexpr uint16_t MONSTER_COUNT=24;
 struct Monster{const char* id;const char* name;uint8_t level;const char* category;};

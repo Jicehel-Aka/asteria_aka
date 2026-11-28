@@ -13,8 +13,24 @@ namespace asteria { namespace item_ui {
 void draw_icon(int item, int x, int y, bool big){
   int slot = (item == GOLD) ? icons::ICON_GOLD : item;
   if(slot < 0 || slot >= icons::ICON_COUNT) return;
+  if(!icons::ICON_HAS[slot]){
+    // Icone pas encore dessinee (planche a generer) : pastille avec l'initiale du nom
+    int sz = big ? 44 : 20, o = big ? 2 : 2;
+    gb::fill_rect(x + o, y + o, sz, sz, gb::rgb(92,72,44)); gb::fill_rect(x + o + 2, y + o + 2, sz - 4, sz - 4, gb::rgb(58,44,26));
+    const char* nm = trc(data::ITEMS[slot].name);
+    char c0[4] = {0}; int k = 0; c0[k++] = nm[0];
+    if(((unsigned char)nm[0] & 0xE0) == 0xC0 && nm[1]) c0[k++] = nm[1];   // initiale accentuee (UTF-8 sur 2 octets)
+    ui::text(x + o + sz/2 - ui::text_w(c0)/2, y + o + sz/2 - 8, c0, gb::rgb(235,205,135));
+    return;
+  }
   if(big) gb::draw_image_key(icons::ICON48[slot], 48, 48, x, y, icons::KEY);
   else    gb::draw_image_key(icons::ICON24[slot], 24, 24, x, y, icons::KEY);
+}
+
+bool draw_doll(int cx, int top, int h){
+  if(icons::DOLL_W <= 0) return false;
+  gb::draw_image_key(icons::DOLL, icons::DOLL_W, icons::DOLL_H, cx - icons::DOLL_W / 2, top + (h - icons::DOLL_H) / 2, icons::KEY);
+  return true;
 }
 
 int wrap_text(const char* s, int maxw, char out[][64], int nmax){

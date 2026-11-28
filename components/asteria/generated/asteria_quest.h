@@ -2,7 +2,7 @@
 namespace asteria { namespace quest {
 struct Quest { const char* name; const char* const* obj; int nobj; bool main; int xp; };
 static const char* const Q0_O[] = {"Découvrir le village de Valbois","Rencontrer le maire Aldren","Recevoir la carte des terres menacées"};
-static const char* const Q1_O[] = {"Retrouver les outils prêtes par le forgeron","Rapporter les outils"};
+static const char* const Q1_O[] = {"Retrouver les outils prêtés par le forgeron","Rapporter les outils"};
 static const char* const Q2_O[] = {"Examiner les empreintes trouvées par Lysa","Identifier la marque des Ténèbres"};
 static const char* const Q3_O[] = {"Identifier les traces demandées par Lysa"};
 static const char* const Q4_O[] = {"Récolter 5 herbes médicinales","Récolter 3 champignons"};

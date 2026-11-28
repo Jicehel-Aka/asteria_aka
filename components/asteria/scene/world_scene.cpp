@@ -29,6 +29,9 @@
 #include "progress.h"
 #include "ui/item_ui.h"
 #include "scene/char_window.h"
+#include "scene/journal.h"
+#include "scene/worldmap.h"
+#include "scene/dialog_choice.h"
 
 namespace asteria {
 using namespace data;
@@ -66,7 +69,7 @@ static const ChestDef CHESTS[]={
   {4,12,8,4,10,"coffre_maire",-1,nullptr},      // potion + 10 or
   {5,1,7,25,3,"coffre_milo",-1,nullptr},        // miel sauvage
   {6,10,7,12,5,"coffre_edric",-1,nullptr},      // lingot rouille (forge)
-  {7,8,5,33,6,"coffre_chaumiere",-1,nullptr}    // herbe medicinale
+  {7,8,5,45,6,"coffre_chaumiere",-1,nullptr}    // Anneau de vigueur (v1.5)
 };
 static const int NCHEST=(int)(sizeof(CHESTS)/sizeof(CHESTS[0]));
 static int chest_at(int map,int x,int y){
@@ -165,7 +168,7 @@ void new_game_reset(){
   WorldScene& w=world_scene(); w.started=false; w.confirmQuit=false;
   w.pauseSel=0; w.pauseSub=0; w.pauseListSel=0; w.stepCount=0;
   w.pauseMsg=nullptr; w.epiLine=0; w.notice=false; w.dlg=false; w.savedMap=-2;
-  item_ui::pickup_clear(); charwin::close();
+  item_ui::pickup_clear(); charwin::close(); journal::close(); worldmap::close(); choice::reset();
   state_reset(); progress_reset(); player()=new_caithness(); dungeon_reset();
 }
 
@@ -200,17 +203,20 @@ static int alch_entries(int* kinds, int* ids){
   return n;
 }
 
-static int quest_entries(int* qidx){
-  int n=0;
-  for(int i=0;i<quest::QUEST_COUNT;i++) if(quest_status(i)>0) qidx[n++]=i;
-  return n;
+
+// Quete suivie (bandeau, etoile de la carte) : la premiere quete principale en cours,
+// sinon la premiere secondaire en cours ; -1 s'il n'y en a aucune.
+static int hud_quest(){
+  for(int pass=0;pass<2;pass++)
+    for(int i=0;i<quest::QUEST_COUNT;i++) if(quest_status(i)==1 && quest::QUEST[i].main==(pass==0)) return i;
+  return -1;
 }
 
 void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
   if(p&gb::BTN_MENU){ confirmQuit=false; pauseSub=0; pauseMsg=nullptr; return; }
 
   if(pauseSub==0){
-    const int N=6;
+    const int N=7;
     if(p&gb::BTN_DOWN){ pauseSel=(pauseSel+1)%N; pauseMsg=nullptr; audio::sfx_select(); }
     if(p&gb::BTN_UP){   pauseSel=(pauseSel+N-1)%N; pauseMsg=nullptr; audio::sfx_select(); }
     if(p&gb::BTN_B){ confirmQuit=false; return; }
@@ -218,10 +224,11 @@ void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
     switch(pauseSel){
       case 0: confirmQuit=false; break;
       case 1: charwin::open(0); pauseMsg=nullptr; break;   // fenetre personnage par-dessus la pause
-      case 2: pauseSub=2; pauseListSel=0; pauseMsg=nullptr; break;
-      case 3: pauseSub=3; pauseListSel=0; pauseMsg=nullptr; break;
-      case 4: pauseSub=4; pauseListSel=active_save_slot()-1; pauseMsg=nullptr; refresh_slot_summaries(); break;
-      case 5: mgr.set(SceneId::TITLE); break;
+      case 2: journal::open(); pauseMsg=nullptr; break;   // journal de quetes par-dessus la pause
+      case 3: worldmap::open(hud_quest()); pauseMsg=nullptr; break;   // carte du monde (etoile : objectif de la quete du bandeau)
+      case 4: pauseSub=2; pauseListSel=0; pauseMsg=nullptr; break;
+      case 5: pauseSub=4; pauseListSel=active_save_slot()-1; pauseMsg=nullptr; refresh_slot_summaries(); break;
+      case 6: mgr.set(SceneId::TITLE); break;
     }
     return;
   }
@@ -255,12 +262,6 @@ void WorldScene::pause_update(SceneManager& mgr,uint32_t p){
         }
       }
     }
-  } else if(pauseSub==3){ // Journal & Stats
-    int qi[quest::QUEST_COUNT]; int n=quest_entries(qi);
-    if(n>0){
-      if(p&gb::BTN_DOWN) pauseListSel=(pauseListSel+1)%n;
-      if(p&gb::BTN_UP)   pauseListSel=(pauseListSel+n-1)%n;
-    }
   } else if(pauseSub==4){ // Choisir Slot Sauvegarde 1..3
     if(p&gb::BTN_DOWN) pauseListSel=(pauseListSel+1)%3;
     if(p&gb::BTN_UP)   pauseListSel=(pauseListSel+2)%3;
@@ -289,7 +290,9 @@ void WorldScene::update(SceneManager& mgr){
   if(MAPS[map].location==23 && !flag_get("vallee_intro")){ flag_set("vallee_intro"); notice=true; noticeTxt="La Vallée des Pierres Murmurantes. Des monolithes gravés veillent entre les rochers."; }
   if(quest_status(0)==2 && quest_status(2)==0) quest_start(2);
   if(quest_status(2)==2 && quest_status(3)==0) quest_start(3);   // Q3 Les empreintes (annexe)
-  if(charwin::is_open()){ charwin::update(p); return; }   // fenetre personnage (B : retour au jeu ou au menu pause)
+  if(charwin::is_open()){ charwin::update(p); return; }
+  if(journal::is_open()){ journal::update(p); return; }
+  if(worldmap::is_open()){ worldmap::update(p); return; }   // carte du monde (ouverte depuis la pause)   // journal de quetes (ouvert depuis la pause)   // fenetre personnage (B : retour au jeu ou au menu pause)
   if(confirmQuit){ pause_update(mgr,p); return; }   // menu pause : Personnage, Alchimie & Soins, Journal, Sauvegarde (3 empl.), Quitter
   if(notice){ if(p&(gb::BTN_A|gb::BTN_B)) notice=false; return; }
   if(started && !dlg && map!=savedMap){ savedMap=map; if(g_autosave) game_save(); }   // auto-sauvegarde a chaque arrivee sur une carte
@@ -320,7 +323,11 @@ void WorldScene::update(SceneManager& mgr){
   }
 
   if(dlg){ const dlg::Node& N=dlg::DIALOG[dlgNpc].nodes[dlgNode];
-    if(p&gb::BTN_A){ dlgLine++; if(dlgLine>=N.nlines){ if(N.set_flag) flag_set(N.set_flag); if(N.give_item>=0 && player().inv.add(N.give_item,1)) item_ui::pickup_push(N.give_item,1); if(N.complete_quest>=0) complete_quest_reward(N.complete_quest); if(N.start_quest>=0) quest_start(N.start_quest); dlg=false; } }
+    // effets du noeud (drapeau, objet, quete) : en fin de lignes, ou apres un choix accepte
+    auto apply=[&](){ if(N.set_flag) flag_set(N.set_flag); if(N.give_item>=0 && player().inv.add(N.give_item,1)) item_ui::pickup_push(N.give_item,1); if(N.complete_quest>=0) complete_quest_reward(N.complete_quest); if(N.start_quest>=0) quest_start(N.start_quest); };
+    if(choice::active()){ choice::Result r=choice::update(p); if(r!=choice::RUNNING){ if(r==choice::DONE_ACCEPT) apply(); dlg=false; } return; }
+    if(p&gb::BTN_A){ dlgLine++; if(dlgLine>=N.nlines){ if(choice::begin(dlgNpc,dlgNode)) return;   // dialogue a choix (attitudes)
+        apply(); dlg=false; } }
     if(p&gb::BTN_B) dlg=false; return; }
   if(item_ui::pickup_active()){ item_ui::pickup_update(p); return; }   // fenetres "Objet obtenu" en attente
 
@@ -370,7 +377,7 @@ void WorldScene::update(SceneManager& mgr){
             notice=true; noticeTxt="Corbeau Noir, le chef des brigands, te barre la route !"; flag_set("vu_corbeau");
             set_combat_return(SceneId::WORLD); start_combat(25,backdrop(20)); mgr.set(SceneId::COMBAT); return; }
           int cape = item_index("OBJ_0024");
-          int mod = (cape>=0 && player().inv.has(cape,1)) ? 12 : 9;
+          int mod = (cape>=0 && is_equipped(player(),cape)) ? 12 : 9;   // cape portee
           if(daytime::is_night()) mod = mod*2/3;                       // la nuit, les rencontres sont plus frequentes
           else if(_loc==8 || _loc==20) mod = mod*4/3;                  // de jour, foret et route sont plus calmes (1 pas sur 12, 16 avec la cape)
           if(!_tp && !g_no_encounters && (_loc==8||_loc==9||_loc==20) && (ws_rand()%mod==0)){
@@ -424,11 +431,8 @@ void WorldScene::update(SceneManager& mgr){
       } else if(n==12 && _loc==10 && flag_get("q8_pris") && !flag_get("c_aumone")){
         int pot=item_index("OBJ_0005"); if(pot>=0 && player().inv.has(pot,1)){ player().inv.remove(pot,1); flag_set("c_aumone"); }
       } else if(n==19 && _loc==10){
-        if(!flag_get("vu_meluve")){ flag_set("vu_meluve"); if(quest_status(15)==0) quest_start(15); }
-        else { int col=item_index("OBJ_0038");
-          if(col>=0 && player().inv.has(col,1) && !flag_get("q15_fait")){ player().inv.remove(col,1); flag_set("q15_fait"); player().gold+=30; complete_quest_reward(15); } }
-      } else if(n==18 && _loc==10 && flag_get("vu_meluve") && !flag_get("collier_pris")){
-        flag_set("collier_pris"); int col=item_index("OBJ_0038"); if(col>=0 && !player().inv.has(col,1) && player().inv.add(col,1)) item_ui::pickup_push(col,1);
+        if(flag_get("vu_meluve")){ int col=item_index("OBJ_0038");   // 1re rencontre : noeud "!vu_meluve" (drapeau + Q15 en fin de dialogue)
+          if(col>=0 && player().inv.has(col,1) && !flag_get("q15_fait")){ flag_set("q15_fait"); player().gold+=30;   /* Meluve le laisse : « Garde-le » (collier equipable, +2 AU) */ complete_quest_reward(15); } }
       } else if(n==20 && !flag_get("anneau_recu")){
         flag_set("anneau_recu"); int rg=item_index("OBJ_0040"); if(rg>=0 && !player().inv.has(rg,1) && player().inv.add(rg,1)) item_ui::pickup_push(rg,1);
         complete_quest_reward(16);
@@ -646,7 +650,8 @@ void WorldScene::render(){
       gb::light_screen(32,240,amb,L,n);
     }
   }
-  if(dlg){ const dlg::NpcDialog& D=dlg::DIALOG[dlgNpc];
+  if(dlg && choice::active()) choice::render(dlg::DIALOG[dlgNpc].name);   // choix d'attitude
+  else if(dlg){ const dlg::NpcDialog& D=dlg::DIALOG[dlgNpc];
     gb::fill_rect(8,158,304,74,gb::rgb(20,16,10));
     gb::fill_rect(8,158,304,2,gb::rgb(200,170,90)); gb::fill_rect(8,230,304,2,gb::rgb(200,170,90));
     ui::gold(16,162,trc(D.name),true);
@@ -663,8 +668,7 @@ void WorldScene::render(){
   // --- Bandeau HUD (2 lignes reservees en haut) : lieu + quete, sans aucun chevauchement ---
   { gb::fill_rect(0,0,320,30,gb::rgb(20,16,10));
     gb::fill_rect(0,30,320,2,gb::rgb(200,170,90));
-    int qi=-1;
-    for(int i=0;i<quest::QUEST_COUNT;i++){ if(quest_status(i)==1){qi=i;break;} }
+    int qi=hud_quest();
     if(qi<0) for(int i=0;i<quest::QUEST_COUNT;i++){ if(quest_status(i)==2){qi=i;break;} }
     // Ligne 1 : nom clair de la zone (gauche, traduit) + nom de la quete (droite si la place le permet)
     const char* lraw=loc_name(MAPS[map].location); const char* ln=lraw[0]?trc(lraw):"";
@@ -683,8 +687,8 @@ void WorldScene::render(){
       if(qx > 6+ui::text_w(ln)+14) ui::text(qx,4,qn,gb::rgb(230,220,180)); }
     // Ligne 2 : objectif courant (gauche)
     if(qi>=0){ int qs=quest_status(qi);
-      if(qs==1){ int o=quest_obj(qi); if(o>=quest::QUEST[qi].nobj)o=quest::QUEST[qi].nobj-1; if(o<0)o=0;
-        ui::gold(6,16,">",true); ui::text(16,16,trc(quest::QUEST[qi].obj[o]),gb::rgb(220,210,180)); }
+      if(qs==1){ // prochain objectif reel (deduit de l'etat du jeu, comme dans le journal)
+        ui::gold(6,16,">",true); ui::text(16,16,trc(journal::next_objective(qi,nullptr)),gb::rgb(220,210,180)); }
       else if(qs==2){ ui::gold(6,16,i18n::tr(i18n::W_QDONE),true); } }
   }
 
@@ -706,13 +710,13 @@ void WorldScene::render(){
 
     char st[40]; int pv=player().VIT-player().BL; if(pv<0)pv=0;
     snprintf(st,sizeof(st),"PV %d/%d  PM %d/%d",pv,player().VIT,player().mana,player().manaMax);
-    if(pauseSub==0 || pauseSub==3) ui::text(154,40,st,gb::rgb(200,190,160));   // sous-menus : titre long, pas de chevauchement
+    if(pauseSub==0) ui::text(154,40,st,gb::rgb(200,190,160));   // sous-menus : titre long, pas de chevauchement
 
     if(pauseSub==0){
       ui::gold(24,40,trc("Pause"),true);
       char saveLbl[32]; snprintf(saveLbl,sizeof(saveLbl),trc("Sauvegarder (Empl.%d)"),active_save_slot());
-      const char* MENU[6]={trc("Reprendre"),trc("Personnage"),trc("Alchimie & Soins"),trc("Journal & Stats"),saveLbl,trc("Quitter vers le titre")};
-      for(int i=0;i<6;i++){ int y=64+i*22;
+      const char* MENU[7]={trc("Reprendre"),trc("Personnage"),trc("Journal de quêtes"),trc("Carte du monde"),trc("Alchimie & Soins"),saveLbl,trc("Quitter vers le titre")};
+      for(int i=0;i<7;i++){ int y=62+i*20;
         if(i==pauseSel){ gb::fill_rect(22,y-2,276,17,gb::rgb(60,45,20)); ui::gold(26,y,">",true); }
         ui::text(40,y,MENU[i],gb::rgb(235,225,190)); }
       ui::text(24,208,trc("A: ouvrir   B: reprendre"),gb::rgb(170,160,132));
@@ -734,24 +738,6 @@ void WorldScene::render(){
         ui::text(24,184,ing,gb::rgb(185,175,145));
       }
       ui::text(24,208,trc("A: lancer / préparer   B: retour"),gb::rgb(170,160,132));
-    } else if(pauseSub==3){
-      ui::gold(24,40,trc("Journal & Stats"),true);
-      const Character& c=player();
-      char l1[56]; snprintf(l1,sizeof(l1),"Niv.%d  IN:%d CO:%d MA:%d AU:%d  Arm:%d",c.level,c.IN,c.CO,c.MA,c.AU,armor_defense(c));
-      ui::text(24,60,l1,gb::rgb(225,215,175));
-      int qi[quest::QUEST_COUNT]; int n=quest_entries(qi);
-      const int VIS=5;
-      int top=(pauseListSel>=VIS)?(pauseListSel-VIS+1):0;
-      if(n==0) ui::text(24,84,trc("Aucune quête active."),gb::rgb(170,160,132));
-      else {
-        for(int r=0;r<VIS && (top+r)<n;r++){
-          int q=qi[top+r], y=82+r*19; bool done=(quest_status(q)==2);
-          if(top+r==pauseListSel){ gb::fill_rect(22,y-2,276,16,gb::rgb(60,45,20)); ui::gold(24,y,">",true); }
-          char ln[48]; snprintf(ln,sizeof(ln),"[%s] %s",done?"OK":"..",trc(quest::QUEST[q].name));
-          ui::text(36,y,ln,done?gb::rgb(145,215,150):gb::rgb(235,225,190));
-        }
-      }
-      ui::text(24,208,trc("Haut/Bas: quêtes   B: retour"),gb::rgb(170,160,132));
     } else if(pauseSub==4){
       ui::gold(24,40,trc("Sauvegarde (3 empl.)"),true);
       for(int s=1;s<=3;s++){
@@ -767,6 +753,8 @@ void WorldScene::render(){
       ui::text(24,208,trc("A: sauvegarder ici   B: retour"),gb::rgb(170,160,132));
     }
   }
+  journal::render();
+  worldmap::render();
   charwin::render();   // fenetre personnage (au-dessus du menu pause si ouverte depuis celui-ci)
 }
 }

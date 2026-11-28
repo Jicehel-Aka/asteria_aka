@@ -32,7 +32,9 @@ Character new_caithness(){
   c.IN=11; c.CO=9; c.MA=14; c.AU=16;   // valeurs de départ (feuille d'origine)
   c.VIT=20; c.BL=0;   // VIT de départ : valeur à équilibrer
   c.PO=0; for(int i=0;i<4;++i) c.attitude[i]=0;
-  c.weapon=item_index("OBJ_0037");     // Dague
+  c.weapon=item_index("OBJ_0037");     // Dague : equipee ET presente dans le sac
+  c.inv.add(c.weapon,1);
+  eq_clear(c);
   // sorts de base connus au départ
   c.spells=0;
   for(int i=0;i<SPELL_COUNT;++i) if(SPELLS[i].tier==ST_BASE) c.spells|=(1u<<i);
@@ -72,14 +74,127 @@ bool is_weapon_item(int item){
   if(item<0||item>=ITEM_COUNT) return false;
   return ITEMS[item].cat==IC_WEAPON;
 }
-int armor_defense(const Character& c){
-  int def=0;
-  int sh=item_index("OBJ_0023"), hl=item_index("OBJ_0010"), cp=item_index("OBJ_0024");
-  if(sh>=0 && c.inv.has(sh,1)) def+=2;   // Bouclier de voyage
-  if(hl>=0 && c.inv.has(hl,1)) def+=1;   // Casque de mineur
-  if(cp>=0 && c.inv.has(cp,1)) def+=1;   // Cape de pluie
-  return def;
+// --- Equipement (v1.5) --------------------------------------------------------
+// Objets portables hors armes : emplacement et bonus. Les armes vont en main droite
+// (bonus dans weapon_bonus_of) ; les arcs se tiennent a deux mains.
+struct EqDef { const char* id; uint8_t slot; int8_t arm, co, dmg, au; };
+static const EqDef EQ_DEFS[] = {
+  {"OBJ_0023", EQ_HAND_L,  2, 0, 0, 0},   // Bouclier de voyage
+  {"OBJ_0010", EQ_HEAD,    1, 0, 0, 0},   // Casque de mineur
+  {"OBJ_0024", EQ_BODY,    1, 0, 0, 0},   // Cape de pluie (+ moins d'embuscades, voir world_scene)
+  {"OBJ_0042", EQ_BODY,    1, 0, 0, 0},   // Veste de cuir
+  {"OBJ_0043", EQ_BODY,    2, 0, 0, 0},   // Cotte de mailles (forge)
+  {"OBJ_0044", EQ_LEGS,    1, 0, 0, 0},   // Braies renforcees
+  {"OBJ_0045", EQ_FEET,    1, 0, 0, 0},   // Bottes de cuir
+  {"OBJ_0038", EQ_NECK,    0, 0, 0, 2},   // Collier d'hermine : +2 AU
+  {"OBJ_0040", EQ_RING_R1, 0, 2, 1, 0},   // Anneau de l'Aube : +2 CO, +1 degat
+  {"OBJ_0046", EQ_RING_R1, 0, 1, 0, 0},   // Anneau de vigueur : +1 CO
+};
+static const int EQ_DEF_N = (int)(sizeof(EQ_DEFS) / sizeof(EQ_DEFS[0]));
+static const EqDef* eq_def(int item){
+  if(item < 0 || item >= ITEM_COUNT) return nullptr;
+  for(int i = 0; i < EQ_DEF_N; ++i) if(!strcmp(ITEMS[item].id, EQ_DEFS[i].id)) return &EQ_DEFS[i];
+  return nullptr;
 }
+static bool is_ring_slot(int s){ return s >= EQ_RING_R1 && s <= EQ_RING_L2; }
+
+int item_eq_slot(int item){
+  if(is_weapon_item(item)) return EQ_HAND_R;
+  const EqDef* d = eq_def(item); return d ? d->slot : -1;
+}
+bool is_equippable(int item){ return item_eq_slot(item) >= 0; }
+bool is_two_handed(int item){ int h; bool bow; weapon_bonus_of(item, h, bow); return is_weapon_item(item) && bow; }
+bool slot_accepts(int slot, int item){
+  int n = item_eq_slot(item); if(n < 0) return false;
+  if(n == EQ_RING_R1) return is_ring_slot(slot);
+  return n == slot;
+}
+int eq_get(const Character& c, int slot){
+  if(slot == EQ_HAND_R) return c.weapon;
+  if(slot <= 0 || slot >= EQ_COUNT || c.equip[slot] < 0 || !c.inv.has(c.equip[slot], 1)) return -1;
+  return c.equip[slot];
+}
+bool is_equipped(const Character& c, int item){
+  if(item < 0 || !c.inv.has(item, 1)) return false;
+  for(int s = 0; s < EQ_COUNT; ++s) if(eq_get(c, s) == item) return true;
+  return false;
+}
+void eq_clear(Character& c){ for(int s = 0; s < EQ_COUNT; ++s) c.equip[s] = -1; }
+
+static const char* const SLOT_NAMES[EQ_COUNT] = {
+  "Main droite", "Main gauche", "Anneau (main droite)", "Anneau (main droite)", "Anneau (main gauche)",
+  "Anneau (main gauche)", "Collier", "Armure", "Pantalon", "Bottes", "Casque" };
+const char* eq_slot_name(int slot){ return (slot >= 0 && slot < EQ_COUNT) ? SLOT_NAMES[slot] : ""; }
+
+// Pose item en slot sur un tableau d'equipement (arme = case EQ_HAND_R), sans message.
+// Renvoie 0 si OK, 1 si l'emplacement n'accepte pas l'objet, 2 si la main gauche est
+// prise par un arc (bouclier refuse), 3 si l'objet n'est pas dans le sac.
+static int place(const Character& c, int16_t* eq, int item, int& slot){
+  if(!c.inv.has(item, 1)) return 3;
+  if(slot < 0){
+    slot = item_eq_slot(item);
+    if(slot == EQ_RING_R1){                      // premier anneau libre, sinon le premier
+      for(int s = EQ_RING_R1; s <= EQ_RING_L2; ++s) if(eq[s] < 0 || eq[s] == item){ slot = s; break; }
+    }
+  }
+  if(slot < 0 || !slot_accepts(slot, item)) return 1;
+  if(slot == EQ_HAND_L && is_two_handed(eq[EQ_HAND_R])) return 2;
+  for(int s = 0; s < EQ_COUNT; ++s) if(s != EQ_HAND_R && eq[s] == item) eq[s] = -1;   // un seul exemplaire porte
+  eq[slot] = (int16_t)item;
+  if(slot == EQ_HAND_R && is_two_handed(item)) eq[EQ_HAND_L] = -1;   // l'arc libere la main gauche
+  return 0;
+}
+static void copy_eq(const Character& c, int16_t* eq){
+  // un objet sorti du sac (vendu, remis pour une quete, fondu a la forge) ne compte plus
+  for(int s = 0; s < EQ_COUNT; ++s) eq[s] = (c.equip[s] >= 0 && c.inv.has(c.equip[s], 1)) ? c.equip[s] : -1;
+  eq[EQ_HAND_R] = (int16_t)c.weapon;
+}
+static EqStats stats_of(const int16_t* eq){
+  EqStats st{0, 0, 0, 0, 0};
+  int hit = 0; bool bow = false;
+  st.dmg = weapon_bonus_of(eq[EQ_HAND_R], hit, bow); st.hit = hit;
+  for(int s = 1; s < EQ_COUNT; ++s){
+    const EqDef* d = eq_def(eq[s]); if(!d) continue;
+    st.arm += d->arm; st.co += d->co; st.dmg += d->dmg; st.au += d->au;
+  }
+  return st;
+}
+EqStats eq_stats(const Character& c){ int16_t eq[EQ_COUNT]; copy_eq(c, eq); return stats_of(eq); }
+EqStats eq_stats_if(const Character& c, int item, int slot){
+  int16_t eq[EQ_COUNT]; copy_eq(c, eq); place(c, eq, item, slot); return stats_of(eq);
+}
+
+bool equip_item(Character& c, int item, int slot, char* out, int cap){
+  int16_t eq[EQ_COUNT]; copy_eq(c, eq);
+  int had_l = eq[EQ_HAND_L];
+  int r = place(c, eq, item, slot);
+  if(r == 2){ snprintf(out, cap, "%s", trc("L'arc se tient à deux mains.")); return false; }
+  if(r != 0) return false;
+  for(int s = 1; s < EQ_COUNT; ++s) c.equip[s] = eq[s];
+  c.weapon = eq[EQ_HAND_R];
+  if(had_l >= 0 && c.equip[EQ_HAND_L] < 0 && slot == EQ_HAND_R)
+    snprintf(out, cap, trc("Équipé : %s (arc à deux mains)"), trc(ITEMS[item].name));
+  else
+    snprintf(out, cap, trc("Équipé : %s"), trc(ITEMS[item].name));
+  return true;
+}
+bool unequip_slot(Character& c, int slot, char* out, int cap){
+  if(slot <= EQ_HAND_R || slot >= EQ_COUNT || c.equip[slot] < 0) return false;   // l'arme se remplace, ne s'enleve pas
+  snprintf(out, cap, trc("Retiré : %s"), trc(ITEMS[c.equip[slot]].name));
+  c.equip[slot] = -1; return true;
+}
+void eq_auto_legacy(Character& c){
+  // Avant la v1.5, bouclier, casque, cape et anneau protegeaient des qu'on les portait
+  // dans le sac : on les equipe pour ne rien changer aux vieilles sauvegardes.
+  const char* ids[] = { "OBJ_0023", "OBJ_0010", "OBJ_0024", "OBJ_0040" };
+  for(const char* id : ids){
+    int it = item_index(id); if(it < 0 || !c.inv.has(it, 1)) continue;
+    int16_t eq[EQ_COUNT]; copy_eq(c, eq); int slot = -1;
+    if(place(c, eq, it, slot) == 0){ for(int s = 1; s < EQ_COUNT; ++s) c.equip[s] = eq[s]; }
+  }
+}
+int armor_defense(const Character& c){ return eq_stats(c).arm; }
+
 bool is_consumable_field(int item){
   if(item<0||item>=ITEM_COUNT) return false;
   const char* id=ITEMS[item].id;
@@ -128,6 +243,12 @@ const char* item_desc(int item){
   if(!strcmp(id,"OBJ_0036")) return "Artisanat : flèches & bouclier";
   if(!strcmp(id,"OBJ_0037")) return "Arme légère : 1D dégâts";
   if(!strcmp(id,"OBJ_0040")) return "+2 CO et +1 dégât en combat";
+  if(!strcmp(id,"OBJ_0042")) return "Armure : -1 dégât subi";
+  if(!strcmp(id,"OBJ_0043")) return "Armure lourde : -2 dégâts subis";
+  if(!strcmp(id,"OBJ_0044")) return "Pantalon : -1 dégât subi";
+  if(!strcmp(id,"OBJ_0045")) return "Bottes : -1 dégât subi";
+  if(!strcmp(id,"OBJ_0046")) return "Anneau : +1 CO";
+  if(!strcmp(id,"OBJ_0038")) return "Collier : +2 AU (prix, coups critiques)";
   if(ITEMS[item].cat==IC_QUEST||ITEMS[item].cat==IC_KEY) return "Objet clé / quête";
   if(ITEMS[item].cat==IC_MAP) return "Carte d'exploration";
   return "Équipement d'aventurier";
@@ -137,6 +258,11 @@ int item_base_price(int item){
   const char* id=ITEMS[item].id;
   if(!strcmp(id,"OBJ_0005")) return 12;
   if(!strcmp(id,"OBJ_0033")) return 28;
+  if(!strcmp(id,"OBJ_0042")) return 30;   // Veste de cuir
+  if(!strcmp(id,"OBJ_0043")) return 70;   // Cotte de mailles
+  if(!strcmp(id,"OBJ_0044")) return 22;   // Braies renforcees
+  if(!strcmp(id,"OBJ_0045")) return 20;   // Bottes de cuir
+  if(!strcmp(id,"OBJ_0046")) return 40;   // Anneau de vigueur
   if(!strcmp(id,"OBJ_0003")) return 5;
   if(!strcmp(id,"OBJ_0004")) return 5;
   if(!strcmp(id,"OBJ_0025")) return 16;
@@ -173,7 +299,7 @@ bool is_item_sellable(int item){
   uint8_t c=ITEMS[item].cat;
   if(c==IC_QUEST || c==IC_KEY || c==IC_MAP) return false;
   if(!strcmp(ITEMS[item].id,"OBJ_0040") || !strcmp(ITEMS[item].id,"OBJ_0010")) return false;
-  return item!=player().weapon;
+  return !is_equipped(player(),item);   // on ne vend pas ce qu'on porte
 }
 }
 

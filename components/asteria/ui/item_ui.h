@@ -15,6 +15,10 @@ const int GOLD = -2;   // pseudo-objet "bourse d'or" pour pickup_push / draw_ico
 // Dessine l'icone d'un objet (index data::ITEMS, ou GOLD) en 24x24 ou 48x48.
 void draw_icon(int item, int x, int y, bool big);
 
+// Poupee d'equipement illustree (tools/icon_src/poupee.png), centree en cx a partir de
+// top. Renvoie false si aucune illustration n'a ete fournie (silhouette dessinee alors).
+bool draw_doll(int cx, int top, int h);
+
 void pickup_push(int item, int qty);   // met un gain en file (item = GOLD : qty pieces d'or)
 bool pickup_active();                  // une fenetre est a l'ecran
 void pickup_update(uint32_t pressed);  // A / B : fenetre suivante

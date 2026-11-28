@@ -9,6 +9,7 @@
 #include "daytime.h"
 #include "ui/item_ui.h"
 #include "scene/char_window.h"
+#include "scene/journal.h"
 namespace asteria {
 
 // Sons d'interface generiques, deduits des touches pressees AVANT la mise a jour de
@@ -28,7 +29,11 @@ static void ui_sounds(SceneId sc){
       break;
     case SceneId::WORLD: {
       const WorldScene& w = world_scene();
-      if(charwin::is_open()){                              // fenetre personnage
+      if(journal::is_open()){                              // journal de quetes
+        if(p & (gb::BTN_UP | gb::BTN_DOWN)) audio::sfx_select();
+        else if(p & (gb::BTN_LEFT | gb::BTN_RIGHT)) audio::sfx_page();
+        else if(p & (gb::BTN_B | gb::BTN_MENU)) audio::sfx_back();
+      } else if(charwin::is_open()){                       // fenetre personnage
         if(p & ARROWS) audio::sfx_select();
         else if(p & gb::BTN_RUN) audio::sfx_page();
         else if(p & gb::BTN_B) audio::sfx_back();          // A : la fenetre joue elle-meme le son de l'action
@@ -40,6 +45,9 @@ static void ui_sounds(SceneId sc){
         if(p & gb::BTN_A) audio::sfx_page();               // ligne de dialogue / message suivant
       } else if(p & (gb::BTN_MENU | gb::BTN_B | gb::BTN_RUN)) audio::sfx_open();
     } break;
+    case SceneId::DUNGEON:
+      if(item_ui::pickup_active() && (p & gb::BTN_A)) audio::sfx_page();
+      break;
     default: break;
   }
 }

@@ -3,6 +3,7 @@
 #include "i18n.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
+#include "ui/item_ui.h"
 #include "player.h"
 #include "audio/jingle.h"
 #include "content_i18n.h"
@@ -27,6 +28,9 @@ static const ShopOffer OFFERS[] = {
   {"OBJ_0027", 3, 12},  // 3x Fleches renforcees
   {"OBJ_0008", 1, 30},  // Arc court
   {"OBJ_0024", 1, 24},  // Cape de pluie
+  {"OBJ_0042", 1, 30},  // Veste de cuir      (v1.5 : emplacements armure / pantalon / bottes)
+  {"OBJ_0044", 1, 22},  // Braies renforcees
+  {"OBJ_0045", 1, 20},  // Bottes de cuir
 };
 static const int NOFFER = (int)(sizeof(OFFERS)/sizeof(OFFERS[0]));
 
@@ -63,7 +67,7 @@ void ShopScene::update(SceneManager& m){
     if(tab==0){
       const ShopOffer& of = OFFERS[sel];
       int it = item_index(of.id);
-      int pr = apply_au_discount(of.basePrice, player().AU);
+      int pr = apply_au_discount(of.basePrice, player().AU + eq_stats(player()).au);
       if(it < 0){ snprintf(msg,64,"%s",trc("Objet indisponible.")); audio::sfx_error(); }
       else if(player().gold < pr){ snprintf(msg,64,"%s",i18n::tr(i18n::SH_NOGOLD)); audio::sfx_error(); }
       else if(!player().inv.add(it, of.qty)){ snprintf(msg,64,"%s",trc("Inventaire plein !")); audio::sfx_error(); }
@@ -98,12 +102,13 @@ void ShopScene::render(){
   gb::fill_rect(132,34,108,16, tab==1 ? gb::rgb(78,58,26) : gb::rgb(42,34,24));
   ui::text(42,38,trc("Acheter"), tab==0 ? gb::rgb(248,224,135) : gb::rgb(175,165,140));
   ui::text(158,38,trc("Vendre"), tab==1 ? gb::rgb(248,224,135) : gb::rgb(175,165,140));
-  int disc = (player().AU > 10) ? ((player().AU - 10) * 2) : 0; if(disc>20) disc=20;
+  int au = player().AU + eq_stats(player()).au;   // collier d'hermine compris
+  int disc = (au > 10) ? ((au - 10) * 2) : 0; if(disc>20) disc=20;
   if(disc>0 && tab==0){ char db[20]; snprintf(db,sizeof(db),"AU -%d%%",disc); ui::text(250,38,db,gb::rgb(145,215,150)); }
 
   int sellIdx[Inventory::CAP];
   int cnt = (tab==0) ? NOFFER : build_sell_list(sellIdx);
-  const int VIS=6;
+  const int VIS=5;   // rangees de 25 px : icone 24x24 + nom + prix
   int top = (sel >= VIS) ? (sel - VIS + 1) : 0;
   if(top + VIS > cnt) top = cnt - VIS;
   if(top < 0) top = 0;
@@ -113,14 +118,14 @@ void ShopScene::render(){
     ui::text(24,78,trc("Aucun objet vendable dans le sac."),gb::rgb(175,165,140));
   } else {
     for(int r=0; r<VIS && (top+r)<cnt; ++r){
-      int i=top+r; int y=58+r*20;
-      if(i==sel){ gb::fill_rect(14,y-2,292,17,gb::rgb(62,46,20)); ui::gold(18,y,">",true); }
+      int i=top+r; int y=60+r*25;
+      if(i==sel){ gb::fill_rect(14,y-6,292,25,gb::rgb(62,46,20)); ui::gold(18,y,">",true); }
       int it=-1, qty=0, price=0;
       char nm[48];
       if(tab==0){
         const ShopOffer& of = OFFERS[i];
         it = item_index(of.id);
-        price = apply_au_discount(of.basePrice, player().AU);
+        price = apply_au_discount(of.basePrice, player().AU + eq_stats(player()).au);
         int ownedIdx = (it>=0) ? player().inv.find(it) : -1;
         qty = (ownedIdx>=0) ? (int)player().inv.slots[ownedIdx].qty : 0;
         if(it>=0 && of.qty>1) snprintf(nm,sizeof(nm),trc("%dx %s (sac:%d)"),of.qty,trc(ITEMS[it].name),qty);
@@ -132,7 +137,8 @@ void ShopScene::render(){
         snprintf(nm,sizeof(nm),"%s x%d",trc(ITEMS[it].name),qty);
       }
       if(i==sel) activeItem = it;
-      ui::text(32,y,nm,gb::rgb(235,225,190));
+      if(it>=0) item_ui::draw_icon(it,30,y-6,false);
+      ui::text(60,y,nm,gb::rgb(235,225,190));
       char pr[16]; snprintf(pr,sizeof(pr),trc("%d or"),price);
       ui::text(302-ui::text_w(pr),y,pr,gb::rgb(230,205,120));
     }

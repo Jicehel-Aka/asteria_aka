@@ -4,6 +4,7 @@
 #include "i18n.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
+#include "ui/item_ui.h"
 #include "player.h"
 #include "gamestate.h"
 #include "progress.h"
@@ -47,7 +48,10 @@ static const WeaponDef WEAPONS[]={
 };
 static const int WEAPON_N=(int)(sizeof(WEAPONS)/sizeof(WEAPONS[0]));
 
-static int ring_bonus(){ int rg=item_index("OBJ_0040"); return (rg>=0 && player().inv.has(rg,1))?1:0; }
+// Bonus des anneaux / collier portes (v1.5 : emplacements d'equipement, voir player.cpp)
+static int eq_co(){ return eq_stats(player()).co; }
+static int eq_dmg_extra(){ EqStats s=eq_stats(player()); int h; bool b; return s.dmg - weapon_bonus_of(player().weapon,h,b); }
+static int eq_au(){ return player().AU + eq_stats(player()).au; }
 
 // Respecte l'arme choisie dans Sac & Equipement si possedee (repli sur la meilleure si invalide).
 static const WeaponDef& active_weapon(){
@@ -75,7 +79,7 @@ static int weapon_hit(){ return active_weapon().hit; }
 static int weapon_dmg(bool& usedArrow){
   usedArrow = false;
   const WeaponDef& w = active_weapon();
-  int d = rollN(1) + w.bonus + ring_bonus();
+  int d = rollN(1) + w.bonus + eq_dmg_extra();
   int ar = item_index("OBJ_0027");
   if(w.bow && ar>=0 && player().inv.has(ar,1)){
     player().inv.remove(ar, 1);
@@ -142,6 +146,7 @@ static void drop_zone_loot(char* out, int cap){
   int it = item_index(id);
   if(it>=0 && player().inv.add(it,1)){
     snprintf(out, cap, " (+%s)", trc(data::ITEMS[it].name));
+    item_ui::pickup_push(it,1);   // fenetre "Objet obtenu" au retour sur la carte
   }
 }
 
@@ -180,10 +185,10 @@ void CombatScene::update(SceneManager& m){
     if(p&gb::BTN_A){
       if(sel==0){
         int r=roll3();
-        int toHit=player().CO+2*ring_bonus()+weapon_hit()+(hitBuff>0?hitBonus:0)+(bear>0?2:0);
+        int toHit=player().CO+eq_co()+weapon_hit()+(hitBuff>0?hitBonus:0)+(bear>0?2:0);
         if(r<=toHit){
           bool usedArrow=false;
-          bool crit = (r <= 3 + player().AU / 5);
+          bool crit = (r <= 3 + eq_au() / 5);
           lastDmg=weapon_dmg(usedArrow)+(hitBuff>0?dmgBonus:0)+(bear>0?3:0)+(crit?2:0);
           hurt_monster(mhp,lastDmg);
           snprintf(msg,64,"%s%s (%d<=%d) -%d",
@@ -233,8 +238,9 @@ void CombatScene::update(SceneManager& m){
         if(g_enc==9){ flag_set("boss_mine");
           // Butin de boss : Clef du Puits (ouvre la Route) + Pierre noire gravee (fil rouge de l'Arc).
           int kp=item_index("OBJ_0015"), pn=item_index("OBJ_0014"), ca=item_index("OBJ_0010");
-          if(kp>=0) player().inv.add(kp,1); if(pn>=0) player().inv.add(pn,1);
-          if(ca>=0 && !player().inv.has(ca,1)) player().inv.add(ca,1);   // casque de mineur (Q1 Doran)
+          if(kp>=0 && player().inv.add(kp,1)) item_ui::pickup_push(kp,1);
+          if(pn>=0 && player().inv.add(pn,1)) item_ui::pickup_push(pn,1);
+          if(ca>=0 && !player().inv.has(ca,1) && player().inv.add(ca,1)) item_ui::pickup_push(ca,1);   // casque de mineur (Q1 Doran)
           complete_quest_reward(6);
           snprintf(msg,64,"Chef Gobelin vaincu ! Clef du Puits + Pierre noire");
         } else if(g_enc==19){ flag_set("boss_gardien"); snprintf(msg,64,"Le Gardien du Seuil tombe."); }

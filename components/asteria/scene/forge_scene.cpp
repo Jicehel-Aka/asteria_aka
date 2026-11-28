@@ -3,6 +3,7 @@
 #include "i18n.h"
 #include "platform/gb_port.h"
 #include "ui/text.h"
+#include "ui/item_ui.h"
 #include "player.h"
 #include "audio/jingle.h"
 #include "content_i18n.h"
@@ -49,28 +50,31 @@ void ForgeScene::render(){
   char cnt[16]; snprintf(cnt,sizeof(cnt),"%d/%d",sel+1,RECIPE_COUNT);
   ui::text(276,12,cnt,gb::rgb(175,165,135));
 
-  const int VIS=4;
+  const int VIS=3;   // rangees de 46 px : produit (icone + nom) puis ingredients en icones
   int top = (sel >= VIS) ? (sel - VIS + 1) : 0;
   if(top + VIS > RECIPE_COUNT) top = RECIPE_COUNT - VIS;
   if(top < 0) top = 0;
 
   for(int row=0; row<VIS && (top+row)<RECIPE_COUNT; row++){
-    int i=top+row; int y=38+row*36; const Recipe& r=RECIPES[i]; bool ok=can_make(r);
-    if(i==sel){ gb::fill_rect(10,y-3,300,32,gb::rgb(58,42,20)); ui::gold(14,y,">",true); }
+    int i=top+row; int y=38+row*46; const Recipe& r=RECIPES[i]; bool ok=can_make(r);
+    if(i==sel){ gb::fill_rect(10,y-3,300,44,gb::rgb(58,42,20)); ui::gold(14,y+12,">",true); }
+    item_ui::draw_icon(r.out_item,26,y+6,false);
     char title[64];
     if(r.out_qty>1) snprintf(title,sizeof(title),"%dx %s",(int)r.out_qty,trc(ITEMS[r.out_item].name));
     else snprintf(title,sizeof(title),"%s",trc(ITEMS[r.out_item].name));
-    ui::text(28,y,title,ok?gb::rgb(240,230,190):gb::rgb(155,145,125));
+    ui::text(58,y,title,ok?gb::rgb(240,230,190):gb::rgb(155,145,125));
     const char* st = trc((r.station==0) ? "[Forge]" : "[Alchimie]");
     ui::text(304-ui::text_w(st), y, st, (r.station==0)?gb::rgb(215,155,95):gb::rgb(140,205,145));
 
-    int x=28;
+    // Ingredients : icone + "possede/requis" (vert si suffisant, rouge sinon)
+    int x=58;
     for(int k=0;k<r.input_n;k++){
       int it=r.inputs[k].item, need=r.inputs[k].qty, have=inv_qty(it);
-      bool hasIt = have >= need;
-      char seg[44]; snprintf(seg,sizeof(seg),"%s%s %d/%d", k?" + ":"", trc(ITEMS[it].name), have, need);
-      ui::text(x,y+15,seg, hasIt?gb::rgb(160,215,155):gb::rgb(185,115,105));
-      x += ui::text_w(seg) + 2;
+      if(k){ ui::text(x,y+20,"+",gb::rgb(175,165,135)); x+=12; }
+      item_ui::draw_icon(it,x,y+15,false); x+=26;
+      char seg[16]; snprintf(seg,sizeof(seg),"%d/%d",have,need);
+      ui::text(x,y+20,seg, have>=need?gb::rgb(160,215,155):gb::rgb(185,115,105));
+      x += ui::text_w(seg) + 8;
     }
   }
 
